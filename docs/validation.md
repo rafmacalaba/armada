@@ -214,3 +214,27 @@ Re-run against the real repos:
 Note: `testing` picks the first match across the whole tree (`playwright > vitest > jest >
 pytest > cypress`). For a mixed TS+Python repo the winner may be either; acceptable aggregate
 heuristic, revisit if a repo needs per-language test framework.
+
+---
+
+## Contract co-writing + per-feature requirements (2026-08-01)
+
+Workflow improvement so the contract is co-written, not hand-authored:
+
+1. **Orchestrator elicits the contract.** Prompt now: if the requirements file is blank, do NOT
+   build — ask the user what they want (one question at a time), draft phases + success
+   criteria, iterate to consensus, get explicit approval first.
+2. **Per-feature contract files.** `armada init --requirements <file>` (e.g.
+   `REQUIREMENTS-admin-dashboard.md`) — a second feature no longer replaces the first contract.
+   `requirementsFile` round-trips through `armada.yaml`; no-clobber holds per file.
+3. **Parallelism documented in the prompt.** Within a phase, independent tasks run as parallel
+   background jobs (backend-dev ∥ frontend-dev after the API contract is fixed); phases are
+   gated unless the contract marks one independent.
+
+Verified: 68/68 tests (7 new: manifest parse default/custom, renderers reference custom file,
+scaffold writes custom contract + no-clobber, orchestrator prompt fills `{requirements_file}`
+with no dangling placeholders, CLI e2e `init --requirements`).
+
+Workflow consequence for features like `/admin`: tell the orchestrator your intent once; it
+asks the scope/auth/pages questions, drafts `REQUIREMENTS-admin-dashboard.md`, you approve, then
+it implements phase-by-phase (backend ∥ frontend within a phase, gated across phases).

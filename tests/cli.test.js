@@ -136,3 +136,11 @@ test("init --headless sets manifest flag + orchestrator bash allow", async () =>
   const cfg = JSON.parse(jsonc.replace(/^\s*\/\/.*$/gm, "").trim())
   assert.strictEqual(cfg.presets.free.orchestrator.permission.bash["*"], "allow")
 })
+
+test("init --requirements writes a per-feature contract file", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--requirements", "REQUIREMENTS-admin.md", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.ok(existsSync(join(dir, "REQUIREMENTS-admin.md")))
+  assert.match(readFileSync(join(dir, "armada.yaml"), "utf8"), /requirementsFile: REQUIREMENTS-admin\.md/)
+})

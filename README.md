@@ -104,6 +104,7 @@ is also scaffolded.
 | `armada init --dry-run` | print files without writing |
 | `armada init --yes` | non-interactive defaults (no TTY) |
 | `armada init --headless` | CI-safe: orchestrator bash allowed, no `ask` prompts |
+| `armada init --requirements <file>` | per-feature contract file (default `REQUIREMENTS.md`) |
 | `armada models [budget]` | show curated model catalog |
 | `armada models --refresh --cache <path>` | merge live provider models (cache to path) |
 | `armada doctor` | environment health check |

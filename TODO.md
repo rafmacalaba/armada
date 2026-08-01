@@ -22,6 +22,32 @@ link them to an issue/PR when relevant.
 - [x] Standalone test harness: CLI e2e (spawns real CLI), init→parse→init round-trip, dogfood
   no-clobber, fixture corpus, real `models --refresh` e2e — 46 tests passing
 
+## Contract co-writing — done
+
+- [x] **Co-write the contract, don't hand-author it.** Orchestrator prompt now: if the
+  requirements file's phases/criteria are blank, do NOT build — elicit requirements from the
+  user one question at a time, draft, iterate to consensus, get explicit approval, then build.
+- [x] **Per-feature contract files.** `armada init --requirements <file>` sets a
+  per-session/feature requirements file (default `REQUIREMENTS.md`). Starting a second feature
+  no longer means silently replacing the first contract. Round-trips through `armada.yaml`.
+- [x] **Parallelism made explicit.** Orchestrator prompt: within a phase, independent tasks
+  (backend-dev ∥ frontend-dev) run as parallel background jobs once the API contract is fixed;
+  phases stay gated unless the contract marks one independent.
+
+## Next — armada new: best-practice repo generator (experience-aware)
+
+- [ ] `armada new [name]` command: category picker + experience gate
+- [ ] Beginner path: curated state-of-the-art stack per category (`src/recommendations.js`) →
+  generates an optimal repo scaffold (structure, manifests, CI, Dockerfile, devcontainer,
+  README, LICENSE, test bootstrap)
+- [ ] Experienced path: drill-down questions (per-layer stack, monorepo, auth, deploy target,
+  CI) → customize
+- [ ] `starter/<category>/` templates (reuse `{placeholder}` fill); then hand off to the
+  existing `init` team flow
+- [ ] Non-interactive: `armada new --type web-app --beginner|--yes`
+- [ ] Tests: catalog integrity, template render, CLI e2e (new repo → detectStack → team scaffolds)
+- [ ] Reconcile with the "no cookiecutter" gap — this is the built-in opinionated version of it
+
 ---
 
 ## Next — validate in a real repo
