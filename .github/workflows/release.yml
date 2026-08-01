@@ -30,10 +30,11 @@ jobs:
           registry-url: "https://registry.npmjs.org"
       - run: npm ci
       - name: Publish to npm
-        if: ${{ secrets.NPM_TOKEN != '' }}
-        run: npm publish --access public
+        # secrets context is not usable in `if`; expose it via env and gate on env.
+        if: env.NODE_AUTH_TOKEN != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
 
   # GitHub release always generated for a tag; independent of npm publish.
   release:
