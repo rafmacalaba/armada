@@ -44,14 +44,15 @@ npx opencode-armada init
 opencode
 
 # 3. you just talk to it
-"Implement the /admin dashboard — co-write the plan with me"
+"Implement the /admin dashboard"
 ```
 
-The orchestrator co-writes `REQUIREMENTS.md` with you (it asks clarifying questions, drafts
-phases + success criteria, iterates until you approve), then implements it: backend-dev and
-frontend-dev run as **parallel background subagents** per phase, and independent phases
-progress in parallel — nothing blocks a phase except an unmet dependency or a failed success
-criterion. You approve at gates and review the PR.
+That's it — the orchestrator co-writes `REQUIREMENTS.md` with you by default (blank contract →
+it asks clarifying questions, drafts phases + success criteria, iterates until you approve).
+You don't ask it to; it's how it starts. Then it implements: backend-dev and frontend-dev run as
+**parallel background subagents** per phase, and independent phases progress in parallel —
+nothing blocks a phase except an unmet dependency or a failed success criterion. You approve at
+gates and review the PR.
 
 Everything below this line (`--headless`, `--requirements`, `--budget`, …) is a **setup-time
 option** on step 1. There is no armada at runtime.
