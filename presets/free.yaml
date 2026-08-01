@@ -1,0 +1,13 @@
+# free — all opencode *-free models, zero usage cost
+# (openrouter fallbacks listed for reference; not used unless provider missing)
+budget: free
+
+agents:
+  orchestrator: { model: opencode/hy3-free }
+  backend-dev: { model: opencode/deepseek-v4-flash-free }
+  frontend-dev: { model: opencode/mimo-v2.5-free }
+  qa: { model: opencode/mimo-v2.5-free }
+  adversary: { model: opencode/deepseek-v4-flash-free }
+  security: { model: opencode/big-pickle }
+  docs: { model: opencode/deepseek-v4-flash-free }
+  architect: { model: opencode/big-pickle }

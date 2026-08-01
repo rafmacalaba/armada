@@ -1,0 +1,38 @@
+{
+  "name": "opencode-armada",
+  "version": "0.1.0",
+  "description": "Reproducible AI-engineer multi-agent team generator for opencode, built on oh-my-opencode-slim",
+  "type": "module",
+  "bin": {
+    "armada": "./src/cli.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "template",
+    "agents",
+    "presets",
+    "commands"
+  ],
+  "scripts": {
+    "start": "bun run src/cli.js",
+    "dev": "node src/cli.js",
+    "test": "bun test tests/",
+    "test:node": "node --test tests/"
+  },
+  "engines": {
+    "bun": ">=1.0",
+    "node": ">=20"
+  },
+  "keywords": [
+    "opencode",
+    "agents",
+    "orchestrator",
+    "multi-agent",
+    "oh-my-opencode-slim",
+    "ai-engineer"
+  ],
+  "license": "MIT"
+}

@@ -1,0 +1,12 @@
+# power — strongest models on every role (paid)
+budget: power
+
+agents:
+  orchestrator: { model: openrouter/anthropic/claude-sonnet-4.6 }
+  backend-dev: { model: openrouter/z-ai/glm-5.2 }
+  frontend-dev: { model: openrouter/minimax/minimax-m3 }
+  qa: { model: openrouter/xiaomi/mimo-v2.5 }
+  adversary: { model: openrouter/deepseek/deepseek-v4-pro }
+  security: { model: openrouter/deepseek/deepseek-v4-pro }
+  docs: { model: openrouter/minimax/minimax-m3 }
+  architect: { model: openrouter/z-ai/glm-5.2 }
