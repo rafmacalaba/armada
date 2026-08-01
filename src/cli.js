@@ -32,6 +32,7 @@ Usage:
   armada init                                interactive setup
   armada init --stack <s> --budget <b>       declarative setup
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
+  armada init --requirements <file>          per-feature contract file (default REQUIREMENTS.md)
   armada init --from-armada armada.yaml      regenerate from manifest
   armada models [budget]                     show curated model catalog
   armada models --refresh                    merge live provider models
@@ -178,6 +179,10 @@ async function init(args) {
   if (args.includes("--headless")) {
     manifest.project.headless = true
   }
+  const reqIdx = args.indexOf("--requirements")
+  if (reqIdx !== -1 && args[reqIdx + 1] && !args[reqIdx + 1].startsWith("--")) {
+    manifest.project.requirementsFile = args[reqIdx + 1]
+  }
 
   manifest.targetDir = "."
 
@@ -210,6 +215,7 @@ function defaultManifest() {
       devcontainer: false,
       useAgentBrowser: false,
       headless: false,
+      requirementsFile: "REQUIREMENTS.md",
       stack: {},
     },
     team: ROLES.map((role) => ({

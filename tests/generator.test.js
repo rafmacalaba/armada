@@ -133,3 +133,23 @@ function makeTempRepo(files) {
   }
   return dir
 }
+
+test("renderAgentsMd references custom requirements file", () => {
+  const m = structuredClone(baseManifest)
+  m.project.requirementsFile = "REQUIREMENTS-admin.md"
+  const md = renderAgentsMd(m, buildTeam(m))
+  assert.match(md, /REQUIREMENTS-admin\.md/)
+})
+
+test("renderManifestYaml emits requirementsFile", () => {
+  const m = structuredClone(baseManifest)
+  m.project.requirementsFile = "REQUIREMENTS-admin.md"
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  assert.match(yaml, /requirementsFile: REQUIREMENTS-admin\.md/)
+})
+
+test("renderRequirementsMd invites co-writing the contract", () => {
+  const md = renderRequirementsMd(baseManifest)
+  assert.match(md, /Co-write this with the orchestrator/)
+  assert.match(md, /--requirements <file>/)
+})

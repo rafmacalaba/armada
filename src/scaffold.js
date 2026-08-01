@@ -26,6 +26,7 @@ export function fillPrompt(templatePath, manifest, stack) {
     : ""
   const subs = {
     project_name: manifest.project.name,
+    requirements_file: manifest.project.requirementsFile ?? "REQUIREMENTS.md",
     stack_summary: formatStack(stack),
     frontend_stack: stack.frontend || "frontend",
     backend_stack: stack.backend || "backend",
@@ -85,9 +86,10 @@ export function scaffold(manifest, stack, opts = {}) {
     write("AGENTS.md", renderAgentsMd(manifest, team))
   }
 
-  // 5. REQUIREMENTS.md — only write if absent.
-  if (!existsSync(out("REQUIREMENTS.md"))) {
-    write("REQUIREMENTS.md", renderRequirementsMd(manifest))
+  // 5. Requirements file (default REQUIREMENTS.md) — only write if absent.
+  const requirementsFile = manifest.project.requirementsFile ?? "REQUIREMENTS.md"
+  if (!existsSync(out(requirementsFile))) {
+    write(requirementsFile, renderRequirementsMd(manifest))
   }
 
   // 6. armada.yaml — always write (manifest is the re-runnable source of truth).

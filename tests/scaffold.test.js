@@ -149,3 +149,25 @@ test("uninstall keeps user files under .opencode/ and warns", () => {
 
   rmSync(dir, { recursive: true, force: true })
 })
+
+test("scaffold writes custom requirements file, no-clobber", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-req-"))
+  const manifest = makeManifest(dir)
+  manifest.project.requirementsFile = "REQUIREMENTS-admin.md"
+  const files = scaffold(manifest, manifest.project.stack)
+  assert.ok(files.includes("REQUIREMENTS-admin.md"))
+  assert.ok(existsSync(join(dir, "REQUIREMENTS-admin.md")))
+  writeFileSync(join(dir, "REQUIREMENTS-admin.md"), "# mine")
+  scaffold(manifest, manifest.project.stack)
+  assert.strictEqual(readFileSync(join(dir, "REQUIREMENTS-admin.md"), "utf8"), "# mine")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("orchestrator prompt fills requirements_file, no dangling placeholders", () => {
+  const manifest = makeManifest(".")
+  manifest.project.requirementsFile = "REQUIREMENTS-admin.md"
+  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
+  assert.match(filled, /REQUIREMENTS-admin\.md is the contract/)
+  assert.match(filled, /co-write|Co-write/)
+  assert.ok(!/\{[a-z_]+\}/.test(filled), "no dangling placeholders")
+})
