@@ -1,7 +1,7 @@
 // Scaffold: writes generated config files into a target repo. Read-only
 // generation happens in generator.js; this module owns the file I/O.
 
-import { mkdirSync, writeFileSync, existsSync, copyFileSync, readFileSync } from "node:fs"
+import { mkdirSync, writeFileSync, existsSync, copyFileSync, readFileSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -49,7 +49,7 @@ export const PROMPT_SOURCE = {
 }
 
 // Main entry. target = repo root. Returns list of written files.
-export function scaffold(manifest, stack) {
+export function scaffold(manifest, stack, opts = {}) {
   const target = manifest.targetDir || "."
   const team = buildTeam(manifest)
   const files = []
@@ -57,8 +57,10 @@ export function scaffold(manifest, stack) {
   const out = (rel) => join(target, rel)
   const ensure = (rel) => mkdirSync(out(rel), { recursive: true })
   const write = (rel, content) => {
-    ensure(dirname(rel))
-    writeFileSync(out(rel), content, "utf8")
+    if (!opts.dryRun) {
+      ensure(dirname(rel))
+      writeFileSync(out(rel), content, "utf8")
+    }
     files.push(rel)
   }
 
@@ -96,13 +98,37 @@ export function scaffold(manifest, stack) {
 
   // 8. Optional devcontainer.
   if (manifest.project.devcontainer) {
-    ensure(".devcontainer")
-    copyFileSync(join(ROOT, "template/.devcontainer/devcontainer.json"), out(".devcontainer/devcontainer.json"))
-    copyFileSync(join(ROOT, "template/.devcontainer/setup.sh"), out(".devcontainer/setup.sh"))
+    if (!opts.dryRun) ensure(".devcontainer")
+    if (!opts.dryRun) {
+      copyFileSync(join(ROOT, "template/.devcontainer/devcontainer.json"), out(".devcontainer/devcontainer.json"))
+      copyFileSync(join(ROOT, "template/.devcontainer/setup.sh"), out(".devcontainer/setup.sh"))
+    }
     files.push(".devcontainer/devcontainer.json", ".devcontainer/setup.sh")
   }
 
   return files
+}
+
+// Remove generated armada files. Never removes user files without opts.all.
+export function uninstall(manifest, opts = {}) {
+  const target = manifest?.targetDir || "."
+  const removed = []
+  const rm = (rel) => {
+    const full = join(target, rel)
+    if (existsSync(full)) {
+      if (!opts.dryRun) rmSync(full, { recursive: true, force: true })
+      removed.push(rel)
+    }
+  }
+  rm("armada.yaml")
+  rm(".opencode")
+  rm(".devcontainer")
+  if (opts.all) {
+    rm("AGENTS.md")
+    rm("opencode.json")
+    rm("REQUIREMENTS.md")
+  }
+  return removed
 }
 
 function renderArmadaCommand() {
