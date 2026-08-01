@@ -10,16 +10,29 @@ function run(bin, args, env) {
   })
 }
 
+function firstLine(out, fallback) {
+  const line = out.split("\n").map((l) => l.trim()).find((l) => l.length > 0)
+  return line ?? fallback
+}
+
 export async function runDoctor(opts = {}) {
   const env = opts.env || process.env
   const configPath = opts.configPath || join(homedir(), ".config/opencode/opencode.json")
   const checks = []
 
   const v = await run("opencode", ["--version"], env)
-  checks.push({ name: "opencode CLI", status: v.ok ? "pass" : "fail", detail: v.ok ? v.out : "not found on PATH" })
+  checks.push({
+    name: "opencode CLI",
+    status: v.ok ? "pass" : "fail",
+    detail: v.ok ? v.out || "exit 0" : firstLine(v.out, "command failed"),
+  })
 
   const auth = await run("opencode", ["providers", "list"], env)
-  checks.push({ name: "providers auth", status: auth.ok ? "pass" : "fail", detail: auth.ok ? "logged in" : "no providers configured" })
+  checks.push({
+    name: "providers auth",
+    status: auth.ok ? "pass" : "fail",
+    detail: firstLine(auth.out, auth.ok ? "exit 0" : "command failed"),
+  })
 
   let plugin = "missing"
   if (existsSync(configPath)) {
