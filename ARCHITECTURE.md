@@ -8,15 +8,17 @@ How the code is organized and how data flows. Read this before contributing.
 
 ```
 src/
-├── cli.js              entry + subcommand dispatch (init / models / doctor / ping / help)
+├── cli.js              entry + subcommand dispatch (init / models / doctor / uninstall / ping / help)
 ├── index.js            library entry (programmatic API re-exports)
-├── model-catalog.js    roles, curated model recommendations, budget tiers, table renderer
+├── model-catalog.js    roles, curated model recommendations, budget tiers, table renderer, models cache
 ├── stack-detect.js     detect tech stack from manifest files + instruction files
 ├── questionnaire.js    interactive setup prompts (node readline, zero deps)
 ├── generator.js        pure renderers: team, slim jsonc, opencode.json, AGENTS.md,
 │                       REQUIREMENTS.md, armada.yaml
-├── scaffold.js         file I/O: writes generated files into a target repo, fills prompts
-└── manifest.js         manifest schema constants + default playbook
+├── scaffold.js         file I/O: writes generated files into a target repo, fills prompts,
+│                       uninstall
+├── doctor.js           environment health checks (spawns opencode, reads plugin config)
+└── manifest.js         manifest schema, default playbook, YAML parser (parseManifestYaml)
 
 agents/<role>/prompt.template.md   per-role system prompt with {placeholders}
 presets/*.yaml                     budget presets (free / balanced / power)
@@ -63,8 +65,9 @@ scaffold(manifest, stack)  — writes all of the above into target repo
    armada-owned.
 4. **Placeholders.** Prompt templates use `{placeholder}` syntax. `fillPrompt` substitutes
    from the manifest stack. A test asserts no dangling placeholders survive.
-5. **Zero runtime deps.** CLI uses only node built-ins (readline, fs, path, url). No npm
-   dependencies. Everything runs with plain `node` or `bun`.
+5. **One runtime dep.** `yaml` (manifest parsing). Everything else is node built-ins
+   (readline, fs, path, url). The questionnaire stays zero-dep. Everything runs with plain
+   `node` or `bun`.
 
 ---
 
