@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { buildTeam, renderManifestYaml } from "../src/generator.js"
-import { runCli, makeTempRepo } from "./helpers.js"
+import { runCli, makeTempRepo, makeBin } from "./helpers.js"
 
 function manifestYaml() {
   const m = { project: { name: "e2e", budget: "free", browserTesting: false, devcontainer: false,
@@ -49,4 +49,13 @@ test("init --from-armada missing manifest exits 1", async () => {
   const dir = makeTempRepo({})
   const r = await runCli(["init", "--from-armada", "nope.yaml"], { cwd: dir })
   assert.strictEqual(r.code, 1)
+})
+
+test("models --refresh merges availability via fake opencode", async () => {
+  const binDir = makeBin({ opencode: "#!/bin/sh\necho \"opencode/big-pickle\nopencode/mimo-v2.5-free\"\n" })
+  const cache = join(makeTempRepo({}), "cache.json")
+  const r = await runCli(["models", "--refresh", "--cache", cache], { env: { PATH: `${binDir}:${process.env.PATH}` } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /✓/)
+  assert.match(r.stdout, /✗/)
 })
