@@ -58,7 +58,7 @@ real repo:
   `opencode.json` / `AGENTS.md`.
 - **Fixture corpus** (`tests/fixtures/`) — real-world manifests feed `buildTeam` +
   `parseManifestYaml`.
-- **Result: 46/46 tests pass** (`node --test 'tests/*.test.js'`).
+- **Result: 52/52 tests pass** (`node --test 'tests/*.test.js'`).
 
 ### Real findings the harness caught
 
@@ -81,3 +81,58 @@ real repo:
 | `node src/cli.js doctor` | real per-check output (opencode 1.18.11 pass, providers pass, omo-slim plugin fail — expected, background subagents warn); exit 1 |
 | scratch: `init --yes --budget free --no-browser` then `uninstall` | init scaffolds 14 files; `uninstall` removes `armada.yaml` + `.opencode`, keeps `AGENTS.md`/`REQUIREMENTS.md`/`opencode.json`; exit 0 |
 | scratch: `uninstall --dry-run` | prints `(dry-run) - <file>` lines, removes nothing (covered by `tests/cli.test.js`) |
+
+---
+
+## Self-dogfood: armada on armada (2026-08-01)
+
+Ran armada against its own repo as a full self-use smoke test, then restored the repo to a
+pristine state.
+
+### Setup
+
+- Installed the runtime engine: `npx oh-my-opencode-slim@latest install --preset=opencode-go`
+  (bun is not installed on this machine; npx worked). `armada doctor` now reports
+  `omo-slim plugin: pass`.
+- Scaffolded the team into this repo: `node src/cli.js init --yes --budget balanced`.
+  - Wrote `.opencode/` (slim jsonc + 8 role prompts + `/armada` command), `armada.yaml`,
+    `opencode.json`, `REQUIREMENTS.md`.
+  - **`AGENTS.md` was untouched** (no-clobber held).
+
+### Runtime smoke
+
+- Roster loads: `opencode run` read `.opencode/oh-my-opencode-slim.jsonc` and listed all 8
+  agents (orchestrator, backend/frontend-dev, qa, adversary, security, docs, architect).
+- Orchestration: the orchestrator dispatched **security + architect as parallel background
+  subagents** to review `src/cli.js`; both spawned and completed (`✓`). Role permission
+  boundaries held at runtime — security/architect are read-only, so they report in-context
+  rather than writing files.
+
+### Real findings (armada improving armada)
+
+1. **Non-interactive `opencode run` stalls on `ask`-level permissions.** The orchestrator's
+   `bash: { "*": "ask", ... }` (and edit restrictions) are auto-rejected outside the TUI, so
+   in headless mode the orchestrator can't run `ls`/`wc`/`mkdir` to reconcile. armada's
+   permission model assumes an interactive session with a human approving asks.
+   → TODO: document this, or add a `--headless` preset that loosens orchestrator bash.
+2. **Read-only reviewers can't persist findings.** security/architect `edit: { "*": "deny" }`
+   by design → their findings live only in the subagent response. Fine in the TUI (orchestrator
+   relays), a gap for automated pipelines.
+3. **Generated `opencode.json` sets `external_directory: deny`**, so agents can't write to
+   `/tmp`. Expected (sandboxing), but worth knowing when scripting cross-repo workflows.
+4. **Catalog drift confirmed live**: adversary primary `opencode/deepseek-v4-pro` is ✗ on this
+   provider; `opencode-go/deepseek-v4-pro` is the live equivalent (see harness finding #3).
+
+### Cleanup
+
+- `node src/cli.js uninstall` removed `armada.yaml` + all armada-owned `.opencode/` files and
+  kept `.opencode/` when a non-armada file was present (the review-hardened mixed-dir path).
+- Removed the session-created `opencode.json` + `REQUIREMENTS.md` manually (`--all` would have
+  wrongly deleted `AGENTS.md`).
+- **Repo restored**: `git status` clean, `node --test 'tests/*.test.js'` 52/52.
+
+### Verdict
+
+Self-hosting works end-to-end at the config + dispatch level. Live multi-agent orchestration
+(approving asks, watching background jobs) requires the interactive TUI, which is the intended
+usage. Headless orchestration is the main open gap → TODO.

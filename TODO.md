@@ -26,6 +26,9 @@ link them to an issue/PR when relevant.
 
 ## Next — validate in a real repo
 
+- [x] **Self-dogfood: armada on armada** (2026-08-01) — scaffolded the team into this repo,
+  loaded it in opencode, dispatched security + architect as background subagents, then
+  uninstalled to a pristine repo. Results in `docs/validation.md`.
 - [ ] Run `armada init` in `~/WBG/data-ai-chatbot` (fastapi backend + nextjs frontend)
   - [ ] Confirm stack detection returns fastapi + nextjs
   - [ ] Confirm generated `oh-my-opencode-slim.jsonc` loads in opencode (`opencode`, `ping all agents`)
@@ -51,6 +54,13 @@ link them to an issue/PR when relevant.
   templates.
 - [x] **No `uninstall` command.** Now removes armada-generated artifacts cleanly
   (`armada uninstall`, `--all` for generated user-facing files, `--dry-run`).
+- [ ] **Headless orchestration stalls on `ask` permissions.** Self-dogfood showed
+  `opencode run` (non-interactive) auto-rejects the orchestrator's `ask`-level bash/edit
+  permissions, so headless multi-agent runs can't reconcile. armada assumes an interactive TUI.
+  Consider a `--headless` preset that loosens orchestrator permissions, or document the
+  interactive-only constraint.
+- [ ] **Adversary catalog primary drift.** `opencode/deepseek-v4-pro` is unavailable on live
+  providers; the working equivalent is `opencode-go/deepseek-v4-pro`. Swap the CATALOG entry.
 - [ ] **No cookiecutter compatibility.** Deliberate (see SPEC §3), but a thin `cookiecutter
   hook` adapter could be added later if users want the traditional scaffold UX.
 
