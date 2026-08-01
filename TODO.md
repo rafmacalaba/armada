@@ -19,6 +19,8 @@ link them to an issue/PR when relevant.
 - [x] Devcontainer + agent-browser wiring (template)
 - [x] Tests: 19 passing (generator, scaffold, stack-detect)
 - [x] Docs: README, SPEC, ARCHITECTURE, TODO
+- [x] Standalone test harness: CLI e2e (spawns real CLI), init→parse→init round-trip, dogfood
+  no-clobber, fixture corpus, real `models --refresh` e2e — 46 tests passing
 
 ---
 
@@ -34,27 +36,29 @@ link them to an issue/PR when relevant.
 
 ## Known gaps
 
-- [ ] **`armada models --refresh` is a stub.** Should shell out to `opencode models` / query the
-  OpenRouter API and merge live availability over the curated catalog. Needs provider auth
-  handling + a cache.
-- [ ] **`armada doctor` is a stub.** Should actually spawn `opencode --version`, check the
-  plugin[] entry in `~/.config/opencode/opencode.json`, run `opencode auth list`, and detect
-  `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS`. Currently prints a checklist only.
-- [ ] **Manifest parser is regex-based.** `parseManifest` in cli.js only understands the
-  exact `renderManifestYaml` output. Replace with a real YAML parser (or switch armada.yaml to
-  JSON/JSONC) before users hand-edit manifests.
+- [x] **`armada models --refresh` is a stub.** Now shells out to `opencode models` and merges
+  live availability over the curated catalog, with a `--cache <path>` and ✓/✗ markers.
+  Validation found catalog drift: `opencode/deepseek-v4-pro` unavailable, live equivalent is
+  `opencode-go/deepseek-v4-pro`.
+- [x] **`armada doctor` is a stub.** Now spawns real checks: `opencode --version`, the
+  plugin[] entry in `~/.config/opencode/opencode.json`, `opencode auth list`, and
+  `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS`; sets exit code on failure.
+- [x] **Manifest parser is regex-based.** `parseManifest` in cli.js only understands the
+  exact `renderManifestYaml` output. Replaced with a real YAML parser (`yaml` package, see
+  `src/manifest.js`) with schema validation before users hand-edit manifests.
 - [ ] **Ponytail compression integration** is a design note only (SPEC §2.5, README). If
   caveman-terse prompts prove insufficient, add a ponytail-based compression layer to prompt
   templates.
-- [ ] **No `uninstall` command.** Should remove armada-generated artifacts cleanly.
+- [x] **No `uninstall` command.** Now removes armada-generated artifacts cleanly
+  (`armada uninstall`, `--all` for generated user-facing files, `--dry-run`).
 - [ ] **No cookiecutter compatibility.** Deliberate (see SPEC §3), but a thin `cookiecutter
   hook` adapter could be added later if users want the traditional scaffold UX.
 
 ## Polish
 
 - [ ] `renderCatalog` column widths — auto-size instead of hardcoded padding
-- [ ] Add `--dry-run` to `init` (print files without writing)
-- [ ] Add `--yes` / non-interactive defaults so `init` works without a TTY
+- [x] Add `--dry-run` to `init` (print files without writing)
+- [x] Add `--yes` / non-interactive defaults so `init` works without a TTY
 - [ ] Better `questionnaire.js` — arrow-key selection instead of numbered prompts
 - [ ] Add a `presets/` CLI command to apply a preset to the manifest (`armada preset power`)
 - [ ] Emit a summary at end of init: models chosen, cost hint per tier, next steps
