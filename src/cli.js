@@ -23,7 +23,7 @@ import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache
 import { parseManifestYaml } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 
-export const VERSION = "0.2.0"
+export const VERSION = "0.3.0"
 
 const HELP = `opencode-armada v${VERSION}
 Reproducible AI-engineer multi-agent teams for opencode, on oh-my-opencode-slim.
