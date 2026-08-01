@@ -153,3 +153,15 @@ test("renderRequirementsMd invites co-writing the contract", () => {
   assert.match(md, /Co-write this with the orchestrator/)
   assert.match(md, /--requirements <file>/)
 })
+
+test("renderRequirementsMd phases declare dependencies for parallel run", () => {
+  const md = renderRequirementsMd(baseManifest)
+  assert.match(md, /\*\*Depends on:\*\* none/)
+  assert.match(md, /run in parallel as background subagents/)
+})
+
+test("renderAgentsMd phase gates are dependency-driven", () => {
+  const md = renderAgentsMd(baseManifest, buildTeam(baseManifest))
+  assert.match(md, /starts as soon as the phases it depends on have passed/i)
+  assert.ok(!/Only then does the next phase start/i.test(md), "no rigid sequential gate wording")
+})

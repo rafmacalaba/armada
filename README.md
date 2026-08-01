@@ -30,6 +30,34 @@ Public. Transparent. MIT-licensed. Full spec in [SPEC.md](./SPEC.md).
 
 ---
 
+## How you use it
+
+armada is a **one-time generator** (the create-react-app model, not a runtime). You run it
+once, it writes the team config, and you're done — from then on you just use `opencode`, where
+omo-slim runs the team.
+
+```bash
+# 1. once, in your repo — writes team config, prompts, contract scaffold
+npx opencode-armada init
+
+# 2. every day — omo-slim loads the team
+opencode
+
+# 3. you just talk to it
+"Implement the /admin dashboard — co-write the plan with me"
+```
+
+The orchestrator co-writes `REQUIREMENTS.md` with you (it asks clarifying questions, drafts
+phases + success criteria, iterates until you approve), then implements it: backend-dev and
+frontend-dev run as **parallel background subagents** per phase, and independent phases
+progress in parallel — nothing blocks a phase except an unmet dependency or a failed success
+criterion. You approve at gates and review the PR.
+
+Everything below this line (`--headless`, `--requirements`, `--budget`, …) is a **setup-time
+option** on step 1. There is no armada at runtime.
+
+---
+
 ## Prerequisites
 
 - [opencode](https://opencode.ai) installed
