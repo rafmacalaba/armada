@@ -16,7 +16,7 @@ import { resolve } from "node:path"
 import { runQuestionnaire, guessName } from "./questionnaire.js"
 import { detectStack } from "./stack-detect.js"
 import { scaffold } from "./scaffold.js"
-import { renderCatalog, BUDGETS, ROLES, modelFor } from "./model-catalog.js"
+import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache } from "./model-catalog.js"
 import { parseManifestYaml } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 
@@ -149,15 +149,28 @@ function defaultManifest() {
   }
 }
 
-function models(args) {
+async function models(args) {
   const refresh = args.includes("--refresh")
   const budget = args.find((a) => BUDGETS.includes(a)) ?? "balanced"
-  console.log(`Model catalog (budget: ${budget})`)
-  console.log(renderCatalog(budget))
+  const cacheIdx = args.indexOf("--cache")
+  const cachePath = cacheIdx !== -1 ? args[cacheIdx + 1] : undefined
+  let availability
   if (refresh) {
-    console.log("\n--refresh: merge live provider models")
-    console.log("  (implemented via `opencode models`; requires provider auth.)")
+    try {
+      availability = await refreshModels({ cachePath })
+    } catch (err) {
+      console.error(`models --refresh failed: ${err.message}`)
+      process.exitCode = 1
+      return
+    }
+  } else {
+    availability = loadModelsCache(cachePath)
   }
+  console.log(`Model catalog (budget: ${budget})`)
+  if (availability) {
+    console.log("✓ available on providers   ✗ unavailable (falls back)")
+  }
+  console.log(renderCatalog(budget, availability))
 }
 
 async function doctor() {

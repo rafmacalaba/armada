@@ -13,6 +13,11 @@
 // Model names are opencode-style `provider/model` IDs. Keep this file in sync
 // with docs/SPEC.md#model-catalog and presets/*.yaml.
 
+import { execFile } from "node:child_process"
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs"
+import { homedir } from "node:os"
+import { join, dirname } from "node:path"
+
 export const ROLES = [
   "orchestrator",
   "backend-dev",
@@ -106,15 +111,38 @@ export function fallbackFor(role) {
   return CATALOG[role].fallback
 }
 
+export function defaultCachePath() {
+  return join(homedir(), ".armada", "models.cache.json")
+}
+
+export function loadModelsCache(cachePath = defaultCachePath()) {
+  try {
+    const c = JSON.parse(readFileSync(cachePath, "utf8"))
+    return Array.isArray(c.models) ? new Set(c.models) : null
+  } catch {
+    return null
+  }
+}
+
+export async function refreshModels(opts = {}) {
+  const env = opts.env || process.env
+  const cachePath = opts.cachePath || defaultCachePath()
+  const out = await new Promise((res, rej) =>
+    execFile("opencode", ["models"], { timeout: 30000, env }, (err, stdout) =>
+      err ? rej(new Error(`opencode models failed: ${err.message}`)) : res(stdout)))
+  const models = out.split("\n").map((s) => s.trim()).filter(Boolean)
+  mkdirSync(dirname(cachePath), { recursive: true })
+  writeFileSync(cachePath, JSON.stringify({ updatedAt: new Date().toISOString(), models }, null, 2))
+  return new Set(models)
+}
+
 // Render a two-column "role -> primary / fallback" table for `armada models`.
-export function renderCatalog(budget = "balanced") {
+export function renderCatalog(budget = "balanced", availability = null) {
   const rows = ROLES.map((role) => {
     const e = CATALOG[role]
-    return [
-      role.padEnd(14),
-      (modelFor(role, budget) || "").padEnd(38),
-      e.fallback || "",
-    ]
+    const primary = modelFor(role, budget)
+    const mark = availability ? (availability.has(primary) ? "✓" : "✗") : ""
+    return [role.padEnd(14), `${mark}${primary}`.padEnd(38), e.fallback || ""]
   })
   const header = ["role".padEnd(14), "model".padEnd(38), "fallback"]
   return [header.join("  "), rows.map((r) => r.join("  ")).join("\n")].join("\n")
