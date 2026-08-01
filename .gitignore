@@ -6,3 +6,4 @@ build/
 .armada-cache/
 # Generated outputs used in tests / validation
 /tmp-test/
+*.tgz

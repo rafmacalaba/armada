@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 // opencode-armada CLI — entry point.
 //
 // Commands:
@@ -11,8 +12,9 @@
 //   armada ping                 confirm the CLI works
 //   armada help                 this help
 
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readFileSync, realpathSync } from "node:fs"
 import { resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 
 import { runQuestionnaire, guessName } from "./questionnaire.js"
 import { detectStack } from "./stack-detect.js"
@@ -21,7 +23,7 @@ import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache
 import { parseManifestYaml } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 
-export const VERSION = "0.1.0"
+export const VERSION = "0.2.0"
 
 const HELP = `opencode-armada v${VERSION}
 Reproducible AI-engineer multi-agent teams for opencode, on oh-my-opencode-slim.
@@ -114,11 +116,24 @@ export async function main(argv = process.argv.slice(2)) {
   }
 }
 
-// Entry when run as a script (node/bun src/cli.js). Guarded so the module can
-// also be imported for testing.
+// Entry when run as a script (node/bun src/cli.js, or the installed `armada`
+// bin, which node reaches through a symlink). Guarded so the module can also be
+// imported for testing. Realpath comparison so symlink invocation still counts
+// as "main" (process.argv[1] is the symlink, import.meta.url the real file).
+function resolveEntry(argv1) {
+  for (const candidate of [argv1, argv1 && `${argv1}.js`]) {
+    try {
+      return realpathSync(candidate)
+    } catch {
+      /* try next */
+    }
+  }
+  return null
+}
+
 const isMain =
   typeof process !== "undefined" &&
-  (import.meta.url === `file://${process.argv[1]}` || import.meta.url === `file://${process.argv[1]}.js`)
+  resolveEntry(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
 
 if (isMain) {
   main().catch((err) => {
