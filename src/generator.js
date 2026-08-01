@@ -270,9 +270,10 @@ when the final phase completes.
 
 ## Phase gates
 
-Each phase in ${manifest.project.requirementsFile ?? "REQUIREMENTS.md"} ends with a gate: every
-success criterion must be demonstrated by evidence — a passing test run, a screenshot, or both.
-Only then does the next phase start.
+A phase in ${manifest.project.requirementsFile ?? "REQUIREMENTS.md"} passes only when its
+success criteria are demonstrated by evidence — a passing test run, a screenshot, or both. A
+phase starts as soon as the phases it depends on have passed; independent phases run in
+parallel as background subagents.
 `
 }
 
@@ -288,6 +289,10 @@ export function renderRequirementsMd(manifest) {
 > you until you approve. No implementation starts against an unapproved contract. If you later
 > want a different feature, use a separate contract file (e.g. REQUIREMENTS-<feature>.md) and
 > re-scaffold with \`armada init --requirements <file>\`.
+>
+> Phases declare what they depend on. A phase starts as soon as its dependencies pass —
+> independent phases run in parallel as background subagents. Nothing blocks a phase except an
+> unmet dependency or a failed success criterion.
 
 ## Success criteria
 
@@ -297,6 +302,7 @@ export function renderRequirementsMd(manifest) {
 
 ### Phase 1 — Foundation
 
+- **Depends on:** none
 - **Goal:** ...
 - **Success criteria:**
   - [ ] ...
@@ -304,7 +310,11 @@ export function renderRequirementsMd(manifest) {
 
 ### Phase 2 — ...
 
-> Continue with as many phases as needed.
+- **Depends on:** Phase 1
+- **Goal:** ...
+- **Success criteria:**
+  - [ ] ...
+
 
 ## Final criteria
 

@@ -30,9 +30,10 @@ link them to an issue/PR when relevant.
 - [x] **Per-feature contract files.** `armada init --requirements <file>` sets a
   per-session/feature requirements file (default `REQUIREMENTS.md`). Starting a second feature
   no longer means silently replacing the first contract. Round-trips through `armada.yaml`.
-- [x] **Parallelism made explicit.** Orchestrator prompt: within a phase, independent tasks
-  (backend-dev ∥ frontend-dev) run as parallel background jobs once the API contract is fixed;
-  phases stay gated unless the contract marks one independent.
+- [x] **Parallel, dependency-driven phases.** Orchestrator prompt: build the dependency graph
+  from REQUIREMENTS phases; a phase starts as soon as the phases it depends on pass; independent
+  phases run in parallel as background subagents (backend-dev ∥ frontend-dev per phase). Nothing
+  blocks a phase except an unmet dependency or a failed success criterion.
 
 ## Next — armada new: best-practice repo generator (experience-aware)
 

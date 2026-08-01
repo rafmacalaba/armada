@@ -238,3 +238,21 @@ with no dangling placeholders, CLI e2e `init --requirements`).
 Workflow consequence for features like `/admin`: tell the orchestrator your intent once; it
 asks the scope/auth/pages questions, drafts `REQUIREMENTS-admin-dashboard.md`, you approve, then
 it implements phase-by-phase (backend ∥ frontend within a phase, gated across phases).
+
+---
+
+## Usage story + parallel dependency-driven phases (2026-08-01)
+
+- **Usage clarified in README**: armada is a one-time generator — `init` once, then use
+  `opencode`; the orchestrator co-writes the contract and omo-slim runs the team. Nothing else
+  is armada at runtime. Setup flags (`--headless`, `--requirements`, `--budget`) are step-1
+  options only.
+- **Phases are dependency-driven, not rigidly sequential.** REQUIREMENTS scaffold now declares
+  `**Depends on:** <phase>` per phase; the orchestrator builds the dependency graph and starts
+  every ready phase as parallel background jobs (backend-dev ∥ frontend-dev per phase).
+  Independent phases progress in parallel; only an unmet dependency or failed success criterion
+  blocks. Dropped the redundant standalone "Parallelism" prompt section — omo-slim already is
+  the parallel engine.
+
+71/71 tests (3 new: requirements scaffold depends-on, AGENTS gates dependency-driven,
+orchestrator prompt lean).

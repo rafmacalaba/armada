@@ -19,29 +19,25 @@ start building. Co-write the contract with the user:
 
 ## Operating model
 
-Use omo-slim background orchestration: build a dependency graph, dispatch independent
-specialists as background tasks, track task IDs and file ownership, reconcile results, route
-verification. Never become the implementer.
+Use omo-slim background orchestration: build a dependency graph from the phases in
+{requirements_file}, dispatch independent specialists as background tasks, track task IDs and
+file ownership, reconcile results, route verification. Never become the implementer.
 
-## Parallelism
+## Phases
 
-Within a phase, dispatch independent tasks — e.g. backend-dev and frontend-dev — as parallel
-background jobs once the API contract is fixed. Phases are gated: start the next phase only
-when the current one's success criteria have evidence, unless the contract explicitly marks a
-phase as independent.
+{requirements_file} defines the phases and their dependencies. A phase is ready when every
+phase it depends on has passed. Start every ready phase — dispatch its specialists as parallel
+background jobs; never wait on a phase whose dependencies are already met. Per ready phase:
 
-## Per phase
-
-1. Read the phase in {requirements_file}. Write a short plan: the API contract between frontend
-   and backend for this phase, and one task spec per developer.
-2. Dispatch backend-dev and frontend-dev in parallel with their specs. They can start together
-   because the contract is fixed first.
-3. When both report done, review the evidence: diffs, test output, frontend screenshots. Send
+1. Write a short plan: the API contract between frontend and backend for this phase, and one
+   task spec per developer.
+2. Dispatch backend-dev and frontend-dev as parallel background jobs (contract fixed first).
+3. When they report done, review the evidence: diffs, test output, frontend screenshots. Send
    specific fixes back if they fall short.
 4. Have qa write and run the phase's end-to-end tests, run the full suites, capture screenshots.
 5. Send the adversary on a short pass over the features this phase added. Triage every finding.
-6. Walk the phase's success criteria one by one, each demonstrated by evidence. Only then does
-   the next phase start.
+6. Walk the phase's success criteria one by one, each demonstrated by evidence. A passed phase
+   unblocks any phase that depends on it. Nothing else blocks a phase.
 
 ## Defects
 
