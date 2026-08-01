@@ -59,3 +59,41 @@ test("models --refresh merges availability via fake opencode", async () => {
   assert.match(r.stdout, /✓/)
   assert.match(r.stdout, /✗/)
 })
+
+test("uninstall CLI removes generated files, keeps user files", async () => {
+  const dir = makeTempRepo({ "armada.yaml": manifestYaml(), "AGENTS.md": "# custom\n" })
+  await runCli(["init", "--from-armada", "armada.yaml"], { cwd: dir })
+  const r = await runCli(["uninstall"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.ok(!existsSync(join(dir, "armada.yaml")))
+  assert.ok(!existsSync(join(dir, ".opencode")))
+  assert.strictEqual(readFileSync(join(dir, "AGENTS.md"), "utf8"), "# custom\n")
+  assert.ok(existsSync(join(dir, "opencode.json")))
+})
+
+test("uninstall CLI --all also removes generated user-facing files", async () => {
+  const dir = makeTempRepo({ "armada.yaml": manifestYaml() })
+  await runCli(["init", "--from-armada", "armada.yaml"], { cwd: dir })
+  const r = await runCli(["uninstall", "--all"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.ok(!existsSync(join(dir, "AGENTS.md")))
+  assert.ok(!existsSync(join(dir, "opencode.json")))
+  assert.ok(!existsSync(join(dir, "armada.yaml")))
+})
+
+test("uninstall CLI --dry-run removes nothing", async () => {
+  const dir = makeTempRepo({ "armada.yaml": manifestYaml() })
+  await runCli(["init", "--from-armada", "armada.yaml"], { cwd: dir })
+  const r = await runCli(["uninstall", "--dry-run"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /dry-run/)
+  assert.ok(existsSync(join(dir, ".opencode")))
+  assert.ok(existsSync(join(dir, "armada.yaml")))
+})
+
+test("uninstall CLI missing manifest exits 1", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["uninstall", "--from-armada", "nope.yaml"], { cwd: dir })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /Manifest not found/)
+})

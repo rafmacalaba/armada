@@ -7,6 +7,7 @@
 //   armada models [budget]      print curated model catalog
 //   armada models --refresh     merge live provider models (requires auth)
 //   armada doctor               check omo-slim + providers + background subagents
+//   armada uninstall [--all]    remove armada-generated artifacts (--all also user-facing)
 //   armada ping                 confirm the CLI works
 //   armada help                 this help
 
@@ -15,7 +16,7 @@ import { resolve } from "node:path"
 
 import { runQuestionnaire, guessName } from "./questionnaire.js"
 import { detectStack } from "./stack-detect.js"
-import { scaffold } from "./scaffold.js"
+import { scaffold, uninstall } from "./scaffold.js"
 import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache } from "./model-catalog.js"
 import { parseManifestYaml } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
@@ -32,6 +33,7 @@ Usage:
   armada models [budget]                     show curated model catalog
   armada models --refresh                    merge live provider models
   armada doctor                              environment health check
+  armada uninstall [--all] [--dry-run]       remove armada-generated artifacts
   armada ping                                sanity check
   armada help                                this help
 `
@@ -46,6 +48,8 @@ export async function main(argv = process.argv.slice(2)) {
       return models(rest)
     case "doctor":
       return doctor()
+    case "uninstall":
+      return uninstallCmd(rest)
     case "ping":
       console.log("armada ok")
       return
@@ -182,4 +186,28 @@ async function doctor() {
     if (status === "fail") anyFail = true
   }
   if (anyFail) process.exitCode = 1
+}
+
+async function uninstallCmd(args) {
+  const fileIdx = args.indexOf("--from-armada")
+  const file = fileIdx !== -1 ? args[fileIdx + 1] : "armada.yaml"
+  if (!existsSync(resolve(file))) {
+    console.error(`Manifest not found: ${file}`)
+    process.exitCode = 1
+    return
+  }
+  let manifest
+  try {
+    manifest = parseManifestYaml(readFileSync(resolve(file), "utf8"))
+  } catch (err) {
+    console.error(err.message)
+    process.exitCode = 1
+    return
+  }
+  manifest.targetDir = "."
+  const dryRun = args.includes("--dry-run")
+  const all = args.includes("--all")
+  const removed = uninstall(manifest, { all, dryRun })
+  console.log(`\n${dryRun ? "(dry-run) " : ""}Removed armada artifacts:`)
+  for (const f of removed) console.log(`  ${dryRun ? "(dry-run) - " : "- "}${f}`)
 }
