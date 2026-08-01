@@ -18,6 +18,7 @@ import { detectStack } from "./stack-detect.js"
 import { scaffold } from "./scaffold.js"
 import { renderCatalog, BUDGETS, ROLES, modelFor } from "./model-catalog.js"
 import { parseManifestYaml } from "./manifest.js"
+import { runDoctor } from "./doctor.js"
 
 export const VERSION = "0.1.0"
 
@@ -159,19 +160,13 @@ function models(args) {
   }
 }
 
-function doctor() {
+async function doctor() {
   console.log("opencode-armada doctor")
-  const checks = [
-    ["opencode CLI", "opencode", ["--version"]],
-    ["oh-my-opencode-slim plugin", "bun", ["x", "oh-my-opencode-slim@latest", "--version"]],
-  ]
-  for (const [name, bin, args] of checks) {
-    // Simple existence probe; real runs spawn the subprocess.
-    console.log(`  ${name}: check '${bin}' available`)
+  const checks = await runDoctor()
+  let anyFail = false
+  for (const { name, status, detail } of checks) {
+    console.log(`${name}: ${status} — ${detail}`)
+    if (status === "fail") anyFail = true
   }
-  console.log("\nChecklist:")
-  console.log("  - opencode installed (opencode --version)")
-  console.log("  - omo-slim in ~/.config/opencode/opencode.json plugin[]")
-  console.log("  - provider auth: opencode auth list")
-  console.log("  - background subagents: OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode")
+  if (anyFail) process.exitCode = 1
 }
