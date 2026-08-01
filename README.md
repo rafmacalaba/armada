@@ -159,7 +159,7 @@ node src/cli.js help
 ```
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the code layout and [TODO.md](./TODO.md) for the
-roadmap and open work.
+roadmap and open work. To cut a release (npm + GitHub): [docs/RELEASING.md](./docs/RELEASING.md).
 
 ## Self-dogfood
 
