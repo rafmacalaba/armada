@@ -103,6 +103,7 @@ is also scaffolded.
 | `armada init --from-armada armada.yaml` | re-scaffold from manifest |
 | `armada init --dry-run` | print files without writing |
 | `armada init --yes` | non-interactive defaults (no TTY) |
+| `armada init --headless` | CI-safe: orchestrator bash allowed, no `ask` prompts |
 | `armada models [budget]` | show curated model catalog |
 | `armada models --refresh --cache <path>` | merge live provider models (cache to path) |
 | `armada doctor` | environment health check |
@@ -159,6 +160,14 @@ node src/cli.js help
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the code layout and [TODO.md](./TODO.md) for the
 roadmap and open work.
+
+## Self-dogfood
+
+armada is dogfooded on itself: `armada init --headless` scaffolds the team into this repo, and
+`opencode run` (or the live TUI) lets the team review armada's own `src/` — a CI-friendly loop
+for finding real gaps. The first runs already caught bugs. See
+[docs/self-dogfood.md](./docs/self-dogfood.md) for the full how-to, and
+[docs/validation.md](./docs/validation.md) for the recorded results.
 
 ---
 

@@ -54,11 +54,19 @@ link them to an issue/PR when relevant.
   templates.
 - [x] **No `uninstall` command.** Now removes armada-generated artifacts cleanly
   (`armada uninstall`, `--all` for generated user-facing files, `--dry-run`).
-- [ ] **Headless orchestration stalls on `ask` permissions.** Self-dogfood showed
-  `opencode run` (non-interactive) auto-rejects the orchestrator's `ask`-level bash/edit
-  permissions, so headless multi-agent runs can't reconcile. armada assumes an interactive TUI.
-  Consider a `--headless` preset that loosens orchestrator permissions, or document the
-  interactive-only constraint.
+- [x] **Headless orchestration stalls on `ask` permissions.** Fixed via `armada init --headless`
+  (`project.headless`): orchestrator bash becomes `allow` so non-interactive `opencode run`
+  works. Validated end-to-end (orchestrator ran bash, dispatched architect inline, wrote
+  findings). Note: **background**-job reconciliation still needs the live TUI; one-shot runs
+  use inline subagent dispatch.
+- [ ] **Per-role model overrides silently dropped.** `buildTeam` recomputes every role's model
+  from `budget` and ignores `manifest.team[].model`, so questionnaire/`pickModel` overrides are
+  lost on re-scaffold. Fix: honor manifest overrides, fall back to `modelFor` only when absent.
+  (Found by armada's own architect during headless self-dogfood.)
+- [ ] **`uninstall` requires an existing manifest.** If `armada.yaml` was deleted, `uninstall`
+  errors instead of cleaning artifacts by their known paths. (Architect finding.)
+- [ ] **`main()` returns `undefined`.** Programmatic callers can't distinguish success/error;
+  return an exit-code int and let `isMain` set `process.exitCode`. (Architect finding.)
 - [ ] **Adversary catalog primary drift.** `opencode/deepseek-v4-pro` is unavailable on live
   providers; the working equivalent is `opencode-go/deepseek-v4-pro`. Swap the CATALOG entry.
 - [ ] **No cookiecutter compatibility.** Deliberate (see SPEC §3), but a thin `cookiecutter

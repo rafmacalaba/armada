@@ -30,6 +30,7 @@ export function parseManifestYaml(text) {
       browserTesting: p.browserTesting ?? false,
       devcontainer: p.devcontainer ?? false,
       useAgentBrowser: p.useAgentBrowser ?? false,
+      headless: p.headless ?? false,
       stack: {
         frontend: stack.frontend ?? null,
         backend: stack.backend ?? null,
@@ -53,6 +54,7 @@ export const MANIFEST_SCHEMA = {
     browserTesting: "boolean",
     devcontainer: "boolean",
     useAgentBrowser: "boolean",
+    headless: "boolean", // non-interactive mode: orchestrator bash allow (CI-safe)
   },
   team: "array<{name, role, model, fallback, variant?, enabled}>",
   presets: "object", // model presets generated from budget

@@ -62,3 +62,15 @@ test("coerces quoted string booleans for enabled", () => {
   assert.strictEqual(parsed.team.length, 1)
   assert.strictEqual(parsed.team[0].enabled, false)
 })
+
+test("parses headless flag", () => {
+  const m = makeManifest()
+  m.project.headless = true
+  const parsed = parseManifestYaml(renderManifestYaml(m, buildTeam(m)))
+  assert.strictEqual(parsed.project.headless, true)
+})
+
+test("headless defaults to false", () => {
+  const parsed = parseManifestYaml(renderManifestYaml(makeManifest(), buildTeam(makeManifest())))
+  assert.strictEqual(parsed.project.headless, false)
+})

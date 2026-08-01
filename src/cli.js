@@ -29,6 +29,7 @@ Reproducible AI-engineer multi-agent teams for opencode, on oh-my-opencode-slim.
 Usage:
   armada init                                interactive setup
   armada init --stack <s> --budget <b>       declarative setup
+  armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
   armada init --from-armada armada.yaml      regenerate from manifest
   armada models [budget]                     show curated model catalog
   armada models --refresh                    merge live provider models
@@ -159,6 +160,9 @@ async function init(args) {
     manifest.project.browserTesting = false
     manifest.project.useAgentBrowser = false
   }
+  if (args.includes("--headless")) {
+    manifest.project.headless = true
+  }
 
   manifest.targetDir = "."
 
@@ -190,6 +194,7 @@ function defaultManifest() {
       browserTesting: false,
       devcontainer: false,
       useAgentBrowser: false,
+      headless: false,
       stack: {},
     },
     team: ROLES.map((role) => ({

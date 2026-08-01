@@ -92,14 +92,23 @@ const ROUTING = {
 
 export function buildTeam(manifest) {
   const { budget, browserTesting } = manifest.project ?? {}
+  const headless = manifest.project?.headless ?? false
   return ROLES.map((role) => {
     const enabled = manifest.team.some((t) => t.role === role && t.enabled !== false)
+    const permissions = structuredClone(BASE_PERMISSIONS[role] || {})
+    if (headless && role === "orchestrator") {
+      // Non-interactive runs (opencode run / CI) auto-reject `ask` permissions,
+      // which stalls the orchestrator's git-status/diff/log + inspection calls.
+      // Headless mode allows orchestrator bash so it can plan, delegate and
+      // reconcile without a human approving every command.
+      permissions.bash = { "*": "allow" }
+    }
     return {
       role,
       model: modelFor(role, budget),
       fallback: fallbackFor(role),
       variant: CATALOG[role].variant || null,
-      permissions: BASE_PERMISSIONS[role] || {},
+      permissions,
       orchestratorPrompt: ROUTING[role],
       browser: browserTesting && ["qa", "adversary", "frontend-dev"].includes(role),
       enabled,
@@ -313,6 +322,7 @@ project:
   browserTesting: ${manifest.project.browserTesting ?? false}
   devcontainer: ${manifest.project.devcontainer ?? false}
   useAgentBrowser: ${manifest.project.useAgentBrowser ?? false}
+  headless: ${manifest.project.headless ?? false}
   stack:
     frontend: ${s.frontend || "null"}
     backend: ${s.backend || "null"}

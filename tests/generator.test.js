@@ -44,6 +44,29 @@ test("buildTeam includes all roles with permissions", () => {
   assert.strictEqual(qa.permissions.edit["e2e/*"], "allow")
 })
 
+test("buildTeam non-headless keeps orchestrator bash ask", () => {
+  const team = buildTeam(baseManifest)
+  const orch = team.find((a) => a.role === "orchestrator")
+  assert.strictEqual(orch.permissions.bash["*"], "ask")
+})
+
+test("buildTeam headless loosens orchestrator bash to allow", () => {
+  const m = structuredClone(baseManifest)
+  m.project.headless = true
+  const team = buildTeam(m)
+  const orch = team.find((a) => a.role === "orchestrator")
+  assert.deepStrictEqual(orch.permissions.bash, { "*": "allow" })
+  const qa = team.find((a) => a.role === "qa")
+  assert.strictEqual(qa.permissions.edit["*"], "deny", "other role boundaries unchanged")
+})
+
+test("renderManifestYaml emits headless flag", () => {
+  const m = structuredClone(baseManifest)
+  m.project.headless = true
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  assert.match(yaml, /headless: true/)
+})
+
 test("slim jsonc is valid JSONC with preset", () => {
   const team = buildTeam(baseManifest)
   const out = renderSlimJsonc(baseManifest, team)

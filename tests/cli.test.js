@@ -126,3 +126,13 @@ test("uninstall CLI keeps user .opencode files and warns", async () => {
   assert.ok(existsSync(join(dir, ".opencode")))
   assert.match(r.stderr, /non-armada/)
 })
+
+test("init --headless sets manifest flag + orchestrator bash allow", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--headless", "--budget", "free", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.match(readFileSync(join(dir, "armada.yaml"), "utf8"), /headless: true/)
+  const jsonc = readFileSync(join(dir, ".opencode/oh-my-opencode-slim.jsonc"), "utf8")
+  const cfg = JSON.parse(jsonc.replace(/^\s*\/\/.*$/gm, "").trim())
+  assert.strictEqual(cfg.presets.free.orchestrator.permission.bash["*"], "allow")
+})

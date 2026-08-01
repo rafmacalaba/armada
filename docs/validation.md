@@ -136,3 +136,43 @@ pristine state.
 Self-hosting works end-to-end at the config + dispatch level. Live multi-agent orchestration
 (approving asks, watching background jobs) requires the interactive TUI, which is the intended
 usage. Headless orchestration is the main open gap → TODO.
+
+---
+
+## Headless self-dogfood: fix + one-shot run (2026-08-01)
+
+Closed the headless gap from the previous run.
+
+### Fix
+
+New `armada init --headless` (manifest field `project.headless`, default false). When set, the
+orchestrator's generated bash permission becomes `{ "*": "allow" }` instead of
+`{ "*": "ask", "git status*": ... }`. Non-interactive `opencode run` auto-rejects `ask`
+prompts, which is what stalled the orchestrator before. Other role boundaries unchanged
+(read-only security/architect stay read-only). 6 new tests (58/58 total).
+
+### Headless one-shot run (armada on armada)
+
+`armada init --yes --headless --budget balanced`, then
+`opencode run "git status --short; wc -l src/cli.js; ls src; dispatch architect inline; write
+top 3 findings to smoke-findings.md"`:
+
+- ✅ Orchestrator ran `git status`, `ls`, `wc` headlessly — previously auto-rejected.
+- ✅ Dispatched architect as a subagent; result returned inline; orchestrator reconciled and
+  wrote `smoke-findings.md`.
+- 📝 **Background** subagent results resolve after the one-shot turn ends
+  (`backgroundJobs.continueOnIdle: false`), so one-shot runs use inline dispatch; the live TUI
+  still handles background reconciliation.
+
+### Findings the architect filed (armada improving armada)
+
+1. `buildTeam` recomputes models from the budget and **drops per-role overrides** the
+   questionnaire collects (`manifest.team[].model` is parsed but ignored) → TODO.
+2. `uninstall` requires an existing manifest; a user who deleted `armada.yaml` can't clean
+   artifacts → TODO.
+3. `main()` returns `undefined`; programmatic callers can't distinguish success/error → TODO.
+
+### Cleanup
+
+`uninstall` + manual `rm opencode.json REQUIREMENTS.md smoke-findings.md` → repo pristine,
+`git status` clean, `node --test 'tests/*.test.js'` 58/58.
