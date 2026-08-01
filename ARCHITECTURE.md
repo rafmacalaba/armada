@@ -11,7 +11,7 @@ src/
 ├── cli.js              entry + subcommand dispatch (init / models / doctor / uninstall / ping / help)
 ├── index.js            library entry (programmatic API re-exports)
 ├── model-catalog.js    roles, curated model recommendations, budget tiers, table renderer, models cache
-├── stack-detect.js     detect tech stack from manifest files + instruction files
+├── stack-detect.js     detect tech stack from manifests + instruction files (recurses subdirs for monorepos)
 ├── questionnaire.js    interactive setup prompts (node readline, zero deps)
 ├── generator.js        pure renderers: team, slim jsonc, opencode.json, AGENTS.md,
 │                       REQUIREMENTS.md, armada.yaml

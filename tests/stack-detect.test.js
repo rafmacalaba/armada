@@ -56,3 +56,41 @@ test("empty repo -> minimal stack", () => {
   const s = detectStack(makeRepo({}))
   assert.strictEqual(formatStack(s), "none detected")
 })
+
+test("detects monorepo with backend/ + frontend/ subdirs", () => {
+  const dir = makeRepo({
+    "backend/pyproject.toml": "fastapi\npytest\nsqlalchemy\n",
+    "frontend/package.json": JSON.stringify({ dependencies: { next: "15", react: "19" } }),
+  })
+  const s = detectStack(dir)
+  assert.strictEqual(s.frontend, "nextjs")
+  assert.strictEqual(s.backend, "python-fastapi")
+  assert.strictEqual(s.testing, "pytest")
+  assert.ok(s.languages.includes("typescript"))
+  assert.ok(s.languages.includes("python"))
+  assert.ok(s.srcDirs.includes("backend"))
+  assert.ok(s.srcDirs.includes("frontend"))
+})
+
+test("scans apps/ and packages/ subdirs, skips node_modules/.next", () => {
+  const dir = makeRepo({
+    "apps/web/package.json": JSON.stringify({ dependencies: { react: "19" } }),
+    "packages/server/requirements.txt": "fastapi\npytest\n",
+    "node_modules/package.json": JSON.stringify({ dependencies: { next: "99" } }),
+    ".next/package.json": JSON.stringify({ dependencies: { next: "99" } }),
+  })
+  const s = detectStack(dir)
+  assert.strictEqual(s.frontend, "react", "node_modules/.next must be ignored")
+  assert.strictEqual(s.backend, "python-fastapi")
+  assert.ok(!s.srcDirs.includes("node_modules"))
+})
+
+test("monorepo srcDirs survive round-trip format", () => {
+  const dir = makeRepo({
+    "backend/requirements.txt": "fastapi\n",
+    "frontend/package.json": JSON.stringify({ dependencies: { next: "15" } }),
+  })
+  const s = detectStack(dir)
+  assert.match(formatStack(s), /frontend: nextjs/)
+  assert.match(formatStack(s), /backend: python-fastapi/)
+})

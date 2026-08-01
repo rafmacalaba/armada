@@ -176,3 +176,41 @@ top 3 findings to smoke-findings.md"`:
 
 `uninstall` + manual `rm opencode.json REQUIREMENTS.md smoke-findings.md` → repo pristine,
 `git status` clean, `node --test 'tests/*.test.js'` 58/58.
+
+---
+
+## Sandboxed real-repo validation + monorepo detection fix (2026-08-01)
+
+Tested armada on real repos **without touching them** — each cloned to `/tmp/armada-sandbox/`,
+scaffolded, verified, then deleted.
+
+### data-ai-chatbot (fastapi backend + nextjs frontend, split subdirs)
+
+- `armada init --yes --budget balanced` → exit 0, 14 files scaffolded, round-trip clean,
+  jsonc valid, 8 agents, no dangling placeholders.
+- **Gap exposed:** detection saw only `postgres` (from `docker-compose.yml`). `detectStack` was
+  root-only and missed `backend/pyproject.toml` + `frontend/package.json` → generic prompts.
+  `--stack fastapi-nextjs` hint worked around it, but auto-detection failed on a monorepo.
+
+### data360-mcp (python fastapi mcp server)
+
+- `armada init` → exit 0. Detected `backend: python-fastapi | testing: pytest | lang:
+  typescript,python` (root `package.json` + `pyproject.toml`). ✅ no gap.
+
+### Fix: monorepo stack detection
+
+`detectStack` now aggregates manifests up to **two levels** into common code subdirs
+(`backend/`, `frontend/`, `apps/`, `packages/`, ...), skipping `node_modules/` + hidden dirs.
+Root files still win for exact placement; subdir manifests fill in the missing fields.
+`srcDirs`/`languages` dedup across the tree. 5 new tests (61/61 total) + a `monorepo` fixture.
+
+Re-run against the real repos:
+
+| Repo | Before | After |
+|---|---|---|
+| data-ai-chatbot | `postgres` only | `frontend: nextjs \| backend: python-fastapi \| db: postgres \| testing: playwright \| lang: typescript,python`, srcDirs `backend`,`frontend` |
+| data360-mcp | `python-fastapi + pytest` | `python-fastapi`, testing now `vitest` (recursion surfaced TS test deps — aggregate first-match heuristic) |
+
+Note: `testing` picks the first match across the whole tree (`playwright > vitest > jest >
+pytest > cypress`). For a mixed TS+Python repo the winner may be either; acceptable aggregate
+heuristic, revisit if a repo needs per-language test framework.

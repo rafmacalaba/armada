@@ -10,6 +10,7 @@ test("detectStack over fixture corpus", () => {
   const cases = [
     ["nextjs-monorepo", { frontend: "nextjs", testing: "jest", database: "postgres" }],
     ["fastapi", { backend: "python-fastapi", testing: "pytest" }],
+    ["monorepo", { frontend: "nextjs", backend: "python-fastapi", testing: "pytest" }],
     ["empty", {}],
   ]
   for (const [name, expect] of cases) {

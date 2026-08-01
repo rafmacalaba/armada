@@ -17,7 +17,7 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
 - `src/cli.js` — entry: init / models / doctor / uninstall / ping / help
 - `src/manifest.js` — manifest schema, default playbook, YAML parser (`parseManifestYaml`)
 - `src/model-catalog.js` — roles, curated model recommendations, budget tiers, table renderer, models cache
-- `src/stack-detect.js` — stack detection from manifests + instruction files
+- `src/stack-detect.js` — stack detection from manifests + instruction files (recurses subdirs for monorepos)
 - `src/questionnaire.js` — interactive setup (node readline, zero deps)
 - `src/generator.js` — pure renderers (team, slim jsonc, opencode.json, AGENTS.md, REQUIREMENTS.md, armada.yaml)
 - `src/scaffold.js` — file I/O, prompt filling, no-clobber, `uninstall`
