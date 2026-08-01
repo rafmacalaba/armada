@@ -13,10 +13,11 @@
 import { existsSync, readFileSync } from "node:fs"
 import { resolve } from "node:path"
 
-import { runQuestionnaire } from "./questionnaire.js"
+import { runQuestionnaire, guessName } from "./questionnaire.js"
 import { detectStack } from "./stack-detect.js"
 import { scaffold } from "./scaffold.js"
-import { renderCatalog, BUDGETS } from "./model-catalog.js"
+import { renderCatalog, BUDGETS, ROLES, modelFor } from "./model-catalog.js"
+import { parseManifestYaml } from "./manifest.js"
 
 export const VERSION = "0.1.0"
 
@@ -84,9 +85,16 @@ async function init(args) {
       process.exitCode = 1
       return
     }
-    manifest = parseManifest(readFileSync(resolve(file), "utf8"))
+    try {
+      manifest = parseManifestYaml(readFileSync(resolve(file), "utf8"))
+    } catch (err) {
+      console.error(err.message)
+      process.exitCode = 1
+      return
+    }
   } else {
-    manifest = await runQuestionnaire(".")
+    const nonInteractive = args.includes("--yes") || !process.stdin.isTTY
+    manifest = nonInteractive ? defaultManifest() : await runQuestionnaire(".")
   }
 
   // Apply declarative overrides.
@@ -109,13 +117,35 @@ async function init(args) {
     ? manifest.project.stack
     : detectStack(".")
 
-  const files = scaffold(manifest, stack)
-  console.log("\nScaffolded opencode-armada team:")
-  for (const f of files) console.log(`  + ${f}`)
+  const dryRun = args.includes("--dry-run")
+  const files = scaffold(manifest, stack, { dryRun })
+  console.log(`\n${dryRun ? "(dry-run) " : ""}Scaffolded opencode-armada team:`)
+  for (const f of files) console.log(`  ${dryRun ? "(dry-run) + " : "+ "}${f}`)
   console.log("\nNext:")
   console.log("  1. opencode")
   console.log("  2. /armada  -> team status")
   console.log("  3. 'ping all agents'  -> verify roster")
+}
+
+// Default (non-interactive) manifest: guessed project name, balanced budget,
+// every role enabled at its balanced model, no browser/devcontainer extras.
+function defaultManifest() {
+  return {
+    project: {
+      name: guessName(process.cwd()),
+      budget: "balanced",
+      browserTesting: false,
+      devcontainer: false,
+      useAgentBrowser: false,
+      stack: {},
+    },
+    team: ROLES.map((role) => ({
+      role,
+      model: modelFor(role, "balanced"),
+      fallback: null,
+      enabled: true,
+    })),
+  }
 }
 
 function models(args) {
@@ -144,32 +174,4 @@ function doctor() {
   console.log("  - omo-slim in ~/.config/opencode/opencode.json plugin[]")
   console.log("  - provider auth: opencode auth list")
   console.log("  - background subagents: OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode")
-}
-
-// Minimal YAML-ish parser for armada.yaml. Real YAML would need a dep; keep the
-// manifest subset readable manually. Returns a manifest object.
-function parseManifest(text) {
-  const get = (re) => {
-    const m = text.match(re)
-    return m ? m[1].trim() : null
-  }
-  const teamLines = [...text.matchAll(/^\s+- role:\s*(\S+)\s*\n\s+model:\s*(\S+)\s*\n\s+fallback:\s*(\S+)\s*\n\s+enabled:\s*(\S+)/gm)]
-  const team = teamLines.map((m) => ({
-    role: m[1],
-    model: m[2],
-    fallback: m[3],
-    enabled: m[4] === "true",
-  }))
-  const budget = get(/^  budget:\s*(\S+)/m) ?? "balanced"
-  return {
-    project: {
-      name: get(/^  name:\s*(.+)$/m) ?? "project",
-      budget,
-      browserTesting: (get(/^  browserTesting:\s*(\S+)/m) ?? "false") === "true",
-      devcontainer: (get(/^  devcontainer:\s*(\S+)/m) ?? "false") === "true",
-      useAgentBrowser: (get(/^  useAgentBrowser:\s*(\S+)/m) ?? "false") === "true",
-      stack: {},
-    },
-    team,
-  }
 }
