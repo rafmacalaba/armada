@@ -1,7 +1,7 @@
 // Scaffold: writes generated config files into a target repo. Read-only
 // generation happens in generator.js; this module owns the file I/O.
 
-import { mkdirSync, writeFileSync, existsSync, copyFileSync, readFileSync } from "node:fs"
+import { mkdirSync, writeFileSync, existsSync, copyFileSync, readFileSync, rmSync, rmdirSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -49,7 +49,7 @@ export const PROMPT_SOURCE = {
 }
 
 // Main entry. target = repo root. Returns list of written files.
-export function scaffold(manifest, stack) {
+export function scaffold(manifest, stack, opts = {}) {
   const target = manifest.targetDir || "."
   const team = buildTeam(manifest)
   const files = []
@@ -57,8 +57,10 @@ export function scaffold(manifest, stack) {
   const out = (rel) => join(target, rel)
   const ensure = (rel) => mkdirSync(out(rel), { recursive: true })
   const write = (rel, content) => {
-    ensure(dirname(rel))
-    writeFileSync(out(rel), content, "utf8")
+    if (!opts.dryRun) {
+      ensure(dirname(rel))
+      writeFileSync(out(rel), content, "utf8")
+    }
     files.push(rel)
   }
 
@@ -96,13 +98,83 @@ export function scaffold(manifest, stack) {
 
   // 8. Optional devcontainer.
   if (manifest.project.devcontainer) {
-    ensure(".devcontainer")
-    copyFileSync(join(ROOT, "template/.devcontainer/devcontainer.json"), out(".devcontainer/devcontainer.json"))
-    copyFileSync(join(ROOT, "template/.devcontainer/setup.sh"), out(".devcontainer/setup.sh"))
+    if (!opts.dryRun) ensure(".devcontainer")
+    if (!opts.dryRun) {
+      copyFileSync(join(ROOT, "template/.devcontainer/devcontainer.json"), out(".devcontainer/devcontainer.json"))
+      copyFileSync(join(ROOT, "template/.devcontainer/setup.sh"), out(".devcontainer/setup.sh"))
+    }
     files.push(".devcontainer/devcontainer.json", ".devcontainer/setup.sh")
   }
 
   return files
+}
+
+// Remove generated armada files. Never removes user files without opts.all.
+// Only armada-owned .opencode/ entries are removed; user files under .opencode/
+// (opencode.json, agent/*.md, skills/, plugins/) are kept. If .opencode/ still
+// holds non-armada files after cleanup the dir is left in place and a warning
+// is logged via console.warn. Returns the list of removed relative paths.
+export function uninstall(manifest, opts = {}) {
+  const target = manifest?.targetDir || "."
+  const removed = []
+  const warnings = []
+
+  const removeFile = (rel) => {
+    const full = join(target, rel)
+    if (!existsSync(full)) return
+    if (!opts.dryRun) rmSync(full, { force: true })
+    removed.push(rel)
+  }
+  // Remove an empty dir; no-op (and not listed) if it still has contents.
+  const removeEmptyDir = (rel) => {
+    const full = join(target, rel)
+    if (!existsSync(full)) return
+    if (!opts.dryRun) {
+      try {
+        rmdirSync(full)
+      } catch {
+        return
+      }
+    }
+    removed.push(rel)
+  }
+
+  removeFile("armada.yaml")
+  removeFile(".opencode/oh-my-opencode-slim.jsonc")
+  removeFile(".opencode/commands/armada.md")
+  const promptDir = join(target, ".opencode/oh-my-opencode-slim")
+  if (existsSync(promptDir)) {
+    for (const f of readdirSync(promptDir)) {
+      if (f.endsWith(".md")) removeFile(`.opencode/oh-my-opencode-slim/${f}`)
+    }
+  }
+  removeEmptyDir(".opencode/oh-my-opencode-slim")
+  removeEmptyDir(".opencode/commands")
+  const opencodeDir = join(target, ".opencode")
+  if (existsSync(opencodeDir)) {
+    if (opts.dryRun) {
+      removed.push(".opencode")
+    } else {
+      try {
+        rmdirSync(opencodeDir)
+        removed.push(".opencode")
+      } catch {
+        warnings.push(
+          "kept .opencode/ — still contains non-armada files (uninstall only removes armada-owned files)")
+      }
+    }
+  }
+  if (existsSync(join(target, ".devcontainer"))) {
+    if (!opts.dryRun) rmSync(join(target, ".devcontainer"), { recursive: true, force: true })
+    removed.push(".devcontainer")
+  }
+  if (opts.all) {
+    removeFile("AGENTS.md")
+    removeFile("opencode.json")
+    removeFile("REQUIREMENTS.md")
+  }
+  for (const w of warnings) console.warn(w)
+  return removed
 }
 
 function renderArmadaCommand() {

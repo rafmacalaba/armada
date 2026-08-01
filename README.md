@@ -101,9 +101,14 @@ is also scaffolded.
 | `armada init --budget <free\|balanced\|power>` | declarative |
 | `armada init --stack <hint> --no-browser` | declarative flags |
 | `armada init --from-armada armada.yaml` | re-scaffold from manifest |
+| `armada init --dry-run` | print files without writing |
+| `armada init --yes` | non-interactive defaults (no TTY) |
 | `armada models [budget]` | show curated model catalog |
-| `armada models --refresh` | merge live provider models |
+| `armada models --refresh --cache <path>` | merge live provider models (cache to path) |
 | `armada doctor` | environment health check |
+| `armada uninstall` | remove armada-generated artifacts |
+| `armada uninstall --all` | also remove generated `AGENTS.md`/`opencode.json`/`REQUIREMENTS.md` |
+| `armada uninstall --dry-run` | print what would be removed |
 | `armada ping` | sanity check |
 | `armada help` | usage |
 

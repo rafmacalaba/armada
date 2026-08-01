@@ -109,7 +109,7 @@ export function formatStack(stack) {
   if (stack.backend) parts.push(`backend: ${stack.backend}`)
   if (stack.database) parts.push(`db: ${stack.database}`)
   if (stack.testing) parts.push(`testing: ${stack.testing}`)
-  if (stack.languages.length) parts.push(`lang: ${stack.languages.join(",")}`)
+  if (stack.languages?.length) parts.push(`lang: ${stack.languages.join(",")}`)
   if (!parts.length) parts.push("none detected")
   return parts.join(" | ")
 }

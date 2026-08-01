@@ -91,7 +91,7 @@ const ROUTING = {
 }
 
 export function buildTeam(manifest) {
-  const { budget, browserTesting } = manifest
+  const { budget, browserTesting } = manifest.project ?? {}
   return ROLES.map((role) => {
     const enabled = manifest.team.some((t) => t.role === role && t.enabled !== false)
     return {
