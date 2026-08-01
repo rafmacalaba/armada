@@ -16,8 +16,8 @@ function firstLine(out, fallback) {
 }
 
 export async function runDoctor(opts = {}) {
-  const env = opts.env || process.env
-  const configPath = opts.configPath || join(homedir(), ".config/opencode/opencode.json")
+  const env = opts.env ?? process.env
+  const configPath = opts.configPath ?? join(homedir(), ".config/opencode/opencode.json")
   const checks = []
 
   const v = await run("opencode", ["--version"], env)

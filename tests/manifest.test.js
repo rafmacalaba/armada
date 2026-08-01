@@ -42,3 +42,23 @@ test("rejects invalid yaml", () => {
 test("rejects missing team", () => {
   assert.throws(() => parseManifestYaml("project:\n  name: x\n  budget: balanced\nteam: []"), /team is empty/)
 })
+
+test("rejects non-list team", () => {
+  assert.throws(() => parseManifestYaml("project:\n  name: x\nteam: {}"), /team must be a list/)
+})
+
+test("coerces quoted string booleans for enabled", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: free",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    '    enabled: "false"',
+    "",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.team.length, 1)
+  assert.strictEqual(parsed.team[0].enabled, false)
+})

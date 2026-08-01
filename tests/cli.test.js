@@ -45,6 +45,16 @@ test("init --yes --budget free --no-browser works without TTY", async () => {
   assert.match(yaml, /browserTesting: false/)
 })
 
+test("init --yes --stack overlays hint onto detected stack", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--stack", "nextjs-fastapi", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  const yaml = readFileSync(join(dir, "armada.yaml"), "utf8")
+  assert.match(yaml, /frontend: nextjs/)
+  assert.match(yaml, /backend: python-fastapi/)
+  assert.doesNotMatch(yaml, /none detected/)
+})
+
 test("init --from-armada missing manifest exits 1", async () => {
   const dir = makeTempRepo({})
   const r = await runCli(["init", "--from-armada", "nope.yaml"], { cwd: dir })
@@ -96,4 +106,23 @@ test("uninstall CLI missing manifest exits 1", async () => {
   const r = await runCli(["uninstall", "--from-armada", "nope.yaml"], { cwd: dir })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /Manifest not found/)
+})
+
+test("uninstall CLI --from-armada without value exits 1", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["uninstall", "--from-armada"], { cwd: dir })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /Manifest not found: \(missing\)/)
+})
+
+test("uninstall CLI keeps user .opencode files and warns", async () => {
+  const dir = makeTempRepo({ "armada.yaml": manifestYaml(), ".opencode/agent/custom.md": "# custom\n" })
+  await runCli(["init", "--from-armada", "armada.yaml"], { cwd: dir })
+  const r = await runCli(["uninstall"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.ok(!existsSync(join(dir, ".opencode/oh-my-opencode-slim.jsonc")))
+  assert.ok(!existsSync(join(dir, ".opencode/commands")))
+  assert.strictEqual(readFileSync(join(dir, ".opencode/agent/custom.md"), "utf8"), "# custom\n")
+  assert.ok(existsSync(join(dir, ".opencode")))
+  assert.match(r.stderr, /non-armada/)
 })

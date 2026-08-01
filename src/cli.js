@@ -38,6 +38,53 @@ Usage:
   armada help                                this help
 `
 
+// Token -> stack field mappings for `--stack <hint>`. Only applied when the
+// detected stack leaves that field null/empty.
+const STACK_HINT_TOKENS = {
+  frontend: {
+    nextjs: "nextjs", react: "react", vue: "vue", remix: "remix",
+    gatsby: "gatsby", svelte: "svelte",
+  },
+  backend: {
+    fastapi: "python-fastapi", django: "python-django", flask: "python-flask",
+    express: "node-express", fastify: "node-fastify", nest: "node-nestjs",
+    nestjs: "node-nestjs", node: "node",
+  },
+  database: {
+    postgres: "postgres", postgresql: "postgres", mysql: "mysql",
+    sqlite: "sqlite", mongodb: "mongodb", mongo: "mongodb",
+  },
+  testing: {
+    playwright: "playwright", pytest: "pytest", jest: "jest",
+    vitest: "vitest", cypress: "cypress",
+  },
+}
+
+// Extract the --stack <hint> value, or undefined when missing/misused.
+function stackHint(args) {
+  const i = args.indexOf("--stack")
+  if (i === -1) return undefined
+  const v = args[i + 1]
+  return v && !v.startsWith("--") ? v : undefined
+}
+
+// Overlay the CLI stack hint onto a detected stack. Token order wins; a field
+// already set by detection is left alone. Mutates and returns the stack.
+export function applyStackHint(stack, hint) {
+  if (!hint) return stack
+  const tokens = hint.split(/[-,+_ ]/).filter(Boolean)
+  for (const field of Object.keys(STACK_HINT_TOKENS)) {
+    for (const token of tokens) {
+      const mapped = STACK_HINT_TOKENS[field][token]
+      if (mapped && !stack[field]) {
+        stack[field] = mapped
+        break
+      }
+    }
+  }
+  return stack
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const [cmd, ...rest] = argv
 
@@ -93,7 +140,7 @@ async function init(args) {
     try {
       manifest = parseManifestYaml(readFileSync(resolve(file), "utf8"))
     } catch (err) {
-      console.error(err.message)
+      console.error(String(err?.message ?? err))
       process.exitCode = 1
       return
     }
@@ -107,10 +154,6 @@ async function init(args) {
   if (budgetIdx !== -1 && BUDGETS.includes(args[budgetIdx + 1])) {
     manifest.project.budget = args[budgetIdx + 1]
   }
-  const stackIdx = args.indexOf("--stack")
-  if (stackIdx !== -1) {
-    manifest.project.stack = { ...manifest.project.stack, hint: args[stackIdx + 1] }
-  }
   const noBrowser = args.includes("--no-browser")
   if (noBrowser) {
     manifest.project.browserTesting = false
@@ -118,9 +161,14 @@ async function init(args) {
   }
 
   manifest.targetDir = "."
-  const stack = manifest.project.stack && Object.keys(manifest.project.stack).length
-    ? manifest.project.stack
-    : detectStack(".")
+
+  // Always detect the stack from the repo, then overlay any --stack hint onto
+  // the detected fields. Stored back into the manifest so armada.yaml reflects it.
+  const stack = applyStackHint(
+    Object.keys(manifest.project.stack).length ? { ...manifest.project.stack } : detectStack("."),
+    stackHint(args))
+
+  manifest.project.stack = stack
 
   const dryRun = args.includes("--dry-run")
   const files = scaffold(manifest, stack, { dryRun })
@@ -157,7 +205,10 @@ async function models(args) {
   const refresh = args.includes("--refresh")
   const budget = args.find((a) => BUDGETS.includes(a)) ?? "balanced"
   const cacheIdx = args.indexOf("--cache")
-  const cachePath = cacheIdx !== -1 ? args[cacheIdx + 1] : undefined
+  const cachePath =
+    cacheIdx !== -1 && args[cacheIdx + 1] && !args[cacheIdx + 1].startsWith("--")
+      ? args[cacheIdx + 1]
+      : undefined
   let availability
   if (refresh) {
     try {
@@ -191,8 +242,8 @@ async function doctor() {
 async function uninstallCmd(args) {
   const fileIdx = args.indexOf("--from-armada")
   const file = fileIdx !== -1 ? args[fileIdx + 1] : "armada.yaml"
-  if (!existsSync(resolve(file))) {
-    console.error(`Manifest not found: ${file}`)
+  if (!file || file.startsWith("--") || !existsSync(resolve(file))) {
+    console.error(`Manifest not found: ${!file || file.startsWith("--") ? "(missing)" : file}`)
     process.exitCode = 1
     return
   }
@@ -200,7 +251,7 @@ async function uninstallCmd(args) {
   try {
     manifest = parseManifestYaml(readFileSync(resolve(file), "utf8"))
   } catch (err) {
-    console.error(err.message)
+    console.error(String(err?.message ?? err))
     process.exitCode = 1
     return
   }

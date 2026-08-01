@@ -41,7 +41,7 @@ link them to an issue/PR when relevant.
   Validation found catalog drift: `opencode/deepseek-v4-pro` unavailable, live equivalent is
   `opencode-go/deepseek-v4-pro`.
 - [x] **`armada doctor` is a stub.** Now spawns real checks: `opencode --version`, the
-  plugin[] entry in `~/.config/opencode/opencode.json`, `opencode auth list`, and
+  plugin[] entry in `~/.config/opencode/opencode.json`, `opencode providers list`, and
   `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS`; sets exit code on failure.
 - [x] **Manifest parser is regex-based.** `parseManifest` in cli.js only understands the
   exact `renderManifestYaml` output. Replaced with a real YAML parser (`yaml` package, see

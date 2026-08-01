@@ -13,13 +13,14 @@ export function parseManifestYaml(text) {
     throw new Error(`armada.yaml: invalid YAML (${err.message})`)
   }
   if (!raw || !raw.project) throw new Error("armada.yaml: missing 'project' section")
+  if (!Array.isArray(raw.team)) throw new Error("armada.yaml: team must be a list")
   const p = raw.project
   const stack = p.stack ?? {}
-  const team = (raw.team ?? []).map((t) => ({
+  const team = raw.team.map((t) => ({
     role: t.role,
     model: t.model,
     fallback: t.fallback,
-    enabled: t.enabled !== false,
+    enabled: t.enabled === false || t.enabled === "false" ? false : true,
   }))
   if (!team.length) throw new Error("armada.yaml: team is empty")
   return {
