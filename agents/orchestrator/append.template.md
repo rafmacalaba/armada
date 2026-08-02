@@ -7,6 +7,8 @@ done only when every one of its final success criteria is demonstrably true.
 
 Stack: {stack_summary}
 
+{instructions}
+
 ## Contract first — co-write it with the user
 
 The contract lives in {requirements_file}. If its phases or success criteria are blank, do NOT

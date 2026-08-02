@@ -1,8 +1,8 @@
 // Scaffold: writes generated config files into a target repo. Read-only
 // generation happens in generator.js; this module owns the file I/O.
 
-import { mkdirSync, writeFileSync, existsSync, copyFileSync, readFileSync, rmSync, rmdirSync, readdirSync } from "node:fs"
-import { join } from "node:path"
+import { mkdirSync, writeFileSync, existsSync, copyFileSync, readFileSync, rmSync, rmdirSync, readdirSync, lstatSync } from "node:fs"
+import { join, resolve } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -13,14 +13,15 @@ import {
   renderAgentsMd,
   renderRequirementsMd,
   renderManifestYaml,
+  renderArmadaCommand,
 } from "./generator.js"
 import { formatStack } from "./stack-detect.js"
+import { validateRequirementsFile } from "./manifest.js"
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
-// Render a prompt template with the manifest's stack context.
-export function fillPrompt(templatePath, manifest, stack) {
-  const raw = readFileSync(templatePath, "utf8")
+// Pure substitution. The I/O wrapper is fillPrompt.
+export function fillTemplate(text, manifest, stack) {
   const browserTool = manifest.project.useAgentBrowser
     ? "\nBrowser tool: agent-browser (snapshot/click/fill/screenshot via MCP or CLI)."
     : ""
@@ -34,8 +35,16 @@ export function fillPrompt(templatePath, manifest, stack) {
     frontend_src: (stack.srcDirs?.[0] ?? "src"),
     backend_src: (stack.srcDirs?.find((d) => ["backend", "server", "api"].includes(d)) ?? stack.srcDirs?.[0] ?? "src"),
     browser_tool: browserTool,
+    instructions: stack.instructions?.length
+      ? "Also read these existing instruction files before planning: " + stack.instructions.join(", ") + "."
+      : "",
   }
-  return raw.replace(/\{(\w+)\}/g, (m, key) => subs[key] ?? m)
+  return text.replace(/\{(\w+)\}/g, (m, key) => subs[key] ?? m)
+}
+
+// Render a prompt template with the manifest's stack context.
+export function fillPrompt(templatePath, manifest, stack) {
+  return fillTemplate(readFileSync(templatePath, "utf8"), manifest, stack)
 }
 
 export const PROMPT_SOURCE = {
@@ -49,9 +58,24 @@ export const PROMPT_SOURCE = {
   architect: "agents/architect/prompt.template.md",
 }
 
+export function validateTargetDir(target) {
+  const full = resolve(target)
+  function symlink(p) {
+    try {
+      return lstatSync(p).isSymbolicLink()
+    } catch (e) {
+      if (e.code === "ENOENT") return false
+      throw e
+    }
+  }
+  if (symlink(full)) throw new Error(`target directory is a symlink: ${target}`)
+  if (symlink(join(full, ".opencode"))) throw new Error(`.opencode/ is a symlink under target: ${target}`)
+}
+
 // Main entry. target = repo root. Returns list of written files.
 export function scaffold(manifest, stack, opts = {}) {
   const target = manifest.targetDir || "."
+  if (!opts.dryRun) validateTargetDir(target)
   const team = buildTeam(manifest)
   const files = []
 
@@ -113,6 +137,7 @@ export function scaffold(manifest, stack, opts = {}) {
 
   // 5. Requirements file (default armada/REQUIREMENTS.md) — only write if absent.
   const requirementsFile = manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md"
+  validateRequirementsFile(requirementsFile, target)
   if (!existsSync(out(requirementsFile))) {
     write(requirementsFile, renderRequirementsMd(manifest))
   }
@@ -167,7 +192,8 @@ export function uninstall(manifest, opts = {}) {
   }
 
   removeFile("armada/armada.yaml")
-  removeFile("armada/REQUIREMENTS.md")
+  const requirementsFile = manifest?.project?.requirementsFile ?? "armada/REQUIREMENTS.md"
+  removeFile(requirementsFile)
   removeEmptyDir("armada")
   removeFile(".opencode/oh-my-opencode-slim.jsonc")
   removeFile(".opencode/commands/armada.md")
@@ -193,7 +219,7 @@ export function uninstall(manifest, opts = {}) {
       }
     }
   }
-  if (existsSync(join(target, ".devcontainer"))) {
+  if (manifest?.project?.devcontainer && existsSync(join(target, ".devcontainer"))) {
     if (!opts.dryRun) rmSync(join(target, ".devcontainer"), { recursive: true, force: true })
     removed.push(".devcontainer")
   }
@@ -204,13 +230,4 @@ export function uninstall(manifest, opts = {}) {
   }
   for (const w of warnings) console.warn(w)
   return removed
-}
-
-function renderArmadaCommand() {
-  return `---
-description: opencode-armada — team status, roles, regenerate
----
-You are the armada helper. Report: the configured team (from .opencode/oh-my-opencode-slim.jsonc),
-the active preset, and how to regenerate (armada init --from-armada armada/armada.yaml). Keep it terse.
-`
 }

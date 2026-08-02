@@ -20,7 +20,7 @@ import { runQuestionnaire, guessName } from "./questionnaire.js"
 import { detectStack } from "./stack-detect.js"
 import { scaffold, uninstall } from "./scaffold.js"
 import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache } from "./model-catalog.js"
-import { parseManifestYaml } from "./manifest.js"
+import { parseManifestYaml, validateRequirementsFile } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 import { runNew } from "./new-command.js"
 
@@ -36,11 +36,12 @@ Usage:
   armada init --stack <s> --budget <b>       declarative setup
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
   armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
+  armada init --target <dir>                 scaffold into a directory (default cwd)
   armada init --from-armada armada/armada.yaml      regenerate from manifest
   armada models [budget]                     show curated model catalog
   armada models --refresh                    merge live provider models
   armada doctor                              environment health check
-  armada uninstall [--all] [--dry-run]       remove armada-generated artifacts
+  armada uninstall [--all] [--dry-run] [--target <dir>]  remove armada-generated artifacts
   armada ping                                sanity check
   armada help                                this help
 `
@@ -129,6 +130,7 @@ export async function main(argv = process.argv.slice(2)) {
       console.error(HELP)
       process.exitCode = 1
   }
+  return process.exitCode ?? 0
 }
 
 // Entry when run as a script (node/bun src/cli.js, or the installed `armada`
@@ -150,21 +152,38 @@ const isMain =
   typeof process !== "undefined" &&
   resolveEntry(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
 
+function logError(err, hint) {
+  if (process.env.DEBUG === "1") {
+    console.error(err)
+  } else {
+    console.error(err?.message ?? err)
+    if (hint) console.error(hint)
+  }
+}
+
 if (isMain) {
   main().catch((err) => {
-    console.error(err)
+    logError(err, `check permissions on the target directory`)
     process.exitCode = 1
   })
 }
 
 async function init(args) {
+  const targetIdx = args.indexOf("--target")
+  const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--") ? args[targetIdx + 1] : "."
+
   const fromArmadaIdx = args.indexOf("--from-armada")
   let manifest = null
 
   if (fromArmadaIdx !== -1) {
     const file = args[fromArmadaIdx + 1]
-    if (!file || !existsSync(resolve(file))) {
-      console.error(`Manifest not found: ${file ?? "(missing)"}`)
+    if (!file || file.startsWith("--")) {
+      console.error(`Manifest not found: (missing)`)
+      process.exitCode = 1
+      return
+    }
+    if (!existsSync(resolve(file))) {
+      console.error(`Manifest not found: ${file}`)
       process.exitCode = 1
       return
     }
@@ -177,10 +196,12 @@ async function init(args) {
     }
   } else {
     const nonInteractive = args.includes("--yes") || !process.stdin.isTTY
-    manifest = nonInteractive ? defaultManifest() : await runQuestionnaire(".")
+    manifest = nonInteractive ? defaultManifest(target) : await runQuestionnaire(target)
   }
 
   // Apply declarative overrides.
+  manifest.targetDir = target
+
   const budgetIdx = args.indexOf("--budget")
   if (budgetIdx !== -1 && BUDGETS.includes(args[budgetIdx + 1])) {
     manifest.project.budget = args[budgetIdx + 1]
@@ -195,21 +216,33 @@ async function init(args) {
   }
   const reqIdx = args.indexOf("--requirements")
   if (reqIdx !== -1 && args[reqIdx + 1] && !args[reqIdx + 1].startsWith("--")) {
+    try {
+      validateRequirementsFile(args[reqIdx + 1], manifest.targetDir ?? ".")
+    } catch (err) {
+      logError(err)
+      process.exitCode = 1
+      return
+    }
     manifest.project.requirementsFile = args[reqIdx + 1]
   }
-
-  manifest.targetDir = "."
 
   // Always detect the stack from the repo, then overlay any --stack hint onto
   // the detected fields. Stored back into the manifest so armada.yaml reflects it.
   const stack = applyStackHint(
-    Object.keys(manifest.project.stack).length ? { ...manifest.project.stack } : detectStack("."),
+    Object.keys(manifest.project.stack).length ? { ...manifest.project.stack } : detectStack(manifest.targetDir ?? "."),
     stackHint(args))
 
   manifest.project.stack = stack
 
   const dryRun = args.includes("--dry-run")
-  const files = scaffold(manifest, stack, { dryRun })
+  let files
+  try {
+    files = scaffold(manifest, stack, { dryRun })
+  } catch (err) {
+    logError(err, `check permissions on the target directory`)
+    process.exitCode = 1
+    return
+  }
   console.log(`\n${dryRun ? "(dry-run) " : ""}Scaffolded opencode-armada team:`)
   for (const f of files) console.log(`  ${dryRun ? "(dry-run) + " : "+ "}${f}`)
   console.log("\nNext:")
@@ -220,10 +253,10 @@ async function init(args) {
 
 // Default (non-interactive) manifest: guessed project name, balanced budget,
 // every role enabled at its balanced model, no browser/devcontainer extras.
-export function defaultManifest() {
+export function defaultManifest(target = ".") {
   return {
     project: {
-      name: guessName(process.cwd()),
+      name: guessName(resolve(target)),
       budget: "balanced",
       browserTesting: false,
       devcontainer: false,
@@ -254,7 +287,7 @@ async function models(args) {
     try {
       availability = await refreshModels({ cachePath })
     } catch (err) {
-      console.error(`models --refresh failed: ${err.message}`)
+      logError(err, `check permissions on ${cachePath ?? "~/.armada"}`)
       process.exitCode = 1
       return
     }
@@ -280,25 +313,37 @@ async function doctor() {
 }
 
 async function uninstallCmd(args) {
+  const targetIdx = args.indexOf("--target")
+  const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--") ? args[targetIdx + 1] : "."
   const fileIdx = args.indexOf("--from-armada")
   const file = fileIdx !== -1 ? args[fileIdx + 1] : "armada/armada.yaml"
-  if (!file || file.startsWith("--") || !existsSync(resolve(file))) {
-    console.error(`Manifest not found: ${!file || file.startsWith("--") ? "(missing)" : file}`)
-    process.exitCode = 1
-    return
-  }
-  let manifest
-  try {
-    manifest = parseManifestYaml(readFileSync(resolve(file), "utf8"))
-  } catch (err) {
-    console.error(String(err?.message ?? err))
-    process.exitCode = 1
-    return
-  }
-  manifest.targetDir = "."
   const dryRun = args.includes("--dry-run")
   const all = args.includes("--all")
-  const removed = uninstall(manifest, { all, dryRun })
+  let manifest
+  if (file && !file.startsWith("--") && existsSync(resolve(file))) {
+    try {
+      manifest = parseManifestYaml(readFileSync(resolve(file), "utf8"))
+    } catch (err) {
+      logError(err)
+      process.exitCode = 1
+      return
+    }
+  } else {
+    console.warn("Manifest not found; cleaning by known paths")
+    manifest = {
+      targetDir: target,
+      project: { requirementsFile: "armada/REQUIREMENTS.md" },
+    }
+  }
+  manifest.targetDir = target
+  let removed
+  try {
+    removed = uninstall(manifest, { all, dryRun })
+  } catch (err) {
+    logError(err, `check permissions on the target directory`)
+    process.exitCode = 1
+    return
+  }
   console.log(`\n${dryRun ? "(dry-run) " : ""}Removed armada artifacts:`)
   for (const f of removed) console.log(`  ${dryRun ? "(dry-run) - " : "- "}${f}`)
 }

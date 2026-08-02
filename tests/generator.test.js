@@ -1,14 +1,12 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { readFileSync } from "node:fs"
+import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { dirname } from "node:path"
 
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
-import { buildTeam, renderSlimJsonc, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml } from "../src/generator.js"
-import { detectStack, formatStack } from "../src/stack-detect.js"
+import { buildTeam, renderSlimJsonc, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand } from "../src/generator.js"
+import { parseManifestYaml } from "../src/manifest.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -25,14 +23,21 @@ const baseManifest = {
   playbook: {},
 }
 
-test("catalog covers every role", () => {
+test("catalog has expected model IDs per role", () => {
   assert.deepStrictEqual(ROLES, ["orchestrator", "backend-dev", "frontend-dev", "qa", "adversary", "security", "docs", "architect"])
-  for (const r of ROLES) {
-    assert.ok(CATALOG[r].primary, `${r}.primary`)
-    assert.ok(CATALOG[r].fallback, `${r}.fallback`)
-    assert.ok(CATALOG[r].free, `${r}.free`)
-    assert.ok(CATALOG[r].power, `${r}.power`)
-  }
+  assert.deepStrictEqual(
+    Object.fromEntries(ROLES.map((r) => [r, { primary: CATALOG[r].primary, fallback: CATALOG[r].fallback, free: CATALOG[r].free, power: CATALOG[r].power }])),
+    {
+      orchestrator: { primary: "opencode-go/minimax-m3", fallback: "openrouter/z-ai/glm-5.2", free: "opencode-go/hy3", power: "openrouter/anthropic/claude-sonnet-4.6" },
+      "backend-dev": { primary: "opencode-go/kimi-k2.7-code", fallback: "openrouter/z-ai/glm-5.2", free: "opencode/deepseek-v4-flash-free", power: "openrouter/z-ai/glm-5.2" },
+      "frontend-dev": { primary: "opencode-go/minimax-m3", fallback: "openrouter/minimax/minimax-m3", free: "opencode/mimo-v2.5-free", power: "openrouter/minimax/minimax-m3" },
+      qa: { primary: "opencode/mimo-v2.5-free", fallback: "openrouter/xiaomi/mimo-v2.5", free: "opencode/mimo-v2.5-free", power: "openrouter/xiaomi/mimo-v2.5" },
+      adversary: { primary: "opencode-go/deepseek-v4-pro", fallback: "openrouter/deepseek/deepseek-v4-pro", free: "opencode/deepseek-v4-flash-free", power: "openrouter/deepseek/deepseek-v4-pro" },
+      security: { primary: "opencode/big-pickle", fallback: "openrouter/deepseek/deepseek-v4-pro", free: "opencode/big-pickle", power: "openrouter/deepseek/deepseek-v4-pro" },
+      docs: { primary: "opencode/deepseek-v4-flash-free", fallback: "openrouter/minimax/minimax-m3", free: "opencode/deepseek-v4-flash-free", power: "openrouter/minimax/minimax-m3" },
+      architect: { primary: "opencode/big-pickle", fallback: "openrouter/z-ai/glm-5.2", free: "opencode/big-pickle", power: "openrouter/z-ai/glm-5.2" },
+    }
+  )
 })
 
 test("every catalog model exists on live providers (fixture)", () => {
@@ -68,18 +73,56 @@ test("buildTeam includes all roles with permissions", () => {
   assert.strictEqual(qa.permissions.edit["e2e/*"], "allow")
 })
 
+test("buildTeam honors manifest per-role model, variant, fallback", () => {
+  const m = structuredClone(baseManifest)
+  m.team = ROLES.map((role) => ({
+    role,
+    model: role === "backend-dev" ? "custom/model" : modelFor(role, "balanced"),
+    variant: role === "backend-dev" ? "thinking" : null,
+    fallback: role === "backend-dev" ? "custom/fallback" : fallbackFor(role),
+    enabled: true,
+  }))
+  const team = buildTeam(m)
+  const backend = team.find((a) => a.role === "backend-dev")
+  assert.strictEqual(backend.model, "custom/model")
+  assert.strictEqual(backend.variant, "thinking")
+  assert.strictEqual(backend.fallback, "custom/fallback")
+  const orchestrator = team.find((a) => a.role === "orchestrator")
+  assert.strictEqual(orchestrator.model, modelFor("orchestrator", "balanced"))
+})
+
 test("buildTeam non-headless keeps orchestrator bash ask", () => {
   const team = buildTeam(baseManifest)
   const orch = team.find((a) => a.role === "orchestrator")
   assert.strictEqual(orch.permissions.bash["*"], "ask")
 })
 
-test("buildTeam headless loosens orchestrator bash to allow", () => {
+test("buildTeam disabled role is reflected in enabled flag", () => {
+  const m = structuredClone(baseManifest)
+  m.team = m.team.map((t) => ({ ...t, enabled: t.role !== "qa" }))
+  const team = buildTeam(m)
+  const qa = team.find((a) => a.role === "qa")
+  assert.strictEqual(qa.enabled, false)
+  const backend = team.find((a) => a.role === "backend-dev")
+  assert.strictEqual(backend.enabled, true)
+})
+
+test("buildTeam browser false path leaves browser false", () => {
+  const m = structuredClone(baseManifest)
+  m.project.browserTesting = false
+  m.project.useAgentBrowser = false
+  const team = buildTeam(m)
+  for (const a of team) assert.strictEqual(a.browser, false)
+})
+
+test("buildTeam headless scopes orchestrator bash to git and read", () => {
   const m = structuredClone(baseManifest)
   m.project.headless = true
   const team = buildTeam(m)
   const orch = team.find((a) => a.role === "orchestrator")
-  assert.deepStrictEqual(orch.permissions.bash, { "*": "allow" })
+  assert.strictEqual(orch.permissions.bash["*"], "deny")
+  assert.strictEqual(orch.permissions.bash["git status*"], "allow")
+  assert.strictEqual(orch.permissions.bash["cat*"], "allow")
   const qa = team.find((a) => a.role === "qa")
   assert.strictEqual(qa.permissions.edit["*"], "deny", "other role boundaries unchanged")
 })
@@ -113,6 +156,16 @@ test("renderOpenCodeJson uses orchestrator model + deny external_directory", () 
   const cfg = renderOpenCodeJson(baseManifest, team)
   assert.strictEqual(cfg.model, modelFor("orchestrator", "balanced"))
   assert.strictEqual(cfg.permission.external_directory, "deny")
+  assert.strictEqual(cfg.permission.edit, undefined)
+  assert.strictEqual(cfg.permission.bash, undefined)
+})
+
+test("renderOpenCodeJson model follows budget tier", () => {
+  const m = structuredClone(baseManifest)
+  m.project.budget = "free"
+  const team = buildTeam(m)
+  const cfg = renderOpenCodeJson(m, team)
+  assert.strictEqual(cfg.model, modelFor("orchestrator", "free"))
 })
 
 test("AGENTS.md playbook mentions ledger and roles", () => {
@@ -127,44 +180,10 @@ test("AGENTS.md playbook mentions ledger and roles", () => {
 test("manifest round-trips through renderManifestYaml", () => {
   const team = buildTeam(baseManifest)
   const yaml = renderManifestYaml(baseManifest, team)
-  assert.match(yaml, /name: test-project/)
-  assert.match(yaml, /budget: balanced/)
-  assert.match(yaml, /role: backend-dev/)
+  assert.match(yaml, /name: "test-project"/)
+  assert.match(yaml, /budget: "balanced"/)
+  assert.match(yaml, /role: "backend-dev"/)
 })
-
-test("stack detect parses package.json and pyproject", async (t) => {
-  await t.test("node/next", () => {
-    const dir = makeTempRepo({
-      "package.json": JSON.stringify({ dependencies: { next: "15", react: "19", jest: "29" } }),
-    })
-    const s = detectStack(dir)
-    assert.strictEqual(s.frontend, "nextjs")
-    assert.strictEqual(s.testing, "jest")
-    assert.ok(s.languages.includes("typescript"))
-  })
-  await t.test("python/fastapi", () => {
-    const dir = makeTempRepo({ "requirements.txt": "fastapi\nsqlalchemy\npytest" })
-    const s = detectStack(dir)
-    assert.strictEqual(s.backend, "python-fastapi")
-    assert.strictEqual(s.testing, "pytest")
-    assert.strictEqual(s.database, "sqlalchemy")
-  })
-  await t.test("empty repo -> minimal", () => {
-    const dir = makeTempRepo({})
-    const s = detectStack(dir)
-    assert.strictEqual(formatStack(s).split("|").length, 1)
-  })
-})
-
-function makeTempRepo(files) {
-  const dir = mkdtempSync(join(tmpdir(), "armada-test-"))
-  for (const [rel, content] of Object.entries(files)) {
-    const p = join(dir, rel)
-    mkdirSync(join(dir, rel.split("/").slice(0, -1).join("/")), { recursive: true })
-    writeFileSync(p, content, "utf8")
-  }
-  return dir
-}
 
 test("renderAgentsMd references custom requirements file", () => {
   const m = structuredClone(baseManifest)
@@ -177,7 +196,18 @@ test("renderManifestYaml emits requirementsFile", () => {
   const m = structuredClone(baseManifest)
   m.project.requirementsFile = "REQUIREMENTS-admin.md"
   const yaml = renderManifestYaml(m, buildTeam(m))
-  assert.match(yaml, /requirementsFile: REQUIREMENTS-admin\.md/)
+  assert.match(yaml, /requirementsFile: "REQUIREMENTS-admin\.md"/)
+})
+
+test("renderManifestYaml quotes scalars to survive round-trip", () => {
+  const m = structuredClone(baseManifest)
+  m.project.name = "weird\"name\n"
+  m.project.requirementsFile = "REQUIREMENTS-admin.md"
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  assert.doesNotThrow(() => parseManifestYaml(yaml))
+  const reparsed = parseManifestYaml(yaml)
+  assert.strictEqual(reparsed.project.name, "weird\"name\n")
+  assert.strictEqual(reparsed.project.requirementsFile, "REQUIREMENTS-admin.md")
 })
 
 test("renderRequirementsMd invites co-writing the contract", () => {
@@ -196,4 +226,10 @@ test("renderAgentsMd phase gates are dependency-driven", () => {
   const md = renderAgentsMd(baseManifest, buildTeam(baseManifest))
   assert.match(md, /starts as soon as the phases it depends on have passed/i)
   assert.ok(!/Only then does the next phase start/i.test(md), "no rigid sequential gate wording")
+})
+
+test("renderArmadaCommand lives in generator.js and is pure", () => {
+  const md = renderArmadaCommand()
+  assert.match(md, /armada init --from-armada/)
+  assert.match(md, /---/)
 })

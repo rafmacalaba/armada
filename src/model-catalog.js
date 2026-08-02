@@ -119,7 +119,9 @@ export function loadModelsCache(cachePath = defaultCachePath()) {
   try {
     const c = JSON.parse(readFileSync(cachePath, "utf8"))
     return Array.isArray(c.models) ? new Set(c.models) : null
-  } catch {
+  } catch (err) {
+    if (err.code === "ENOENT") return null
+    console.warn(`models cache is corrupt: ${cachePath} (${err.message})`)
     return null
   }
 }

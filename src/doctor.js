@@ -49,10 +49,13 @@ export async function runDoctor(opts = {}) {
   checks.push({ name: "omo-slim plugin", status: plugin === "present" ? "pass" : "fail", detail: `plugin[] ${plugin}` })
 
   const bg = env.OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS
+  const bgEnabled = plugin === "present" && bg === "true"
   checks.push({
     name: "background dispatch",
-    status: "pass",
-    detail: "omo-slim handles background jobs" + (bg === "true" ? " (opencode-native also enabled)" : ""),
+    status: plugin === "present" ? "pass" : "fail",
+    detail: plugin === "present"
+      ? `omo-slim handles background jobs (OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=${bg ?? ""})`
+      : "omo-slim plugin missing; background dispatch unavailable",
   })
 
   checks.push({ name: "node", status: "pass", detail: process.version })

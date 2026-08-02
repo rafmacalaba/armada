@@ -8,8 +8,8 @@ import { stdin, stdout } from "node:process"
 import { ROLES, CATALOG, BUDGETS, modelFor, fallbackFor } from "./model-catalog.js"
 import { detectStack, formatStack } from "./stack-detect.js"
 
-export async function ask(question, { default: dflt, validate } = {}) {
-  const rl = createInterface({ input: stdin, output: stdout })
+export async function ask(question, { default: dflt, validate, input, output } = {}) {
+  const rl = createInterface({ input: input ?? stdin, output: output ?? stdout })
   const suffix = dflt ? ` [${dflt}]` : ""
   let answer
   while (true) {
@@ -29,8 +29,8 @@ export async function ask(question, { default: dflt, validate } = {}) {
   return answer
 }
 
-export async function confirm(question, dflt = true) {
-  const rl = createInterface({ input: stdin, output: stdout })
+export async function confirm(question, dflt = true, { input, output } = {}) {
+  const rl = createInterface({ input: input ?? stdin, output: output ?? stdout })
   const suffix = dflt ? " [Y/n]" : " [y/N]"
   while (true) {
     const answer = (await rl.question(`${question}${suffix} `)).trim().toLowerCase()
