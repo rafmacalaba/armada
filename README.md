@@ -1,3 +1,35 @@
+[![npm version](https://img.shields.io/npm/v/opencode-armada)](https://www.npmjs.com/package/opencode-armada)
+[![License: MIT](https://img.shields.io/npm/l/opencode-armada)](./LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/rafmacalaba/opencode-armada/release.yml)](https://github.com/rafmacalaba/opencode-armada/actions)
+[![Node](https://img.shields.io/node/v/opencode-armada)](https://nodejs.org)
+
+**Reproducible AI-engineer multi-agent teams for [opencode](https://opencode.ai).** Install
+armada into an existing repo, or start a brand-new one with a curated stack — then a configured
+team of specialized agents (backend, frontend, qa, adversary, security, docs, architect) plus an
+orchestrator that plans, delegates, and gates phases is ready the first time you open opencode.
+Stack-aware from your repo's actual manifests. Per-repo and reproducible via a single manifest
+file. MIT-licensed.
+
+```bash
+# start a fresh project, cookiecutter-style — picks the curated stack
+bunx opencode-armada new my-app --type web-app --beginner --yes
+cd my-app
+opencode                            # launch opencode — the team loads
+# in the TUI:
+"Implement the /admin dashboard"   # orchestrator delegates in parallel
+```
+
+- **Orchestrator that plans and gates** — drafts the contract with you, runs phases, requires
+  evidence at every gate before unlocking the next.
+- **Specialists that run in parallel** — backend-dev + frontend-dev per phase, independent phases
+  advance together, nothing blocks on something that doesn't depend on it.
+- **Boundaries that can't be bypassed** — per-role file permissions enforced by the SDK; qa is
+  read-only on product code, devs are locked out of `e2e/` and `DEFECTS.md`.
+
+[read more ↓](#why)
+
+---
+
 # opencode-armada
 
 Reproducible **AI-engineer multi-agent teams** for [opencode](https://opencode.ai), built on
@@ -36,15 +68,26 @@ armada is a **one-time generator** (the create-react-app model, not a runtime). 
 once, it writes the team config, and you're done — from then on you just use `opencode`, where
 omo-slim runs the team.
 
-```bash
-# 1. once, in your repo — writes team config, prompts, contract scaffold
-npx opencode-armada init
+There are two ways to install armada:
 
-# 2. every day — omo-slim loads the team
+- **`armada new <name>`** — fresh project, cookiecutter-style. Picks a curated starter template
+  for your category, scaffolds the directory, then runs `armada init` inside so the team is
+  ready the first time you open opencode.
+- **`armada init`** — add the team to an existing repo. Detects your stack from
+  `package.json` / `pyproject.toml` / `requirements.txt` / `Dockerfile` and scaffolds around it.
+
+Both end in the same place: a directory you `cd` into, run `opencode`, and start delegating.
+
+```bash
+# Path A: fresh project (cookiecutter-style)
+bunx opencode-armada new my-app --type web-app --beginner --yes
+cd my-app
 opencode
 
-# 3. you just talk to it
-"Implement the /admin dashboard"
+# Path B: existing repo
+cd my-existing-repo
+bunx opencode-armada init
+opencode
 ```
 
 That's it — the orchestrator co-writes `REQUIREMENTS.md` with you by default (blank contract →
@@ -83,6 +126,34 @@ option** on step 1. There is no armada at runtime.
 ---
 
 ## Quick start
+
+### Create a new project (cookiecutter-style)
+
+```bash
+# interactive: pick a category, then beginner or experienced
+armada new my-app
+
+# non-interactive: curated stack for a web app, no questions
+armada new my-app --type web-app --beginner --yes
+```
+
+Three categories ship today:
+
+| Category | Recommended stack | What you get |
+|---|---|---|
+| `web-app` | Next.js 15 + Tailwind 4 + TypeScript | React app, ESLint, GitHub Actions, Vercel-ready |
+| `ml-training` | Python + PyTorch + uv | pyproject, train script, pytest, ruff/black |
+| `research-paper` | LaTeX + Makefile | main.tex, Makefile, .gitignore, Zotero-ready bib |
+
+The **beginner path** picks the recommended stack per category. The **experienced path** drills
+down per layer (frontend framework, backend, database, testing, CI, deploy) and renders the
+recommendations accordingly. Both end in the same place: a directory you can `cd` into, run
+`opencode`, and have the team ready.
+
+`armada new` is the cookiecutter-style entry point: a single command does the stack pick, the
+starter copy, and the team install. No git clone → template copy → `armada init` dance.
+
+### Add the team to an existing repo
 
 ```bash
 # from your repo root
@@ -133,6 +204,11 @@ is also scaffolded.
 
 | Command | Purpose |
 |---------|---------|
+| `armada new <name>` | scaffold a new project from a curated starter + run `init` |
+| `armada new <name> --type <web-app\|ml-training\|research-paper>` | non-interactive category |
+| `armada new <name> --beginner` | use the recommended stack (default flow) |
+| `armada new <name> --experienced` | drill down per layer (frontend, backend, db, test, CI, deploy) |
+| `armada new <name> --yes` | skip all prompts (use with `--type` + `--beginner`/`--experienced`) |
 | `armada init` | interactive setup |
 | `armada init --budget <free\|balanced\|power>` | declarative |
 | `armada init --stack <hint> --no-browser` | declarative flags |

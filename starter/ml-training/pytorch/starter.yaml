@@ -1,0 +1,4 @@
+category: ml-training
+stack: pytorch
+description: "Python + PyTorch — model training pipeline with uv."
+postInstall: "uv sync"
