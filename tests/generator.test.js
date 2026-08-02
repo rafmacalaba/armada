@@ -76,6 +76,14 @@ test("slim jsonc is valid JSONC with preset", () => {
   assert.ok(!/\{[a-z_]+\}/.test(out), "no dangling placeholders")
 })
 
+test("slim jsonc marks orchestrator with armada-orchestrator displayName", () => {
+  const team = buildTeam(baseManifest)
+  const out = renderSlimJsonc(baseManifest, team)
+  const stripped = out.replace(/^\s*\/\/.*$/gm, "").trim()
+  const cfg = JSON.parse(stripped)
+  assert.strictEqual(cfg.presets.balanced.orchestrator.displayName, "armada-orchestrator")
+})
+
 test("renderOpenCodeJson uses orchestrator model + deny external_directory", () => {
   const team = buildTeam(baseManifest)
   const cfg = renderOpenCodeJson(baseManifest, team)

@@ -53,9 +53,10 @@ link them to an issue/PR when relevant.
 
 ## Next — validate in a real repo
 
-- [x] **Self-dogfood: armada on armada** (2026-08-01) — scaffolded the team into this repo,
-  loaded it in opencode, dispatched security + architect as background subagents, then
-  uninstalled to a pristine repo. Results in `docs/validation.md`.
+- [x] **Self-dogfood: armada on armada** (2026-08-01) — scaffolded the team into a sandbox
+  worktree, dispatched security + architect as background subagents, then uninstalled to a
+  pristine repo. Results in `docs/validation.md`. The unified two-lane workflow (audit +
+  feature) now lives in `docs/armada-improves-armada.md`.
 - [ ] Run `armada init` in `~/WBG/data-ai-chatbot` (fastapi backend + nextjs frontend)
   - [ ] Confirm stack detection returns fastapi + nextjs
   - [ ] Confirm generated `oh-my-opencode-slim.jsonc` loads in opencode (`opencode`, `ping all agents`)

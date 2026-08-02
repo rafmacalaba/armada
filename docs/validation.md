@@ -232,7 +232,7 @@ Workflow improvement so the contract is co-written, not hand-authored:
    gated unless the contract marks one independent.
 
 Verified: 68/68 tests (7 new: manifest parse default/custom, renderers reference custom file,
-scaffold writes custom contract + no-clobber, orchestrator prompt fills `{requirements_file}`
+scaffold writes custom contract + no-clobber, orchestrator append prompt fills `{requirements_file}`
 with no dangling placeholders, CLI e2e `init --requirements`).
 
 Workflow consequence for features like `/admin`: tell the orchestrator your intent once; it
@@ -255,4 +255,22 @@ it implements phase-by-phase (backend ∥ frontend within a phase, gated across 
   the parallel engine.
 
 71/71 tests (3 new: requirements scaffold depends-on, AGENTS gates dependency-driven,
-orchestrator prompt lean).
+orchestrator append prompt lean).
+
+---
+
+## Orchestrator architecture + unified workflow docs (2026-08-01)
+
+- **Orchestrator keeps the omo-slim primary slot.** Armada no longer scaffolds a separate
+  `armada-orchestrator` subagent. It keeps the agent named `orchestrator` (required for
+  `mode: primary` + the background-job board, which omo-slim injects only into that name) and
+  **appends** the armada delivery protocol via `orchestrator_append.md`. The TUI shows it as
+  **armada-orchestrator** through a `displayName`; the internal name never changes. This is
+  what keeps parallel phase dispatch working — the orchestrator holds the board and dispatches
+  backend-dev/frontend-dev/qa directly.
+- **Two-lane "armada improves armada" workflow.** `docs/self-dogfood.md` was folded into
+  `docs/armada-improves-armada.md`: Lane A (recurring audit) + Lane B (feature implementation),
+  both in `sandbox/<name>/` worktrees. `docs/using-armada.md` now covers building **or** auditing
+  on any other repo.
+
+74/74 tests.

@@ -22,8 +22,8 @@ Public. Transparent. MIT-licensed. Full spec in [SPEC.md](./SPEC.md).
   --from-armada armada.yaml` anywhere to reproduce the identical team.
 - **Model choice per role.** Primary = opencode/go-zen models (free where available), fallback
   = equivalent OpenRouter models. Choose a budget tier: free / balanced / power.
-- **Token-lean.** Agent prompts use terse, caveman-style output contracts. Orchestrator context
-  stays coordination-only; workers run in child sessions.
+- **Token-lean.** Agent prompts use terse, caveman-style output contracts. Armada-orchestrator
+  context stays coordination-only; workers run in child sessions.
 - **Enforced boundaries.** Each role has SDK-level file permissions (like the
   [personal-space](https://github.com/ed-donner/personal-space) pattern): qa read-only on
   product code, devs can't touch e2e/DEFECTS.md, adversary only its ledger.
@@ -53,6 +53,12 @@ You don't ask it to; it's how it starts. Then it implements: backend-dev and fro
 **parallel background subagents** per phase, and independent phases progress in parallel —
 nothing blocks a phase except an unmet dependency or a failed success criterion. You approve at
 gates and review the PR.
+
+The orchestrator is the omo-slim primary agent. Armada keeps that slot (it must — omo-slim
+grants `mode: primary` and the background-job board only to the agent named `orchestrator`) and
+**appends** the armada delivery protocol to its prompt (`orchestrator_append.md`), so the
+superpowers orchestration stays intact. The TUI shows it as **armada-orchestrator** via a
+`displayName`; the internal name never changes.
 
 Everything below this line (`--headless`, `--requirements`, `--budget`, …) is a **setup-time
 option** on step 1. There is no armada at runtime.
@@ -111,7 +117,7 @@ your-repo/
 └── .opencode/
     ├── oh-my-opencode-slim.jsonc     # preset + agent definitions (model, permission, routing)
     ├── oh-my-opencode-slim/          # stack-aware system prompts per agent
-    │   ├── orchestrator.md
+    │   ├── orchestrator_append.md    # armada delivery protocol (appended to omo-slim orchestrator)
     │   ├── backend-dev.md
     │   ├── frontend-dev.md
     │   ├── qa.md / adversary.md / security.md / docs.md / architect.md
@@ -192,13 +198,13 @@ node src/cli.js help
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for the code layout and [TODO.md](./TODO.md) for the
 roadmap and open work. To cut a release (npm + GitHub): [docs/RELEASING.md](./docs/RELEASING.md).
 
-## Self-dogfood
+## Armada improves armada
 
-armada is dogfooded on itself: `armada init --headless` scaffolds the team into this repo, and
-`opencode run` (or the live TUI) lets the team review armada's own `src/` — a CI-friendly loop
-for finding real gaps. The first runs already caught bugs. See
-[docs/self-dogfood.md](./docs/self-dogfood.md) for the full how-to, and
-[docs/validation.md](./docs/validation.md) for the recorded results.
+armada is dogfooded on itself: a team is scaffolded into a `sandbox/<name>/` worktree and either
+**audits** armada's own `src/` (recurring) or **implements** features from TODO.md (landing
+page, `armada new`, bugfixes). Worktrees keep the live repo pristine; the first runs already
+caught bugs. See [docs/armada-improves-armada.md](./docs/armada-improves-armada.md) for the
+two-lane how-to, and [docs/validation.md](./docs/validation.md) for the recorded results.
 
 ---
 
