@@ -62,7 +62,15 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
   with a non-array. Workaround: local patched copy at
   `~/.local/share/opencode-patches/oh-my-opencode-slim@2.2.8-patched/`, referenced via
   `file://` in `~/.config/opencode/opencode.json`. PATCH_NOTES.md in that dir explains.
-- **The sim at `/tmp/armada-sim-proj2/simapp/`** is a working end-to-end demo: scaffold a fresh
+  **The patched copy must keep a full `node_modules/`** — a partial copy makes opencode
+  silently skip the plugin (no hooks, no agents, no append injection) with no error.
+- **With the patched plugin loaded, the full runtime layer works:** TUI boots directly into
+  `armada-orchestrator` (default_agent + displayName), the `orchestrator_append.md` delivery
+  protocol is injected into the orchestrator's system prompt, and omo-slim's subagents
+  (explorer/librarian/oracle/designer/fixer/observer) register. Verified in
+  `/tmp/armada-tui/interactive-init/` (`opencode agent list` → 17 agents; `/armada` in TUI
+  renders the full team table).
+- **The sim at `/tmp/armada-tui/interactive-init/`** is a working end-to-end demo: scaffold a fresh
   project with `armada new`, fill `armada/REQUIREMENTS.md` with a phase, run
   `opencode run --auto --agent orchestrator "Execute Phase 1..."` to verify the team.
 - All 158 tests pass with the patched plugin.
