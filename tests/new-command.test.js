@@ -58,3 +58,73 @@ test("renderTemplate leaves unknown placeholders intact", () => {
   rmSync(src, { recursive: true, force: true })
   rmSync(dest, { recursive: true, force: true })
 })
+
+import { runCli, makeTempRepo } from "./helpers.js"
+
+test("new CLI creates project dir with armada config", async () => {
+  const parent = makeTempRepo({})
+  const r = await runCli(["new", "my-test-app", "--type", "web-app", "--beginner", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 0)
+  const projDir = join(parent, "my-test-app")
+  assert.ok(existsSync(projDir), "project dir missing")
+  assert.ok(existsSync(join(projDir, "package.json")), "package.json missing")
+  assert.ok(existsSync(join(projDir, "armada/armada.yaml")), "armada/armada.yaml missing")
+  assert.ok(existsSync(join(projDir, "armada/REQUIREMENTS.md")), "armada/REQUIREMENTS.md missing")
+  assert.ok(existsSync(join(projDir, ".opencode/oh-my-opencode-slim.jsonc")), "slim jsonc missing")
+  assert.ok(existsSync(join(projDir, "src/app/layout.tsx")), "layout.tsx missing")
+})
+
+test("new CLI with unknown category errors", async () => {
+  const parent = makeTempRepo({})
+  const r = await runCli(["new", "bad", "--type", "nope", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /Unknown category/)
+})
+
+test("new CLI without name shows usage", async () => {
+  const r = await runCli(["new"], { cwd: process.cwd() })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /Usage/)
+})
+
+test("new CLI rejects existing directory", async () => {
+  const parent = makeTempRepo({ "exists": "dir" })
+  const r = await runCli(["new", "exists", "--type", "web-app", "--beginner", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /already exists/)
+})
+
+test("new CLI --type research-paper scaffolds LaTeX", async () => {
+  const parent = makeTempRepo({})
+  const r = await runCli(["new", "my-paper", "--type", "research-paper", "--beginner", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 0)
+  const projDir = join(parent, "my-paper")
+  assert.ok(existsSync(join(projDir, "main.tex")))
+  assert.ok(existsSync(join(projDir, "Makefile")))
+  assert.ok(existsSync(join(projDir, "armada/armada.yaml")))
+})
+
+test("new CLI --type ml-training scaffolds Python project", async () => {
+  const parent = makeTempRepo({})
+  const r = await runCli(["new", "my-ml", "--type", "ml-training", "--beginner", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 0)
+  const projDir = join(parent, "my-ml")
+  assert.ok(existsSync(join(projDir, "pyproject.toml")))
+  assert.ok(existsSync(join(projDir, "src/train.py")))
+  assert.ok(existsSync(join(projDir, "armada/armada.yaml")))
+})
+
+test("new CLI placeholder substitution", async () => {
+  const parent = makeTempRepo({})
+  const r = await runCli(["new", "CoolProject", "--type", "web-app", "--beginner", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 0)
+  const projDir = join(parent, "CoolProject")
+  const pkg = JSON.parse(readFileSync(join(projDir, "package.json"), "utf8"))
+  assert.strictEqual(pkg.name, "coolproject")
+  const layout = readFileSync(join(projDir, "src/app/layout.tsx"), "utf8")
+  assert.match(layout, /CoolProject/)
+  const readme = readFileSync(join(projDir, "README.md"), "utf8")
+  assert.match(readme, /CoolProject/)
+  assert.doesNotMatch(layout, /\{project_\w+\}/)
+  assert.doesNotMatch(readme, /\{\w+\}/)
+})

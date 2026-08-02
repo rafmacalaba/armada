@@ -22,6 +22,7 @@ import { scaffold, uninstall } from "./scaffold.js"
 import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache } from "./model-catalog.js"
 import { parseManifestYaml } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
+import { runNew } from "./new-command.js"
 
 export const VERSION = "0.4.1"
 
@@ -30,6 +31,8 @@ Reproducible AI-engineer multi-agent teams for opencode, on oh-my-opencode-slim.
 
 Usage:
   armada init                                interactive setup
+  armada new <name> [--type <c>] [--beginner|--experienced] [--yes]
+                          create new project from curated starter template
   armada init --stack <s> --budget <b>       declarative setup
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
   armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
@@ -104,6 +107,17 @@ export async function main(argv = process.argv.slice(2)) {
     case "ping":
       console.log("armada ok")
       return
+    case "new": {
+      const name = rest[0]
+      const typeIdx = rest.indexOf("--type")
+      return runNew({
+        name,
+        type: typeIdx !== -1 ? rest[typeIdx + 1] : undefined,
+        beginner: rest.includes("--beginner"),
+        experienced: rest.includes("--experienced"),
+        yes: rest.includes("--yes"),
+      })
+    }
     case "help":
     case "-h":
     case "--help":
@@ -206,7 +220,7 @@ async function init(args) {
 
 // Default (non-interactive) manifest: guessed project name, balanced budget,
 // every role enabled at its balanced model, no browser/devcontainer extras.
-function defaultManifest() {
+export function defaultManifest() {
   return {
     project: {
       name: guessName(process.cwd()),
