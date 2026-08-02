@@ -63,9 +63,9 @@ export function select(title, options, { defaultIndex = 0, input, output } = {})
   const render = () => [
     c.title(title),
     ...options.map((o, i) => {
-      const marker = i === cursor ? `${c.marker(MARKER)} ` : "  "
+      const marker = i === cursor.value ? `${c.marker(MARKER)} ` : "  "
       const hint = o.hint ? ` ${c.dim(`— ${o.hint}`)}` : ""
-      const label = i === cursor ? c.selected(o.label) : o.label
+      const label = i === cursor.value ? c.selected(o.label) : o.label
       return `  ${marker}${label}${hint}`
     }),
   ]
