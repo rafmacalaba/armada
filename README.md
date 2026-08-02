@@ -251,7 +251,7 @@ OpenRouter models. Edit `src/model-catalog.js` or use `/preset` in opencode to c
 | Role | Primary (opencode) | Fallback (openrouter) |
 |---|---|---|
 | orchestrator | `opencode-go/minimax-m3` | `openrouter/z-ai/glm-5.2` |
-| backend-dev | `opencode-go/kimi-k2.7-code` | `openrouter/z-ai/glm-5.2` |
+| backend-dev | `opencode-go/deepseek-v4-pro` | `openrouter/deepseek/deepseek-v4-pro` |
 | frontend-dev | `opencode-go/minimax-m3` | `openrouter/minimax/minimax-m3` |
 | qa | `opencode/mimo-v2.5-free` | `openrouter/xiaomi/mimo-v2.5` |
 | adversary | `opencode-go/deepseek-v4-pro` | `openrouter/deepseek/deepseek-v4-pro` |
