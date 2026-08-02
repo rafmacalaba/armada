@@ -1,0 +1,4 @@
+category: web-app
+stack: nextjs
+description: "Next.js + Tailwind CSS + TypeScript — full-stack React with file-based routing."
+postInstall: "npm install"

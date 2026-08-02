@@ -1,0 +1,4 @@
+category: research-paper
+stack: latex
+description: "LaTeX research paper — compile with make."
+postInstall: null
