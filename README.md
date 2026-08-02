@@ -133,6 +133,33 @@ armada init --budget free --stack nextjs-fastapi --no-browser
 armada init --from-armada armada.yaml
 ```
 
+### Create a new project from scratch
+
+Use `armada new` when you don't have a repo yet — it scaffolds a curated starter template
+(structure, manifests, CI, README) and then runs `armada init` inside the new directory so the
+team is wired up before you ever open opencode.
+
+```bash
+# interactive: pick a category, then beginner or experienced
+armada new my-app
+
+# non-interactive: curated stack for a web app, no questions
+armada new my-app --type web-app --beginner --yes
+```
+
+Three categories ship today:
+
+| Category | Recommended stack | What you get |
+|---|---|---|
+| `web-app` | Next.js 15 + Tailwind 4 + TypeScript | React app, ESLint, GitHub Actions, Vercel-ready |
+| `ml-training` | Python + PyTorch + uv | pyproject, train script, pytest, ruff/black |
+| `research-paper` | LaTeX + Makefile | main.tex, Makefile, .gitignore, Zotero-ready bib |
+
+The **beginner path** picks the recommended stack per category. The **experienced path** drills
+down per layer (frontend framework, backend, database, testing, CI, deploy) and renders the
+recommendations accordingly. Both end in the same place: a directory you can `cd` into, run
+`opencode`, and have the team ready.
+
 ---
 
 ## What gets generated
@@ -162,6 +189,11 @@ is also scaffolded.
 
 | Command | Purpose |
 |---------|---------|
+| `armada new <name>` | scaffold a new project from a curated starter + run `init` |
+| `armada new <name> --type <web-app\|ml-training\|research-paper>` | non-interactive category |
+| `armada new <name> --beginner` | use the recommended stack (default flow) |
+| `armada new <name> --experienced` | drill down per layer (frontend, backend, db, test, CI, deploy) |
+| `armada new <name> --yes` | skip all prompts (use with `--type` + `--beginner`/`--experienced`) |
 | `armada init` | interactive setup |
 | `armada init --budget <free\|balanced\|power>` | declarative |
 | `armada init --stack <hint> --no-browser` | declarative flags |
