@@ -53,5 +53,5 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
 
 ## Superpowers
 
-Do NOT auto-invoke superpowers skills (brainstorming, SDD, writing-plans, etc.).
-Ask before using any superpowers skill. Standard opencode workflow is the default.
+Do NOT auto-invoke the `subagent-driven-development` (SDD) skill. Ask before using it.
+Other superpowers skills (brainstorming, writing-plans, etc.) remain as-is.
