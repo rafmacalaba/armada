@@ -1,3 +1,32 @@
+[![npm version](https://img.shields.io/npm/v/opencode-armada)](https://www.npmjs.com/package/opencode-armada)
+[![License: MIT](https://img.shields.io/npm/l/opencode-armada)](./LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/rafmacalaba/opencode-armada/release.yml)](https://github.com/rafmacalaba/opencode-armada/actions)
+[![Node](https://img.shields.io/node/v/opencode-armada)](https://nodejs.org)
+
+**Reproducible AI-engineer multi-agent teams for [opencode](https://opencode.ai).** Scaffold a
+configured team of specialized agents — backend, frontend, qa, adversary, security, docs,
+architect — plus an orchestrator that plans, delegates, and gates phases. Stack-aware from your
+repo's actual manifests. Per-repo and reproducible via a single manifest file. MIT-licensed.
+
+```bash
+# from your repo root
+bunx opencode-armada init          # scaffold the team into your repo
+opencode                            # launch opencode — the team loads
+# in the TUI:
+"Implement the /admin dashboard"   # orchestrator delegates in parallel
+```
+
+- **Orchestrator that plans and gates** — drafts the contract with you, runs phases, requires
+  evidence at every gate before unlocking the next.
+- **Specialists that run in parallel** — backend-dev + frontend-dev per phase, independent phases
+  advance together, nothing blocks on something that doesn't depend on it.
+- **Boundaries that can't be bypassed** — per-role file permissions enforced by the SDK; qa is
+  read-only on product code, devs are locked out of `e2e/` and `DEFECTS.md`.
+
+[read more ↓](#why)
+
+---
+
 # opencode-armada
 
 Reproducible **AI-engineer multi-agent teams** for [opencode](https://opencode.ai), built on
