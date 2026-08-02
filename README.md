@@ -68,7 +68,8 @@ option** on step 1. There is no armada at runtime.
   bunx oh-my-opencode-slim@latest install --preset=opencode-go
   ```
 - Provider auth: `opencode auth login` (OpenCode Go for free models, OpenRouter for fallbacks)
-- For background orchestration, start opencode with:
+- omo-slim handles background orchestration automatically. Optionally enable opencode-native
+  parallel dispatch with:
   ```bash
   OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode
   ```

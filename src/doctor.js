@@ -50,9 +50,9 @@ export async function runDoctor(opts = {}) {
 
   const bg = env.OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS
   checks.push({
-    name: "background subagents",
-    status: bg === "true" ? "pass" : "warn",
-    detail: bg === "true" ? "enabled" : "set OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true",
+    name: "background dispatch",
+    status: "pass",
+    detail: "omo-slim handles background jobs" + (bg === "true" ? " (opencode-native also enabled)" : ""),
   })
 
   checks.push({ name: "node", status: "pass", detail: process.version })

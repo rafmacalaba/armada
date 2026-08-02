@@ -7,7 +7,7 @@
 //   armada init --from-armada armada/armada.yaml   re-scaffold from manifest
 //   armada models [budget]      print curated model catalog
 //   armada models --refresh     merge live provider models (requires auth)
-//   armada doctor               check omo-slim + providers + background subagents
+//   armada doctor               check omo-slim + providers + env
 //   armada uninstall [--all]    remove armada-generated artifacts (--all also user-facing)
 //   armada ping                 confirm the CLI works
 //   armada help                 this help

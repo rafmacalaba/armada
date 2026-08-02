@@ -36,13 +36,14 @@ test("fails when omo-slim plugin missing", async () => {
   assert.strictEqual(plugin.status, "fail")
 })
 
-test("warns when background subagents flag unset", async () => {
+test("background dispatch reports omo-slim responsible", async () => {
   const binDir = makeBin({ opencode: SH })
   const cfgDir = mkdtempSync(join(tmpdir(), "armada-cfg-"))
   writeFileSync(join(cfgDir, "opencode.json"), JSON.stringify({ plugin: ["x"] }))
   const checks = await runDoctor({ configPath: join(cfgDir, "opencode.json"), env: envWith(binDir) })
-  const bg = checks.find((c) => c.name === "background subagents")
-  assert.strictEqual(bg.status, "warn")
+  const bg = checks.find((c) => c.name === "background dispatch")
+  assert.strictEqual(bg.status, "pass")
+  assert.match(bg.detail, /omo-slim/)
 })
 
 test("fails when opencode missing", async () => {
