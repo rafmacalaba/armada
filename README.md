@@ -1,6 +1,6 @@
 [![npm version](https://img.shields.io/npm/v/opencode-armada)](https://www.npmjs.com/package/opencode-armada)
 [![License: MIT](https://img.shields.io/npm/l/opencode-armada)](./LICENSE)
-[![CI](https://img.shields.io/github/actions/workflow/status/rafmacalaba/opencode-armada/release.yml)](https://github.com/rafmacalaba/opencode-armada/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/rafmacalaba/opencode-armada/ci.yml)](https://github.com/rafmacalaba/opencode-armada/actions)
 [![Node](https://img.shields.io/node/v/opencode-armada)](https://nodejs.org)
 
 **Reproducible AI-engineer multi-agent teams for [opencode](https://opencode.ai).** Install
