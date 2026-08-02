@@ -8,9 +8,19 @@ import { ROLES, modelFor } from "../src/model-catalog.js"
 
 const OUR_AGENTS = join(process.cwd(), "AGENTS.md")
 
-test("dogfood: scaffold over this repo's instruction files preserves them", () => {
+// Strip the armada marker section, if the repo itself is scaffolded (e.g. a
+// sandbox worktree), so the copy simulates a pristine user instruction file.
+function stripArmadaSection(text) {
+  const start = text.indexOf("<!-- armada:start -->")
+  const end = text.indexOf("<!-- armada:end -->")
+  if (start === -1 || end === -1) return text
+  return text.slice(0, start) + text.slice(end + "<!-- armada:end -->".length)
+}
+
+test("dogfood: scaffold over this repo's instruction files preserves user content", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-dogfood-"))
-  writeFileSync(join(dir, "AGENTS.md"), readFileSync(OUR_AGENTS, "utf8"))
+  const userRules = stripArmadaSection(readFileSync(OUR_AGENTS, "utf8"))
+  writeFileSync(join(dir, "AGENTS.md"), userRules)
   writeFileSync(join(dir, "opencode.json"), "{\"custom\":true}\n")
   const m = {
     targetDir: dir,
@@ -20,7 +30,7 @@ test("dogfood: scaffold over this repo's instruction files preserves them", () =
   }
   scaffold(m, {})
   const agents = readFileSync(join(dir, "AGENTS.md"), "utf8")
-  assert.ok(agents.startsWith(readFileSync(OUR_AGENTS, "utf8")), "user rules preserved")
+  assert.ok(agents.startsWith(userRules), "user rules preserved")
   assert.match(agents, /<!-- armada:start -->/)
   assert.strictEqual(JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8")).custom, true)
 })
