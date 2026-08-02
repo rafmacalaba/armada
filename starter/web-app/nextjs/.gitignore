@@ -1,0 +1,11 @@
+node_modules/
+.pnp
+.pnp.js
+.next/
+out/
+coverage/
+.DS_Store
+*.pem
+.env*.local
+*.tsbuildinfo
+next-env.d.ts
