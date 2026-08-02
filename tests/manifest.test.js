@@ -39,6 +39,10 @@ test("rejects invalid yaml", () => {
   assert.throws(() => parseManifestYaml("project: [unclosed"), Error)
 })
 
+test("rejects missing project section", () => {
+  assert.throws(() => parseManifestYaml("team:\n  - role: backend-dev\n    model: x\n    enabled: true"), /project/)
+})
+
 test("rejects missing team", () => {
   assert.throws(() => parseManifestYaml("project:\n  name: x\n  budget: balanced\nteam: []"), /team is empty/)
 })
@@ -82,4 +86,30 @@ test("parses requirementsFile (default + custom)", () => {
   m.project.requirementsFile = "REQUIREMENTS-admin-dashboard.md"
   const parsed2 = parseManifestYaml(renderManifestYaml(m, buildTeam(m)))
   assert.strictEqual(parsed2.project.requirementsFile, "REQUIREMENTS-admin-dashboard.md")
+})
+
+test("enforces schema: project types", () => {
+  assert.throws(() => parseManifestYaml("project:\n  name: 42\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true"), /schema/)
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: ultra\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true"), /schema/)
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\n  stack: string\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true"), /schema/)
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\n  browserTesting: no\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true"), /schema/)
+})
+
+test("enforces schema: team entries", () => {
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\nteam:\n  - role: 123\n    model: x\n    enabled: true"), /schema/)
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\nteam:\n  - role: unknown\n    model: x\n    enabled: true"), /schema/)
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: 1\n    enabled: true"), /schema/)
+})
+
+test("rejects duplicate team roles", () => {
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n  - role: backend-dev\n    model: y\n    enabled: true"), /duplicate/)
+})
+
+test("rejects empty model string", () => {
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: ''\n    enabled: true"), /schema/)
+})
+
+test("strictly parses enabled: 0 and no as invalid", () => {
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: 0"), /schema/)
+  assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: no"), /schema/)
 })

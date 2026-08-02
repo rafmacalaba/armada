@@ -16,6 +16,14 @@ function makeRepo(files) {
   return dir
 }
 
+test("detects nestjs backend", () => {
+  const dir = makeRepo({
+    "package.json": JSON.stringify({ dependencies: { "@nestjs/core": "10" } }),
+  })
+  const s = detectStack(dir)
+  assert.strictEqual(s.backend, "node-nestjs")
+})
+
 test("detects nextjs + jest + typescript", () => {
   const dir = makeRepo({
     "package.json": JSON.stringify({
@@ -35,6 +43,15 @@ test("detects python fastapi + pytest + sqlalchemy", () => {
   assert.strictEqual(s.backend, "python-fastapi")
   assert.strictEqual(s.testing, "pytest")
   assert.strictEqual(s.database, "sqlalchemy")
+})
+
+test("infers database from .env DATABASE_URL", () => {
+  const dir = makeRepo({
+    "Dockerfile": "FROM node:20",
+    ".env": "DATABASE_URL=postgres://user:pass@localhost/db",
+  })
+  const s = detectStack(dir)
+  assert.strictEqual(s.database, "postgres")
 })
 
 test("detects docker-compose postgres", () => {
@@ -70,6 +87,13 @@ test("detects monorepo with backend/ + frontend/ subdirs", () => {
   assert.ok(s.languages.includes("python"))
   assert.ok(s.srcDirs.includes("backend"))
   assert.ok(s.srcDirs.includes("frontend"))
+})
+
+test("skips non-directory entries in root", () => {
+  const dir = makeRepo({ "package.json": "{}", "file.txt": "hi" })
+  const s = detectStack(dir)
+  assert.ok(s.languages.includes("typescript"))
+  assert.ok(!s.srcDirs.includes("file.txt"))
 })
 
 test("scans apps/ and packages/ subdirs, skips node_modules/.next", () => {

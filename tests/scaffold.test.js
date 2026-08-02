@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert"
 
-import { fillPrompt, scaffold, uninstall, PROMPT_SOURCE } from "../src/scaffold.js"
+import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { detectStack } from "../src/stack-detect.js"
 import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync } from "node:fs"
@@ -43,6 +43,23 @@ test("fillPrompt substitutes stack placeholders", () => {
   assert.match(filled, /python-fastapi/)
   assert.match(filled, /postgres/)
   assert.ok(!/\{[a-z_]+\}/.test(filled), "no dangling placeholders")
+})
+
+test("fillPrompt renders browser tool when useAgentBrowser is true", () => {
+  const manifest = makeManifest(".")
+  manifest.project.useAgentBrowser = true
+  const stack = manifest.project.stack
+  const templatePath = join(__dirname, "..", PROMPT_SOURCE["qa"])
+  const filled = fillPrompt(templatePath, manifest, stack)
+  assert.match(filled, /Browser tool/)
+})
+
+test("fillTemplate is pure and substitutes placeholders", () => {
+  const manifest = makeManifest(".")
+  const stack = manifest.project.stack
+  const filled = fillTemplate("Project: {project_name}, backend: {backend_stack}", manifest, stack)
+  assert.match(filled, /Project: scaffold-test/)
+  assert.match(filled, /backend: python-fastapi/)
 })
 
 test("scaffold writes all expected files", () => {
@@ -205,4 +222,46 @@ test("orchestrator append prompt is dependency-driven and lean", () => {
   const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
   assert.match(filled, /Start every ready phase/)
   assert.ok(!/## Parallelism/.test(filled), "no standalone Parallelism section")
+})
+
+test("orchestrator append prompt renders existing instruction files", () => {
+  const manifest = makeManifest(".")
+  manifest.project.stack.instructions = ["AGENTS.md", "CLAUDE.md"]
+  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
+  assert.match(filled, /AGENTS\.md/)
+  assert.match(filled, /CLAUDE\.md/)
+  assert.ok(!/\{instructions\}/.test(filled), "no dangling instructions placeholder")
+})
+
+test("scaffold rejects path traversal requirementsFile", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-traverse-"))
+  const manifest = makeManifest(dir)
+  manifest.project.requirementsFile = "../../pwn.md"
+  assert.throws(() => scaffold(manifest, manifest.project.stack), /requirementsFile.*must not contain '\.\.'/)
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("uninstall removes custom requirementsFile", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-req-"))
+  const manifest = makeManifest(dir)
+  manifest.project.requirementsFile = "REQUIREMENTS-admin.md"
+  scaffold(manifest, manifest.project.stack)
+  assert.ok(existsSync(join(dir, "REQUIREMENTS-admin.md")))
+  const removed = uninstall(manifest)
+  assert.ok(removed.includes("REQUIREMENTS-admin.md"))
+  assert.ok(!existsSync(join(dir, "REQUIREMENTS-admin.md")))
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("uninstall keeps user-owned .devcontainer when manifest devcontainer is false", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-devc-"))
+  const manifest = makeManifest(dir)
+  manifest.project.devcontainer = false
+  scaffold(manifest, manifest.project.stack)
+  mkdirSync(join(dir, ".devcontainer"))
+  writeFileSync(join(dir, ".devcontainer/devcontainer.json"), "{}")
+  const removed = uninstall(manifest)
+  assert.ok(!removed.includes(".devcontainer"))
+  assert.ok(existsSync(join(dir, ".devcontainer/devcontainer.json")))
+  rmSync(dir, { recursive: true, force: true })
 })

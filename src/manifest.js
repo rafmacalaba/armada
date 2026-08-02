@@ -4,6 +4,30 @@
 // regenerates the exact same config. It is versioned with the project.
 
 import YAML from "yaml"
+import { isAbsolute, resolve, sep } from "node:path"
+import { ROLES } from "./model-catalog.js"
+
+const BUDGETS = new Set(["free", "balanced", "power"])
+
+export function validateRequirementsFile(file, target) {
+  if (typeof file !== "string") throw new Error("requirementsFile must be a string")
+  if (file === "") throw new Error("requirementsFile must be non-empty")
+  if (file.split(/[\/\\]/).includes("..")) throw new Error(`requirementsFile "${file}" must not contain '..'`)
+  if (isAbsolute(file)) throw new Error(`requirementsFile "${file}" must be a relative path`)
+  if (target !== undefined) {
+    const absFile = resolve(target, file)
+    const absTarget = resolve(target)
+    if (absFile !== absTarget && !absFile.startsWith(absTarget + sep)) {
+      throw new Error(`requirementsFile "${file}" must be inside the target directory`)
+    }
+  }
+}
+
+function parseBoolean(value, field) {
+  if (value === true || value === "true") return true
+  if (value === false || value === "false") return false
+  throw new Error(`armada.yaml: schema violation: ${field} must be a boolean`)
+}
 
 export function parseManifestYaml(text) {
   let raw
@@ -12,17 +36,36 @@ export function parseManifestYaml(text) {
   } catch (err) {
     throw new Error(`armada.yaml: invalid YAML (${err.message})`)
   }
-  if (!raw || !raw.project) throw new Error("armada.yaml: missing 'project' section")
+  if (!raw || typeof raw !== "object") throw new Error("armada.yaml: schema violation: root must be an object")
+  if (!raw.project || typeof raw.project !== "object") throw new Error("armada.yaml: missing 'project' section")
   if (!Array.isArray(raw.team)) throw new Error("armada.yaml: team must be a list")
   const p = raw.project
+  if (typeof p.name !== "string") throw new Error("armada.yaml: schema violation: project.name must be a string")
+  if (p.budget !== undefined && !BUDGETS.has(p.budget)) throw new Error("armada.yaml: schema violation: project.budget must be one of free, balanced, power")
+  if (p.stack !== undefined && (typeof p.stack !== "object" || Array.isArray(p.stack))) throw new Error("armada.yaml: schema violation: project.stack must be an object")
+  const boolFields = ["browserTesting", "devcontainer", "useAgentBrowser", "headless"]
+  for (const f of boolFields) {
+    if (p[f] !== undefined && typeof p[f] !== "boolean") throw new Error(`armada.yaml: schema violation: project.${f} must be a boolean`)
+  }
   const stack = p.stack ?? {}
-  const team = raw.team.map((t) => ({
-    role: t.role,
-    model: t.model,
-    fallback: t.fallback,
-    enabled: t.enabled === false || t.enabled === "false" ? false : true,
-  }))
+  const seenRoles = new Set()
+  const team = raw.team.map((t) => {
+    if (!t || typeof t !== "object") throw new Error("armada.yaml: schema violation: team entry must be an object")
+    if (!ROLES.includes(t.role)) throw new Error(`armada.yaml: schema violation: unknown team role "${t.role}"`)
+    if (seenRoles.has(t.role)) throw new Error(`armada.yaml: duplicate team role "${t.role}"`)
+    seenRoles.add(t.role)
+    if (typeof t.model !== "string" || t.model === "") throw new Error("armada.yaml: schema violation: team.model must be a non-empty string")
+    if (t.fallback !== undefined && t.fallback !== null && typeof t.fallback !== "string") throw new Error("armada.yaml: schema violation: team.fallback must be a string or null")
+    if (t.variant !== undefined && t.variant !== null && typeof t.variant !== "string") throw new Error("armada.yaml: schema violation: team.variant must be a string or null")
+    return {
+      role: t.role,
+      model: t.model,
+      fallback: t.fallback ?? null,
+      enabled: parseBoolean(t.enabled, "team.enabled"),
+    }
+  })
   if (!team.length) throw new Error("armada.yaml: team is empty")
+  validateRequirementsFile(p.requirementsFile ?? "armada/REQUIREMENTS.md")
   return {
     project: {
       name: p.name ?? "project",

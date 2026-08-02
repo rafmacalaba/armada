@@ -97,6 +97,62 @@ link them to an issue/PR when relevant.
   return an exit-code int and let `isMain` set `process.exitCode`. (Architect finding.)
 - [x] **Adversary catalog primary drift.** `opencode/deepseek-v4-pro` is unavailable on live
   providers; the working equivalent is `opencode-go/deepseek-v4-pro`. Swapped in CATALOG + balanced preset.
+- [ ] **Path traversal via `requirementsFile`.** `src/scaffold.js:115-118` + `src/cli.js:182-185`
+  + `src/manifest.js:34`. Untrusted manifest / `--requirements` value passes raw into
+  `out(rel) = join(target, rel)`; `..` segments not sanitized. Supply-chain vector for cloned
+  manifests. Fix: `resolve` + assert `abs.startsWith(resolve(target) + sep)`. (Security
+  finding #1, AUDIT.md.)
+- [ ] **Empty model `""` produces broken runtime config.** `src/manifest.js:19-24` accepts
+  `team[].model: ""`; generator interpolates it. Provider lookup fails at runtime in a session
+  the user can't easily diagnose. Reject empty / coerce to budget default. (Adversary ADV-002.)
+- [ ] **`uninstall` orphans the custom contract file.** `src/scaffold.js:169-204`. Custom
+  `requirementsFile` (from `--requirements`) is never removed on uninstall. Read manifest
+  field, add to cleanup set. (Architect #2.)
+- [ ] **No schema enforcement in `parseManifestYaml`.** `src/manifest.js:8-48`. `MANIFEST_SCHEMA`
+  is a comment; accepts `name: 42`, `role: 123`, `budget: "ultra"`, unknown roles, etc.
+  Enables BUGs #11, #12, #15, #16, #25. (Security #4 + architect improvement #1.)
+- [ ] **`uninstall` deletes user-owned `.devcontainer/`.** `src/scaffold.js:196-199`.
+  Unconditional recursive `rmSync` of `.devcontainer/`. Only remove armada-written files or
+  require ownership marker. (Security #2.)
+- [ ] **Generated `opencode.json` emits unscoped `bash: "allow"` + `edit: "allow"`.**
+  `src/generator.js:168-176`. Grants the session agent unrestricted shell + edit whenever
+  `opencode.json` is absent. Drop the top-level allows; rely on per-role roster + slim default.
+  (Security #3.)
+- [ ] **Filesystem errors leak full stack traces to users.** `src/cli.js:140-143,198,287`. Wrap
+  I/O call sites; print `err.message` + one-line hint; reserve stack for `DEBUG=1`. (Architect
+  #3 + adversary ADV-005.)
+- [ ] **Duplicate role names in `team[]` silently dropped.** `src/manifest.js:19-24` +
+  `buildTeam`. Detect duplicates at parse, reject or warn. (Adversary ADV-003.)
+- [ ] **Raw string interpolation into generated JSONC/YAML.** `src/generator.js:148,151,353-359`.
+  `project.name` / `requirementsFile` unquoted; `name` with `"` or newline corrupts generated
+  `armada.yaml`, breaks round-trip. Quote YAML scalars; validate types. (Security #7.)
+- [ ] **Stack instructions detected then dropped.** `src/stack-detect.js:169` collects
+  `stack.instructions`; never rendered. Wire into orchestrator prompt or drop detection.
+  (Architect improvement #2.)
+- [ ] **`--headless` persists `bash: {"*": "allow"}` into versioned config.**
+  `src/generator.js:102-108`. Scope the allow (`git*`/read) or document the post-CI revert.
+- [ ] **`--cache <path>` arbitrary file write.** `src/cli.js:233-241` + `src/model-catalog.js:127-136`.
+  Validate path stays under `~/.cache/` or target.
+- [ ] **`enabled: 0` / `"no"` treated as true.** Strict boolean parse in `parseManifestYaml`.
+- [ ] **`--from-armada --budget free` parses `budget` as manifest path.** Add `--` guard for
+  value-as-flag. (Adversary ADV-007.)
+- [ ] **`opencode.json` model ignores budget tier.** `src/generator.js`. Derive from
+  `modelFor("orchestrator", budget)`. (Adversary ADV-008.)
+- [ ] **Symlinks followed without warning.** `lstat` target dir; warn / reject on symlink.
+- [ ] **No `--target <dir>` flag.** Target is hardcoded to `process.cwd()`. (Adversary ADV-010.)
+- [ ] **`pickModel` variant choice is dead.** Same root as per-role override — fix together.
+- [ ] **`questionnaire.js` non-injectable stdio.** `src/questionnaire.js:6`. Accept
+  `{ input, output }` opts so tests can drive it inline.
+- [ ] **`renderArmadaCommand` lives in `scaffold.js` (I/O module), not `generator.js` (pure).**
+  Move string builder to generator.
+- [ ] **`fillPrompt` mixes `readFileSync` with substitution.** Split pure `fillTemplate(text,
+  manifest, stack)`.
+- [ ] **`fallback` parsed then recomputed** in `buildTeam`. Honor parsed value (same fix as
+  per-role model override).
+- [ ] **`doctor` background-dispatch check is fake.** `src/doctor.js:51-56` returns
+  `status: "pass"` unconditionally. Probe env + plugin; report real state.
+- [ ] **`loadModelsCache` swallows every error → null.** `src/model-catalog.js:118-125`.
+  Distinguish missing (legit) from corrupt (warn).
 - [ ] **No cookiecutter compatibility.** Deliberate (see SPEC §3), but a thin `cookiecutter
   hook` adapter could be added later if users want the traditional scaffold UX.
 
