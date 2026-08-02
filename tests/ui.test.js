@@ -68,6 +68,27 @@ test("select: down-arrow then Enter returns the second option", async () => {
   assert.strictEqual(await p, "b")
 })
 
+test("select renders the ▸ marker on the highlighted option", async () => {
+  const { input, output, outputData } = makeRawStreams()
+  const p = select("Pick", OPTIONS, { defaultIndex: 0, input, output })
+  await driveKeys(input, ["\u001b[B", "\r"])
+  await p
+  const text = outputData.join("")
+  assert.match(text, /▸ alpha/, `expected marker on default option in: ${JSON.stringify(text)}`)
+  assert.match(text, /▸ beta/, `expected marker to move after arrow in: ${JSON.stringify(text)}`)
+  assert.ok(!/▸ gamma/.test(text), `non-selected option should not carry marker in: ${JSON.stringify(text)}`)
+})
+
+test("confirm renders the ▸ marker on the highlighted option", async () => {
+  const { input, output, outputData } = makeRawStreams()
+  const p = confirm("Proceed?", true, { input, output })
+  await driveKeys(input, ["\u001b[B", "\r"])
+  await p
+  const text = outputData.join("")
+  assert.match(text, /▸ Yes/, `expected marker on default in: ${JSON.stringify(text)}`)
+  assert.match(text, /▸ No/, `expected marker to move after arrow in: ${JSON.stringify(text)}`)
+})
+
 test("select: Enter immediately returns the default option", async () => {
   const { input, output } = makeRawStreams()
   const p = select("Pick", OPTIONS, { defaultIndex: 1, input, output })
