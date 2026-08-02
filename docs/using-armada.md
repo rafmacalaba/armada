@@ -117,8 +117,8 @@ team:
     fallback: openrouter/z-ai/glm-5.2
     enabled: true
   - role: backend-dev
-    model: opencode-go/kimi-k2.7-code
-    fallback: openrouter/z-ai/glm-5.2
+    model: opencode-go/deepseek-v4-pro
+    fallback: openrouter/deepseek/deepseek-v4-pro
     enabled: true
   - role: frontend-dev
     model: opencode-go/minimax-m3

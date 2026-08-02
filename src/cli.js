@@ -24,7 +24,7 @@ import { parseManifestYaml, validateRequirementsFile } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 import { runNew } from "./new-command.js"
 
-export const VERSION = "0.5.0"
+export const VERSION = "0.6.0"
 
 const HELP = `opencode-armada v${VERSION}
 Reproducible AI-engineer multi-agent teams for opencode, on oh-my-opencode-slim.

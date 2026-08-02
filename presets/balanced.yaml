@@ -3,7 +3,7 @@ budget: balanced
 
 agents:
   orchestrator: { model: opencode-go/minimax-m3, variant: thinking }
-  backend-dev: { model: opencode-go/kimi-k2.7-code }
+  backend-dev: { model: opencode-go/deepseek-v4-pro }
   frontend-dev: { model: opencode-go/minimax-m3 }
   qa: { model: opencode/mimo-v2.5-free }
   adversary: { model: opencode-go/deepseek-v4-pro }

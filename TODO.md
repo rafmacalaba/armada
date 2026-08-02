@@ -168,7 +168,7 @@ link them to an issue/PR when relevant.
 ## Model catalog maintenance
 
 - [ ] Re-verify every model ID against current opencode / OpenRouter availability before publish
-  - `opencode-go/minimax-m3`, `opencode-go/kimi-k2.7-code`, `opencode/mimo-v2.5-free`,
+  - `opencode-go/minimax-m3`, `opencode-go/deepseek-v4-pro`, `opencode/mimo-v2.5-free`,
     `opencode-go/deepseek-v4-pro`, `opencode/deepseek-v4-flash-free`, `opencode/big-pickle`,
     `opencode-go/hy3`, `opencode-go/deepseek-v4-flash`
   - OpenRouter fallbacks: `z-ai/glm-5.2`, `minimax/minimax-m3`, `xiaomi/mimo-v2.5`,

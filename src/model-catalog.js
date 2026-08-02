@@ -41,8 +41,8 @@ export const CATALOG = {
   },
   "backend-dev": {
     label: "Backend implementation",
-    primary: "opencode-go/kimi-k2.7-code",
-    fallback: "openrouter/z-ai/glm-5.2",
+    primary: "opencode-go/deepseek-v4-pro",
+    fallback: "openrouter/deepseek/deepseek-v4-pro",
     free: "opencode/deepseek-v4-flash-free",
     power: "openrouter/z-ai/glm-5.2",
     reasoning: "server, API, storage, seed data, backend unit tests",
