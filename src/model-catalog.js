@@ -35,7 +35,7 @@ export const CATALOG = {
     primary: "opencode-go/minimax-m3",
     variant: "thinking",
     fallback: "openrouter/z-ai/glm-5.2",
-    free: "opencode/hy3-free",
+    free: "opencode-go/hy3",
     power: "openrouter/anthropic/claude-sonnet-4.6",
     reasoning: "strong judgment, delegation, reconciliation",
   },
