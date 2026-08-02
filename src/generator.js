@@ -164,14 +164,36 @@ export function renderSlimJsonc(manifest, team) {
 // Build the per-repo `opencode.json` (project-level overrides). Merges over the
 // global config; only sets what armada manages. plugin[] is NOT touched here —
 // omo-slim is installed globally.
-export function renderOpenCodeJson(manifest) {
+//
+// The `agent` block mirrors the per-role entries from
+// `.opencode/oh-my-opencode-slim.jsonc`. The omo-slim plugin's `config` hook is
+// supposed to read the .jsonc and inject agents into the runtime config, but
+// that hook is un-called in opencode 1.18.11. Emitting the agents here means
+// the team is wired even if the plugin's hook is broken.
+export function renderOpenCodeJson(manifest, team) {
   const model = modelFor("orchestrator", manifest.project?.budget ?? "balanced")
+  const agents = {}
+  if (team) {
+    for (const a of team) {
+      if (!a.enabled) continue
+      const entry = {
+        model: a.model,
+        ...(a.variant ? { variant: a.variant } : {}),
+        mode: a.role === "orchestrator" ? "primary" : "subagent",
+        ...(Object.keys(a.permissions || {}).length
+          ? { permission: a.permissions }
+          : {}),
+      }
+      agents[a.role] = entry
+    }
+  }
   return {
     $schema: "https://opencode.ai/config.json",
     ...(model ? { model } : {}),
     permission: {
       external_directory: "deny",
     },
+    ...(Object.keys(agents).length ? { agent: agents } : {}),
   }
 }
 

@@ -35,6 +35,10 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
 - Prompt templates use `{placeholder}` syntax; a test asserts no dangling placeholders.
 - Model IDs are `provider/model` (e.g. `opencode-go/minimax-m3`), never bare names.
 - Agent prompts ship terse/caveman output contracts to reduce token burn.
+- The scaffolded `opencode.json` includes the full `agent:` block (orchestrator + specialists)
+  with per-role `mode` + `permission`. This is intentional: omo-slim 2.2.8's `config` hook is
+  un-called by opencode 1.18.11, so we wire agents directly rather than relying on the plugin
+  to inject them from `.opencode/oh-my-opencode-slim.jsonc` at runtime.
 
 ## Testing
 
@@ -50,6 +54,18 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
 
 - TDD: write the failing test first, then implement.
 - Roadmap and open work: [TODO.md](./TODO.md). Design decisions: [SPEC.md](./SPEC.md).
+
+## Environment notes (opencode 1.18.11 + omo-slim 2.2.8)
+
+- **omo-slim plugin crashes on load** with `disabledTools.filter is not a function`. Root cause:
+  omo-slim 2.2.6+ exports `minimumExpectedToolCount` and opencode 1.18.11 calls it externally
+  with a non-array. Workaround: local patched copy at
+  `~/.local/share/opencode-patches/oh-my-opencode-slim@2.2.8-patched/`, referenced via
+  `file://` in `~/.config/opencode/opencode.json`. PATCH_NOTES.md in that dir explains.
+- **The sim at `/tmp/armada-sim-proj2/simapp/`** is a working end-to-end demo: scaffold a fresh
+  project with `armada new`, fill `armada/REQUIREMENTS.md` with a phase, run
+  `opencode run --auto --agent orchestrator "Execute Phase 1..."` to verify the team.
+- All 158 tests pass with the patched plugin.
 
 ## Superpowers
 
