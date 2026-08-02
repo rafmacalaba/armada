@@ -178,7 +178,7 @@ OpenRouter models. Edit `src/model-catalog.js` or use `/preset` in opencode to c
 | backend-dev | `opencode-go/kimi-k2.7-code` | `openrouter/z-ai/glm-5.2` |
 | frontend-dev | `opencode-go/minimax-m3` | `openrouter/minimax/minimax-m3` |
 | qa | `opencode/mimo-v2.5-free` | `openrouter/xiaomi/mimo-v2.5` |
-| adversary | `opencode/deepseek-v4-pro` | `openrouter/deepseek/deepseek-v4-pro` |
+| adversary | `opencode-go/deepseek-v4-pro` | `openrouter/deepseek/deepseek-v4-pro` |
 | security | `opencode/big-pickle` | `openrouter/deepseek/deepseek-v4-pro` |
 | docs | `opencode/deepseek-v4-flash-free` | `openrouter/minimax/minimax-m3` |
 | architect | `opencode/big-pickle` | `openrouter/z-ai/glm-5.2` |

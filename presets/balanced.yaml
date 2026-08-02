@@ -6,7 +6,7 @@ agents:
   backend-dev: { model: opencode-go/kimi-k2.7-code }
   frontend-dev: { model: opencode-go/minimax-m3 }
   qa: { model: opencode/mimo-v2.5-free }
-  adversary: { model: opencode/deepseek-v4-pro }
+  adversary: { model: opencode-go/deepseek-v4-pro }
   security: { model: opencode/big-pickle }
   docs: { model: opencode/deepseek-v4-flash-free }
   architect: { model: opencode/big-pickle }

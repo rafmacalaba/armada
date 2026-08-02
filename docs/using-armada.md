@@ -129,7 +129,7 @@ team:
     fallback: openrouter/xiaomi/mimo-v2.5
     enabled: true
   - role: adversary
-    model: opencode/deepseek-v4-pro
+    model: opencode-go/deepseek-v4-pro
     fallback: openrouter/deepseek/deepseek-v4-pro
     enabled: true
   - role: security

@@ -65,7 +65,7 @@ export const CATALOG = {
   },
   adversary: {
     label: "Adversarial reviewer",
-    primary: "opencode/deepseek-v4-pro",
+    primary: "opencode-go/deepseek-v4-pro",
     fallback: "openrouter/deepseek/deepseek-v4-pro",
     free: "opencode/deepseek-v4-flash-free",
     power: "openrouter/deepseek/deepseek-v4-pro",
