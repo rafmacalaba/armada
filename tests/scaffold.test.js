@@ -8,6 +8,7 @@ import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSy
 import { tmpdir } from "node:os"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
+import { makeTempRepo } from "./helpers.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -51,7 +52,8 @@ test("scaffold writes all expected files", () => {
 
   const expected = [
     ".opencode/oh-my-opencode-slim.jsonc",
-    "armada.yaml",
+    "armada/armada.yaml",
+    "armada/REQUIREMENTS.md",
     ".opencode/commands/armada.md",
     ...ROLES.map((r) => `.opencode/oh-my-opencode-slim/${r}.md`),
   ]
@@ -73,7 +75,7 @@ test("scaffold writes all expected files", () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("scaffold does not clobber existing opencode.json / AGENTS.md", () => {
+test("scaffold preserves existing opencode.json and merges AGENTS.md", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-scaffold-"))
   writeFileSync(join(dir, "opencode.json"), JSON.stringify({ custom: true }))
   writeFileSync(join(dir, "AGENTS.md"), "# custom rules")
@@ -82,18 +84,40 @@ test("scaffold does not clobber existing opencode.json / AGENTS.md", () => {
   scaffold(manifest, manifest.project.stack)
 
   assert.strictEqual(JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8")).custom, true)
-  assert.strictEqual(readFileSync(join(dir, "AGENTS.md"), "utf8"), "# custom rules")
+  const agents = readFileSync(join(dir, "AGENTS.md"), "utf8")
+  assert.match(agents, /^# custom rules/)
+  assert.match(agents, /<!-- armada:start -->/)
 
   rmSync(dir, { recursive: true, force: true })
+})
+
+test("AGENTS.md merge: appends to existing user file", () => {
+  const dir = makeTempRepo({ "AGENTS.md": "# My rules\n" })
+  const m = makeManifest(dir)
+  scaffold(m, {})
+  const content = readFileSync(join(dir, "AGENTS.md"), "utf8")
+  assert.match(content, /# My rules/)
+  assert.match(content, /<!-- armada:start -->/)
+})
+
+test("AGENTS.md merge: replaces existing armada section", () => {
+  const dir = makeTempRepo({ "AGENTS.md": "# My rules\n\n<!-- armada:start -->\nSTALE_SECTION\n<!-- armada:end -->\n" })
+  const m = makeManifest(dir)
+  scaffold(m, {})
+  const content = readFileSync(join(dir, "AGENTS.md"), "utf8")
+  assert.match(content, /# My rules/)
+  assert.doesNotMatch(content, /STALE_SECTION/)
+  assert.match(content, /<!-- armada:start -->/)
 })
 
 test("scaffold dryRun writes nothing but lists files", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-dry-"))
   const manifest = makeManifest(dir)
   const files = scaffold(manifest, manifest.project.stack, { dryRun: true })
-  assert.ok(files.includes("armada.yaml"))
+  assert.ok(files.includes("armada/armada.yaml"))
   assert.ok(files.includes(".opencode/oh-my-opencode-slim.jsonc"))
-  assert.ok(!existsSync(join(dir, "armada.yaml")))
+  assert.ok(!existsSync(join(dir, "armada/armada.yaml")))
+  assert.ok(!existsSync(join(dir, "armada")))
   assert.ok(!existsSync(join(dir, ".opencode")))
   rmSync(dir, { recursive: true, force: true })
 })
@@ -104,7 +128,9 @@ test("uninstall removes armada files, keeps user files", () => {
   scaffold(manifest, manifest.project.stack)
   writeFileSync(join(dir, "AGENTS.md"), "# custom")
   const removed = uninstall(manifest)
-  assert.ok(!existsSync(join(dir, "armada.yaml")))
+  assert.ok(!existsSync(join(dir, "armada/armada.yaml")))
+  assert.ok(!existsSync(join(dir, "armada/REQUIREMENTS.md")))
+  assert.ok(!existsSync(join(dir, "armada")))
   assert.ok(!existsSync(join(dir, ".opencode")))
   assert.ok(existsSync(join(dir, "AGENTS.md")))
   assert.ok(!removed.includes("AGENTS.md"))
@@ -118,6 +144,7 @@ test("uninstall --all also removes generated user-facing files", () => {
   const removed = uninstall(manifest, { all: true })
   assert.ok(removed.includes("AGENTS.md"))
   assert.ok(removed.includes("opencode.json"))
+  assert.ok(!existsSync(join(dir, "armada")))
   rmSync(dir, { recursive: true, force: true })
 })
 

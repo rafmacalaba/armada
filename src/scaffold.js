@@ -26,7 +26,7 @@ export function fillPrompt(templatePath, manifest, stack) {
     : ""
   const subs = {
     project_name: manifest.project.name,
-    requirements_file: manifest.project.requirementsFile ?? "REQUIREMENTS.md",
+    requirements_file: manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md",
     stack_summary: formatStack(stack),
     frontend_stack: stack.frontend || "frontend",
     backend_stack: stack.backend || "backend",
@@ -81,19 +81,40 @@ export function scaffold(manifest, stack, opts = {}) {
     write("opencode.json", JSON.stringify(renderOpenCodeJson(manifest), null, 2) + "\n")
   }
 
-  // 4. AGENTS.md — only write if absent.
-  if (!existsSync(out("AGENTS.md"))) {
-    write("AGENTS.md", renderAgentsMd(manifest, team))
+  // 4. AGENTS.md — marker-based merge. An existing armada section (between
+  // `<!-- armada:start -->` and `<!-- armada:end -->`) is replaced; otherwise
+  // the armada section is appended; if absent the file is created fresh.
+  const agentsPath = out("AGENTS.md")
+  const agentsContent = renderAgentsMd(manifest, team)
+  const ARMADA_START = "<!-- armada:start -->"
+  const ARMADA_END = "<!-- armada:end -->"
+
+  if (existsSync(agentsPath)) {
+    const existing = readFileSync(agentsPath, "utf8")
+    if (existing.includes(ARMADA_START)) {
+      // Replace existing armada section
+      const before = existing.substring(0, existing.indexOf(ARMADA_START))
+      const afterIdx = existing.indexOf(ARMADA_END)
+      const after = afterIdx !== -1 ? existing.substring(afterIdx + ARMADA_END.length) : ""
+      const merged = before + agentsContent + after
+      if (!opts.dryRun) writeFileSync(agentsPath, merged, "utf8")
+    } else {
+      // Append armada section at the end
+      const merged = existing + "\n" + agentsContent
+      if (!opts.dryRun) writeFileSync(agentsPath, merged, "utf8")
+    }
+  } else {
+    write("AGENTS.md", agentsContent)
   }
 
-  // 5. Requirements file (default REQUIREMENTS.md) — only write if absent.
-  const requirementsFile = manifest.project.requirementsFile ?? "REQUIREMENTS.md"
+  // 5. Requirements file (default armada/REQUIREMENTS.md) — only write if absent.
+  const requirementsFile = manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md"
   if (!existsSync(out(requirementsFile))) {
     write(requirementsFile, renderRequirementsMd(manifest))
   }
 
   // 6. armada.yaml — always write (manifest is the re-runnable source of truth).
-  write("armada.yaml", renderManifestYaml(manifest, team))
+  write("armada/armada.yaml", renderManifestYaml(manifest, team))
 
   // 7. armada command for in-session use.
   write(".opencode/commands/armada.md", renderArmadaCommand())
@@ -141,7 +162,9 @@ export function uninstall(manifest, opts = {}) {
     removed.push(rel)
   }
 
-  removeFile("armada.yaml")
+  removeFile("armada/armada.yaml")
+  removeFile("armada/REQUIREMENTS.md")
+  removeEmptyDir("armada")
   removeFile(".opencode/oh-my-opencode-slim.jsonc")
   removeFile(".opencode/commands/armada.md")
   const promptDir = join(target, ".opencode/oh-my-opencode-slim")
@@ -184,6 +207,6 @@ function renderArmadaCommand() {
 description: opencode-armada — team status, roles, regenerate
 ---
 You are the armada helper. Report: the configured team (from .opencode/oh-my-opencode-slim.jsonc),
-the active preset, and how to regenerate (armada init --from-armada armada.yaml). Keep it terse.
+the active preset, and how to regenerate (armada init --from-armada armada/armada.yaml). Keep it terse.
 `
 }

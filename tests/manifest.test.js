@@ -77,7 +77,7 @@ test("headless defaults to false", () => {
 
 test("parses requirementsFile (default + custom)", () => {
   const parsed = parseManifestYaml(renderManifestYaml(makeManifest(), buildTeam(makeManifest())))
-  assert.strictEqual(parsed.project.requirementsFile, "REQUIREMENTS.md")
+  assert.strictEqual(parsed.project.requirementsFile, "armada/REQUIREMENTS.md")
   const m = makeManifest()
   m.project.requirementsFile = "REQUIREMENTS-admin-dashboard.md"
   const parsed2 = parseManifestYaml(renderManifestYaml(m, buildTeam(m)))
