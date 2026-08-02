@@ -3,7 +3,7 @@
 budget: free
 
 agents:
-  orchestrator: { model: opencode/hy3-free }
+  orchestrator: { model: opencode-go/hy3 }
   backend-dev: { model: opencode/deepseek-v4-flash-free }
   frontend-dev: { model: opencode/mimo-v2.5-free }
   qa: { model: opencode/mimo-v2.5-free }

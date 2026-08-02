@@ -95,8 +95,8 @@ link them to an issue/PR when relevant.
   errors instead of cleaning artifacts by their known paths. (Architect finding.)
 - [ ] **`main()` returns `undefined`.** Programmatic callers can't distinguish success/error;
   return an exit-code int and let `isMain` set `process.exitCode`. (Architect finding.)
-- [ ] **Adversary catalog primary drift.** `opencode/deepseek-v4-pro` is unavailable on live
-  providers; the working equivalent is `opencode-go/deepseek-v4-pro`. Swap the CATALOG entry.
+- [x] **Adversary catalog primary drift.** `opencode/deepseek-v4-pro` is unavailable on live
+  providers; the working equivalent is `opencode-go/deepseek-v4-pro`. Swapped in CATALOG + balanced preset.
 - [ ] **No cookiecutter compatibility.** Deliberate (see SPEC §3), but a thin `cookiecutter
   hook` adapter could be added later if users want the traditional scaffold UX.
 
@@ -113,8 +113,8 @@ link them to an issue/PR when relevant.
 
 - [ ] Re-verify every model ID against current opencode / OpenRouter availability before publish
   - `opencode-go/minimax-m3`, `opencode-go/kimi-k2.7-code`, `opencode/mimo-v2.5-free`,
-    `opencode/deepseek-v4-pro`, `opencode/deepseek-v4-flash-free`, `opencode/big-pickle`,
-    `opencode/hy3-free`, `opencode-go/deepseek-v4-flash`
+    `opencode-go/deepseek-v4-pro`, `opencode/deepseek-v4-flash-free`, `opencode/big-pickle`,
+    `opencode-go/hy3`, `opencode-go/deepseek-v4-flash`
   - OpenRouter fallbacks: `z-ai/glm-5.2`, `minimax/minimax-m3`, `xiaomi/mimo-v2.5`,
     `deepseek/deepseek-v4-pro`, `anthropic/claude-sonnet-4.6`
 - [ ] Add a `(Recommended)` marker flag per model in the catalog (only the true first-choice

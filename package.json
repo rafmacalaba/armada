@@ -1,6 +1,6 @@
 {
   "name": "opencode-armada",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Reproducible AI-engineer multi-agent teams for opencode, built on oh-my-opencode-slim",
   "type": "module",
   "bin": {

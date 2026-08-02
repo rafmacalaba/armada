@@ -35,7 +35,7 @@ export const CATALOG = {
     primary: "opencode-go/minimax-m3",
     variant: "thinking",
     fallback: "openrouter/z-ai/glm-5.2",
-    free: "opencode/hy3-free",
+    free: "opencode-go/hy3",
     power: "openrouter/anthropic/claude-sonnet-4.6",
     reasoning: "strong judgment, delegation, reconciliation",
   },
@@ -65,7 +65,7 @@ export const CATALOG = {
   },
   adversary: {
     label: "Adversarial reviewer",
-    primary: "opencode/deepseek-v4-pro",
+    primary: "opencode-go/deepseek-v4-pro",
     fallback: "openrouter/deepseek/deepseek-v4-pro",
     free: "opencode/deepseek-v4-flash-free",
     power: "openrouter/deepseek/deepseek-v4-pro",
