@@ -50,3 +50,8 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
 
 - TDD: write the failing test first, then implement.
 - Roadmap and open work: [TODO.md](./TODO.md). Design decisions: [SPEC.md](./SPEC.md).
+
+## Superpowers
+
+Do NOT auto-invoke superpowers skills (brainstorming, SDD, writing-plans, etc.).
+Ask before using any superpowers skill. Standard opencode workflow is the default.
