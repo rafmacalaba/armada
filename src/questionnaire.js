@@ -1,12 +1,17 @@
 // Interactive questionnaire for `armada init`. Zero-dependency: uses node
 // readline so the CLI works without installing prompt libs. Also supports
-// declarative flags and --from-armada re-scaffold mode.
+// declarative flags and --from-armada re-scaffold mode. Prompts that are
+// single/multi choices delegate to the arrow-key pickers in `./ui.js`, which
+// fall back to line-based input when stdin is not a TTY.
 
 import { createInterface } from "node:readline/promises"
 import { stdin, stdout } from "node:process"
 
-import { ROLES, CATALOG, BUDGETS, modelFor, fallbackFor } from "./model-catalog.js"
+import { ROLES, CATALOG, modelFor, fallbackFor } from "./model-catalog.js"
 import { detectStack, formatStack } from "./stack-detect.js"
+import { select, multiSelect, confirm } from "./ui.js"
+
+export { confirm } from "./ui.js"
 
 export async function ask(question, { default: dflt, validate, input, output } = {}) {
   const rl = createInterface({ input: input ?? stdin, output: output ?? stdout })
@@ -29,27 +34,6 @@ export async function ask(question, { default: dflt, validate, input, output } =
   return answer
 }
 
-export async function confirm(question, dflt = true, { input, output } = {}) {
-  const rl = createInterface({ input: input ?? stdin, output: output ?? stdout })
-  const suffix = dflt ? " [Y/n]" : " [y/N]"
-  while (true) {
-    const answer = (await rl.question(`${question}${suffix} `)).trim().toLowerCase()
-    if (!answer) {
-      rl.close()
-      return dflt
-    }
-    if (["y", "yes"].includes(answer)) {
-      rl.close()
-      return true
-    }
-    if (["n", "no"].includes(answer)) {
-      rl.close()
-      return false
-    }
-    console.error("  Please answer y or n.")
-  }
-}
-
 // Offer a model choice for one role: primary (recommended) vs fallback vs free.
 async function pickModel(role) {
   const e = CATALOG[role]
@@ -69,38 +53,69 @@ async function pickModel(role) {
   return { model: choice.value, variant: choice.variant }
 }
 
+// Compact review table shown before anything is written.
+function renderSummary(out, { name, budget, enabled, overrides, browserTesting }) {
+  const W = 60
+  const rows = [
+    `name:    ${name}`,
+    `budget:  ${budget}`,
+    `team:    ${enabled.length ? `${enabled.join(", ")} (${enabled.length} roles)` : "none"}`,
+    ...enabled.map((role) => `  ${role}: ${overrides[role]?.model ?? modelFor(role, budget)}`),
+    `browser: ${browserTesting ? "e2e enabled" : "disabled"}`,
+  ]
+  out.write(`\n── ${"Summary".padEnd(W - 6, "─")}\n`)
+  for (const r of rows) out.write(`${r}\n`)
+  out.write(`${"─".repeat(W)}\n`)
+}
+
 // Full interactive questionnaire. Returns a manifest object (minus targetDir).
-export async function runQuestionnaire(rootDir = ".") {
+export async function runQuestionnaire(rootDir = ".", { input, output } = {}) {
+  const out = output ?? stdout
   const detected = detectStack(rootDir)
-  console.log("\n=== opencode-armada setup ===")
-  console.log(`Detected stack: ${formatStack(detected)}`)
+  out.write("\n=== opencode-armada setup ===\n")
+  out.write(`Detected stack: ${formatStack(detected)}\n`)
 
-  const name = await ask("Project name", { default: guessName(rootDir) })
+  const name = await ask("Project name", { default: guessName(rootDir), input, output })
 
-  // Budget tier first — drives default model recommendations.
-  const budgetRaw = await ask(`Budget tier (${BUDGETS.join("/")})`, { default: "balanced" })
-  const budget = BUDGETS.includes(budgetRaw) ? budgetRaw : "balanced"
+  // Budget tier — arrow-key picker with descriptions, default balanced.
+  const budget = await select(
+    "Budget tier",
+    [
+      { label: "free", value: "free", hint: "no-cost opencode models" },
+      { label: "balanced", value: "balanced", hint: "free workers, paid reviewers (recommended)" },
+      { label: "power", value: "power", hint: "strongest models on every role" },
+    ],
+    { defaultIndex: 1, input, output },
+  )
 
-  console.log("\nTeam selection (blank = all). Skip a role with 'n'.")
-  const enabled = []
-  for (const role of ROLES) {
-    const keep = await confirm(`Include ${role} (${CATALOG[role].label})?`, true)
-    if (keep) enabled.push(role)
-  }
+  // Team roles — one multi-select instead of eight Y/N prompts.
+  const enabled = await multiSelect(
+    "Team roles",
+    ROLES.map((role) => ({ label: `${role} (${CATALOG[role].label})`, value: role })),
+    { defaults: ROLES, input, output },
+  )
 
   // Per-role model override (defaults from budget). Ask only for the big four
   // to avoid questionnaire fatigue; others keep catalog defaults.
   const overrides = {}
   for (const role of enabled) {
     if (["orchestrator", "backend-dev", "frontend-dev", "qa", "adversary"].includes(role)) {
-      const want = await confirm(`Customize model for ${role}?`, false)
+      const want = await confirm(`Customize model for ${role}?`, false, { input, output })
       if (want) overrides[role] = await pickModel(role)
     }
   }
 
-  const browserTesting = await confirm("Enable browser/e2e testing (agent-browser + devcontainer)?", true)
-  const devcontainer = browserTesting ? true : await confirm("Add .devcontainer anyway?", false)
+  const browserTesting = await confirm("Enable browser/e2e testing (agent-browser + devcontainer)?", true, { input, output })
+  const devcontainer = browserTesting ? true : await confirm("Add .devcontainer anyway?", false, { input, output })
   const useAgentBrowser = browserTesting
+
+  // Final review before writing anything.
+  renderSummary(out, { name, budget, enabled, overrides, browserTesting })
+  const approved = await confirm("Write this configuration?", true, { input, output })
+  if (!approved) {
+    out.write("Setup cancelled.\n")
+    process.exit(1)
+  }
 
   return {
     project: {
