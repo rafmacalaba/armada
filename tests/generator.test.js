@@ -168,6 +168,33 @@ test("renderOpenCodeJson model follows budget tier", () => {
   assert.strictEqual(cfg.model, modelFor("orchestrator", "free"))
 })
 
+test("renderOpenCodeJson includes agent block so team works without plugin's config hook", () => {
+  const team = buildTeam(baseManifest)
+  const cfg = renderOpenCodeJson(baseManifest, team)
+  assert.ok(cfg.agent, "agent block must be present")
+  // orchestrator is primary
+  assert.strictEqual(cfg.agent.orchestrator.mode, "primary")
+  assert.strictEqual(cfg.agent.orchestrator.model, modelFor("orchestrator", "balanced"))
+  assert.ok(cfg.agent.orchestrator.permission, "orchestrator permission block present")
+  // every other role is subagent and has a model + permission block
+  for (const role of ["backend-dev", "frontend-dev", "qa", "adversary", "security", "docs", "architect"]) {
+    assert.ok(cfg.agent[role], `${role} agent present`)
+    assert.strictEqual(cfg.agent[role].mode, "subagent")
+    assert.ok(cfg.agent[role].model, `${role} has model`)
+    assert.ok(cfg.agent[role].permission, `${role} has permission block`)
+  }
+})
+
+test("renderOpenCodeJson agent block omits disabled team entries", () => {
+  const m = structuredClone(baseManifest)
+  m.team = m.team.map((t) => ({ ...t, enabled: t.role !== "architect" && t.role !== "security" }))
+  const team = buildTeam(m)
+  const cfg = renderOpenCodeJson(m, team)
+  assert.ok(cfg.agent.orchestrator, "orchestrator enabled")
+  assert.ok(!cfg.agent.architect, "disabled architect absent")
+  assert.ok(!cfg.agent.security, "disabled security absent")
+})
+
 test("AGENTS.md playbook mentions ledger and roles", () => {
   const team = buildTeam(baseManifest)
   const md = renderAgentsMd(baseManifest, team)

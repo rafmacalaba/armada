@@ -4,6 +4,8 @@ node_modules/
 dist/
 build/
 .armada-cache/
+# Local opencode plugin list side-effect; not a real config
+/.opencode/
 # Generated outputs used in tests / validation
 /tmp-test/
 *.tgz

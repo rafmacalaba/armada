@@ -106,7 +106,7 @@ export function scaffold(manifest, stack, opts = {}) {
 
   // 3. opencode.json — only write if absent (never clobber project config).
   if (!existsSync(out("opencode.json"))) {
-    write("opencode.json", JSON.stringify(renderOpenCodeJson(manifest), null, 2) + "\n")
+    write("opencode.json", JSON.stringify(renderOpenCodeJson(manifest, team), null, 2) + "\n")
   }
 
   // 4. AGENTS.md — marker-based merge. An existing armada section (between
