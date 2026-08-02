@@ -19,6 +19,8 @@ test("dogfood: scaffold over this repo's instruction files preserves them", () =
     team: ROLES.map((r) => ({ role: r, model: modelFor(r, "balanced"), fallback: null, enabled: true })),
   }
   scaffold(m, {})
-  assert.strictEqual(readFileSync(join(dir, "AGENTS.md"), "utf8"), readFileSync(OUR_AGENTS, "utf8"))
+  const agents = readFileSync(join(dir, "AGENTS.md"), "utf8")
+  assert.ok(agents.startsWith(readFileSync(OUR_AGENTS, "utf8")), "user rules preserved")
+  assert.match(agents, /<!-- armada:start -->/)
   assert.strictEqual(JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8")).custom, true)
 })

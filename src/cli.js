@@ -4,10 +4,10 @@
 // Commands:
 //   armada init                 interactive questionnaire -> writes team config
 //   armada init --stack ...     declarative flags
-//   armada init --from-armada armada.yaml   re-scaffold from manifest
+//   armada init --from-armada armada/armada.yaml   re-scaffold from manifest
 //   armada models [budget]      print curated model catalog
 //   armada models --refresh     merge live provider models (requires auth)
-//   armada doctor               check omo-slim + providers + background subagents
+//   armada doctor               check omo-slim + providers + env
 //   armada uninstall [--all]    remove armada-generated artifacts (--all also user-facing)
 //   armada ping                 confirm the CLI works
 //   armada help                 this help
@@ -23,7 +23,7 @@ import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache
 import { parseManifestYaml } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 
-export const VERSION = "0.3.0"
+export const VERSION = "0.4.0"
 
 const HELP = `opencode-armada v${VERSION}
 Reproducible AI-engineer multi-agent teams for opencode, on oh-my-opencode-slim.
@@ -32,8 +32,8 @@ Usage:
   armada init                                interactive setup
   armada init --stack <s> --budget <b>       declarative setup
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
-  armada init --requirements <file>          per-feature contract file (default REQUIREMENTS.md)
-  armada init --from-armada armada.yaml      regenerate from manifest
+  armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
+  armada init --from-armada armada/armada.yaml      regenerate from manifest
   armada models [budget]                     show curated model catalog
   armada models --refresh                    merge live provider models
   armada doctor                              environment health check
@@ -215,7 +215,7 @@ function defaultManifest() {
       devcontainer: false,
       useAgentBrowser: false,
       headless: false,
-      requirementsFile: "REQUIREMENTS.md",
+      requirementsFile: "armada/REQUIREMENTS.md",
       stack: {},
     },
     team: ROLES.map((role) => ({
@@ -267,7 +267,7 @@ async function doctor() {
 
 async function uninstallCmd(args) {
   const fileIdx = args.indexOf("--from-armada")
-  const file = fileIdx !== -1 ? args[fileIdx + 1] : "armada.yaml"
+  const file = fileIdx !== -1 ? args[fileIdx + 1] : "armada/armada.yaml"
   if (!file || file.startsWith("--") || !existsSync(resolve(file))) {
     console.error(`Manifest not found: ${!file || file.startsWith("--") ? "(missing)" : file}`)
     process.exitCode = 1

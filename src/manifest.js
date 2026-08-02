@@ -31,7 +31,7 @@ export function parseManifestYaml(text) {
       devcontainer: p.devcontainer ?? false,
       useAgentBrowser: p.useAgentBrowser ?? false,
       headless: p.headless ?? false,
-      requirementsFile: p.requirementsFile ?? "REQUIREMENTS.md",
+      requirementsFile: p.requirementsFile ?? "armada/REQUIREMENTS.md",
       stack: {
         frontend: stack.frontend ?? null,
         backend: stack.backend ?? null,
@@ -56,7 +56,7 @@ export const MANIFEST_SCHEMA = {
     devcontainer: "boolean",
     useAgentBrowser: "boolean",
     headless: "boolean", // non-interactive mode: orchestrator bash allow (CI-safe)
-    requirementsFile: "string", // per-feature contract (default REQUIREMENTS.md)
+    requirementsFile: "string", // per-feature contract (default armada/REQUIREMENTS.md)
   },
   team: "array<{name, role, model, fallback, variant?, enabled}>",
   presets: "object", // model presets generated from budget
@@ -75,7 +75,7 @@ export const DEFAULT_PLAYBOOK = {
   },
   phases: {
     gateCriteria: "evidence: passing tests and/or screenshots",
-    contract: "REQUIREMENTS.md",
+    contract: "armada/REQUIREMENTS.md",
   },
   roleBoundaries: "enforced by agent permissions; do not bypass via shell",
   conventions: {
