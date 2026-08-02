@@ -10,9 +10,11 @@ orchestrator that plans, delegates, and gates phases is ready the first time you
 Stack-aware from your repo's actual manifests. Per-repo and reproducible via a single manifest
 file. MIT-licensed.
 
+Runs with either runtime — `npx` (node) or `bunx` (bun), same package.
+
 ```bash
 # start a fresh project, cookiecutter-style — picks the curated stack
-bunx opencode-armada new my-app --type web-app --beginner --yes
+npx opencode-armada new my-app --type web-app --beginner --yes   # or: bunx opencode-armada new ...
 cd my-app
 opencode                            # launch opencode — the team loads
 # in the TUI:
@@ -80,13 +82,13 @@ Both end in the same place: a directory you `cd` into, run `opencode`, and start
 
 ```bash
 # Path A: fresh project (cookiecutter-style)
-bunx opencode-armada new my-app --type web-app --beginner --yes
+npx opencode-armada new my-app --type web-app --beginner --yes   # or: bunx opencode-armada new ...
 cd my-app
 opencode
 
 # Path B: existing repo
 cd my-existing-repo
-bunx opencode-armada init
+npx opencode-armada init            # or: bunx opencode-armada init
 opencode
 ```
 
@@ -114,7 +116,7 @@ option** on step 1. There is no armada at runtime.
 - oh-my-opencode-slim installed globally (add to `plugin` in
   `~/.config/opencode/opencode.json`):
   ```bash
-  bunx oh-my-opencode-slim@latest install --preset=opencode-go
+  npx oh-my-opencode-slim@latest install --preset=opencode-go   # or: bunx oh-my-opencode-slim@latest install ...
   ```
 - Provider auth: `opencode auth login` (OpenCode Go for free models, OpenRouter for fallbacks)
 - omo-slim handles background orchestration automatically. Optionally enable opencode-native
@@ -157,7 +159,7 @@ starter copy, and the team install. No git clone → template copy → `armada i
 
 ```bash
 # from your repo root
-bunx opencode-armada init          # interactive questionnaire
+npx opencode-armada init            # interactive questionnaire — or: bunx opencode-armada init
 opencode                            # start opencode
 # /armada                          # team status
 # "ping all agents"                # verify the roster is online
