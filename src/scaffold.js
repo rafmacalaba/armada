@@ -39,7 +39,7 @@ export function fillPrompt(templatePath, manifest, stack) {
 }
 
 export const PROMPT_SOURCE = {
-  orchestrator: "agents/orchestrator/prompt.template.md",
+  orchestrator: "agents/orchestrator/append.template.md",
   "backend-dev": "agents/backend-dev/prompt.template.md",
   "frontend-dev": "agents/frontend-dev/prompt.template.md",
   qa: "agents/qa/prompt.template.md",
@@ -69,11 +69,15 @@ export function scaffold(manifest, stack, opts = {}) {
   write(".opencode/oh-my-opencode-slim.jsonc", renderSlimJsonc(manifest, team))
 
   // 2. Per-agent prompt files (stack-filled) in the prompt override dir.
+  //    The orchestrator is the omo-slim primary: its prompt is *appended*
+  //    (orchestrator_append.md) so the superpowers base prompt is preserved.
+  //    Every other role is a full-replacement subagent prompt (<role>.md).
   for (const a of team) {
     if (!a.enabled) continue
     const src = join(ROOT, PROMPT_SOURCE[a.role])
     const content = fillPrompt(src, manifest, stack)
-    write(`.opencode/oh-my-opencode-slim/${a.role}.md`, content)
+    const filename = a.role === "orchestrator" ? "orchestrator_append.md" : `${a.role}.md`
+    write(`.opencode/oh-my-opencode-slim/${filename}`, content)
   }
 
   // 3. opencode.json — only write if absent (never clobber project config).

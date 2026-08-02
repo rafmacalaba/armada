@@ -7,3 +7,5 @@ build/
 # Generated outputs used in tests / validation
 /tmp-test/
 *.tgz
+# Plain-copy sandboxes (git worktree paths are git-managed, no entry needed)
+/sandbox/

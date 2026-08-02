@@ -73,8 +73,8 @@ const BASE_PERMISSIONS = {
   },
 }
 
-// orchestratorPrompt: injected into the Orchestrator to teach it when to
-// delegate to each role. Kept terse (caveman-style) to reduce token burn.
+// orchestratorPrompt: injected into the OMO-slim session orchestrator to teach it
+// when to delegate to each armada role. Kept terse (caveman-style) to reduce token burn.
 const ROUTING = {
   orchestrator: "",
   "backend-dev":
@@ -133,7 +133,11 @@ export function renderSlimJsonc(manifest, team) {
         : {}),
     }
     // A compact, stack-aware system prompt override lives in the prompt dir;
-    // keep the config lean. The orchestrator reads the prompt file.
+    // keep the config lean. The orchestrator reads the append file.
+    // The orchestrator is the omo-slim primary; armada surfaces it in the TUI
+    // as "armada-orchestrator" without breaking the primary slot + background
+    // job board, which both require the internal name to stay "orchestrator".
+    if (a.role === "orchestrator") entry.displayName = "armada-orchestrator"
     agents[a.role] = entry
   }
 
@@ -288,7 +292,8 @@ ${body}
 }
 
 // Build the requirements file (default REQUIREMENTS.md) — the contract scaffold.
-// Only written when absent. Co-write it with the orchestrator: it is the driver, you approve.
+// Only written when absent. Co-write it with the orchestrator (the session
+// driver): it is the armada delivery lead, you approve.
 export function renderRequirementsMd(manifest) {
   return `# ${manifest.project.name} — Requirements
 
