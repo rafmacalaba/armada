@@ -7,7 +7,9 @@
 frontend, qa, adversary, security, docs, architect — that ships work **only on proof**: a phase
 unlocks when its tests pass and evidence is shown, a defect closes only when qa retests it, and
 role boundaries are enforced by the SDK, not by a prompt. One command scaffolds the team into your
-repo, stack-aware and reproducible from a single manifest. MIT-licensed.
+repo, stack-aware and reproducible from a single manifest. The session is **restart-proof**: the
+fleet's progress lives in `armada/state/`, so a killed session resumes exactly where it left off.
+MIT-licensed.
 
 Runs with either runtime — `npx` (node) or `bunx` (bun), same package.
 
@@ -40,6 +42,11 @@ backend-dev, frontend-dev, qa, adversary, security, docs, architect — under an
 writes a contract with you, runs it in gated phases, and demands evidence at every gate. The
 boring-sounding part — reproducible from one manifest — is what makes it trustable: `armada init
 --from-armada armada.yaml` rebuilds the identical team anywhere.
+
+It fuses two engineering ideas, explained fully in [ARCHITECTURE.md](./ARCHITECTURE.md): the repo
+as a **harness** (enforcement is mechanical — SDK permissions in agent frontmatter, not prompt
+politeness) and the orchestrator as a **loop** (plan → dispatch → verify → gate → next, with
+state as the loop's memory).
 
 Public. Transparent. MIT-licensed. Full spec in [SPEC.md](./SPEC.md).
 
@@ -102,11 +109,19 @@ You don't ask it to; it's how it starts. Then it implements: backend-dev and fro
 nothing blocks a phase except an unmet dependency or a failed success criterion. You approve at
 gates and review the PR.
 
+Every phase transition is written to `armada/state/` — so the session is **restart-proof**. Kill
+opencode mid-feature and reopen: the orchestrator reads state and reports *"resume: feature X,
+phase 2, evidence in, next action Y"* (or `/armada-resume`). Per-feature contracts live in
+`armada/state/features/`, tracked by `armada feature new/list/close`.
+
 The orchestrator is armada's primary agent (`mode: primary`) and the repo's `default_agent`, so
 the TUI boots straight into it. Its prompt is self-contained — nothing is appended at runtime.
 
-Everything below this line (`--headless`, `--requirements`, `--budget`, …) is a **setup-time
-option** on step 1. There is no armada at runtime.
+Everything in the setup-time options below (`--headless`, `--requirements`, `--budget`, …) is a
+**setup-time option** on step 1. After that, the fleet runs as native opencode agents with a small,
+reproducible runtime footprint: the **state area** (`armada/state/`, written by the fleet at every
+phase transition) and **in-session commands** (`/armada`, `/armada-status`, `/armada-scout`,
+`/armada-resume`).
 
 ---
 
@@ -198,13 +213,20 @@ your-repo/
 ├── AGENTS.md                         # playbook: team roles, defect ledger, phase gates (if absent)
 ├── REQUIREMENTS.md                   # contract scaffold: phases + success criteria (if absent)
 ├── armada.yaml                       # manifest — source of truth, re-runnable
+├── armada/state/                     # the loop's memory — written by the fleet, restart-proof
+│   ├── active.json                   # active feature, phase graph, evidence, next action
+│   └── features/                     # per-feature contracts + index.json
 └── .opencode/
     ├── agent/                        # native opencode agents: mode/model/permission frontmatter
     │   ├── orchestrator.md           # primary agent, default_agent, self-contained prompt
     │   ├── backend-dev.md
     │   ├── frontend-dev.md
     │   └── qa.md / adversary.md / security.md / docs.md / architect.md
-    └── commands/armada.md            # /armada in-session command
+    └── commands/                     # in-session commands
+        ├── armada.md                 # /armada — team status
+        ├── armada-status.md          # /armada-status — read the state area
+        ├── armada-scout.md           # /armada-scout — read-only investigation
+        └── armada-resume.md          # /armada-resume — restart-proof resume
 ```
 
 When browser/e2e testing is enabled, `.devcontainer/` (opencode + agent-browser + chromium)
@@ -229,6 +251,10 @@ is also scaffolded.
 | `armada init --yes` | non-interactive defaults (no TTY) |
 | `armada init --headless` | CI-safe: orchestrator bash allowed, no `ask` prompts |
 | `armada init --requirements <file>` | per-feature contract file (default `REQUIREMENTS.md`) |
+| `armada feature new <name>` | start a feature: creates the contract + state, sets it active |
+| `armada feature list` | list all features from the state index |
+| `armada feature close <name>` | close a feature (evidence-gated — refuses until criteria pass) |
+| `armada feature status [name]` | show a feature's phase graph + evidence |
 | `armada models [budget]` | show curated model catalog |
 | `armada models --refresh --cache <path>` | merge live provider models (cache to path) |
 | `armada doctor` | environment health check |
