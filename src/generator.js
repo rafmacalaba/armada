@@ -385,9 +385,7 @@ export function renderArmadaResumeCommand() {
 description: opencode-armada — resume after an interrupted session
 agent: orchestrator
 ---
-Read armada/state/active.json + armada/state/features/index.json if they exist. Summarize
-pending phases (status != "passed") and what is outstanding, then ask the user for the next
-action before resuming. If no state exists, say "no active fleet — nothing to resume".
+Run \`node src/cli.js reconcile\` and print the resume line plus any drift list. Keep it terse.
 `
 }
 

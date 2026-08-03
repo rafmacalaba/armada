@@ -348,13 +348,27 @@ test("renderArmadaScoutCommand is read-only, dispatches investigation", () => {
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
 })
 
-test("renderArmadaResumeCommand reads state index and asks next action", () => {
+test("renderArmadaResumeCommand calls node src/cli.js reconcile, one paragraph", () => {
   const md = renderArmadaResumeCommand()
   assert.match(md, /^---\n/)
   assert.match(md, /description:/)
-  assert.match(md, /armada\/state\/active\.json/)
-  assert.match(md, /next action|resume/i)
+  assert.match(md, /node src\/cli\.js reconcile/)
+  assert.match(md, /resume line/)
+  assert.match(md, /drift list/)
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
+})
+
+test("renderArmadaResumeCommand is byte-identical after manifest round-trip", () => {
+  // armada init --from-armada twice must produce identical command file.
+  const cmd1 = renderArmadaResumeCommand()
+  // Round-trip through manifest: parse -> re-render -> re-parse, then rebuild team.
+  const team = buildTeam(baseManifest)
+  const yaml = renderManifestYaml(baseManifest, team)
+  const reparsed = parseManifestYaml(yaml)
+  const team2 = buildTeam(reparsed)
+  const yaml2 = renderManifestYaml(reparsed, team2)
+  const cmd2 = renderArmadaResumeCommand()
+  assert.strictEqual(cmd1, cmd2, "command output must be byte-identical after round-trip")
 })
 
 test("renderArmadaSupervisionPlugin is valid JS with three handlers", async () => {

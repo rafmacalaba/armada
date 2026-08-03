@@ -148,6 +148,53 @@ session can be resumed. Format: YAML frontmatter (`active_phases`, `last_update`
 plus a short markdown body — one line per active phase (phase, evidence in, status). The
 orchestrator reads it on session start (hard rule 3) and on `/armada-status` / `/armada-resume`.
 
+### Resume after a crash
+
+A killed session — crash, power loss, `SIGKILL`, closed laptop — resumes from state, not from
+memory. `armada/state/` is written at every phase transition, so the next session reconciles
+and carries on. Run `/armada-resume` in the TUI whenever you reopen opencode after an
+interruption, **before** dispatching anything new: it reports where the fleet stopped and what
+is outstanding. It is read-only — reconcile never mutates state.
+
+`/armada-resume` wraps the same engine as `armada reconcile`. It prints one resume line naming
+the active feature (`<slug>`), the current phase (`<phase-id>`), and the next action, followed
+by one line per evidence drift. Output format per the contract spec (`armada/REQUIREMENTS.md`,
+Phase 1):
+
+```
+resume: feature demo, phase phase-2 (in_progress), evidence 1 in, next action finish phase 2 criteria
+
+drift: evidence-missing    phase-2 criterion c1    evidence/phase-2/c1.md not found
+drift: evidence-failed     phase-2 criterion c2    evidence command exited non-zero
+drift: criterion-unticked  phase-2 criterion c3    contract line 12 still unchecked
+```
+
+Drifts are reported, never auto-failed: the phase stays open until a human acts. Interpretation
+and the one-line fix per kind:
+
+| Drift | Meaning | Fix |
+|---|---|---|
+| `evidence-missing` | The evidence file a criterion points at is not on disk | Re-run the verification and write the evidence to the referenced path |
+| `evidence-failed` | The evidence command for a criterion exited non-zero | Fix the cause, re-run the command until it exits 0 |
+| `criterion-unticked` | A criterion on a passed phase is unchecked in the contract | Finish the work, tick the box, re-verify; re-open the phase if work regressed |
+
+The same engine as a CLI:
+
+```
+armada reconcile [--json] [--state-dir <path>] [--repo <path>]
+```
+
+| Flag | Meaning |
+|---|---|
+| `--json` | Print the raw `ResumePlan` as JSON instead of the human summary |
+| `--state-dir <path>` | Read state from `<path>` instead of `<repo>/armada/state` |
+| `--repo <path>` | Repo root for resolving the contract and evidence paths (default: cwd) |
+
+Exit codes: `0` — no drifts, or no active feature (nothing to resume); `2` — one or more
+evidence drifts reported. Default (human) output is the resume line plus the drift list;
+`--json` emits the raw plan `{ activeFeature, currentPhase, drifts, resumeLine, generatedAt }`.
+Reconcile is read-only in all modes.
+
 ### Opt-in supervision plugin (advanced)
 
 Default `armada init` is plugin-free. For firstmate-grade supervision, enable a single thin

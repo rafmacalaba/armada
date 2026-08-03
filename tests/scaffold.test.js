@@ -98,7 +98,7 @@ test("scaffold writes all expected files", () => {
   const scout = readFileSync(join(dir, ".opencode/commands/armada-scout.md"), "utf8")
   assert.match(scout, /read-only|no writes/i)
   const resume = readFileSync(join(dir, ".opencode/commands/armada-resume.md"), "utf8")
-  assert.match(resume, /armada\/state\/active\.json/)
+  assert.match(resume, /node src\/cli\.js reconcile/)
 
   rmSync(dir, { recursive: true, force: true })
 })
