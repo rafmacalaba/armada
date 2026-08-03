@@ -18,6 +18,8 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { homedir } from "node:os"
 import { join, dirname, resolve, isAbsolute, sep } from "node:path"
 
+import { displayFor } from "./role-display.js"
+
 export const ROLES = [
   "orchestrator",
   "backend-dev",
@@ -162,12 +164,12 @@ export function renderCatalog(budget = "balanced", availability = null) {
     const primary = modelFor(role, budget)
     const mark = availability ? (availability.has(primary) ? "✓" : "✗") : ""
     const recommended = ` (Recommended)`
-    return [role, `${mark}${primary}${recommended}`, e.fallback || ""]
+    return [displayFor(role), `${mark}${primary}${recommended}`, e.fallback || ""]
   })
-  const roleWidth = Math.max("role".length, ...rows.map((r) => r[0].length))
+  const roleWidth = Math.max("display name".length, ...rows.map((r) => r[0].length))
   const modelWidth = Math.max("model".length, ...rows.map((r) => r[1].length))
   const fallbackWidth = Math.max("fallback".length, ...rows.map((r) => r[2].length))
-  const header = ["role".padEnd(roleWidth), "model".padEnd(modelWidth), "fallback".padEnd(fallbackWidth)]
+  const header = ["display name".padEnd(roleWidth), "model".padEnd(modelWidth), "fallback".padEnd(fallbackWidth)]
   const body = rows.map((r) => [r[0].padEnd(roleWidth), r[1].padEnd(modelWidth), r[2].padEnd(fallbackWidth)])
   return [header.join("  "), body.map((r) => r.join("  ")).join("\n")].join("\n")
 }

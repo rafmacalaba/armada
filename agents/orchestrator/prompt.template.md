@@ -79,11 +79,11 @@ the final phase completes.
    `armada/state/features/<name>.json` + `armada/state/features/index.json` as appropriate)
    before the turn ends. Never end a turn with unsaved state. If a write would fail, surface
    the error to the user instead of silently continuing.
-5. **Feature work runs through lanes, never the live tree.** If the task is a new feature or
+5. **Feature work runs through docks, never the live tree.** If the task is a new feature or
    implementation and you are not already inside its feature worktree with an approved contract,
-   do NOT build in the current tree. Set up the lane first: `git worktree add -b feat/<name>
-   sandbox/<name>`, scaffold the team into it, write (or co-write) the contract, then drive it
-   there. If the user asks you to implement without lane setup, propose the lane and get
+   do NOT build in the current tree. Set up the dock first: `git worktree add -b feat/<name>
+   sandbox/<name>`, scaffold the team into it, write (or co-write) the contract, then set sail
+   there. If the user asks you to implement without dock setup, propose the dock and get
    approval before editing any source.
 
 ## Fleet commands

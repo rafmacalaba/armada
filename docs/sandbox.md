@@ -1,8 +1,8 @@
-# Sandbox workflow: working on armada inside a copy
+# Dock workflow: working on armada inside a worktree copy
 
 The [armada-improves-armada workflow](./armada-improves-armada.md) scaffolds a team into a
-`sandbox/<name>/` worktree — for both audits and feature work on armada itself. This doc covers
-the venue mechanics: how to create, scaffold, and clean up a sandbox. Main branch stays
+`sandbox/<name>/` worktree — for both patrols and voyages on armada itself. This doc covers
+the venue mechanics: how to create, scaffold, and clean up a dock. Main branch stays
 pristine; merge when ready.
 
 ## Why
@@ -30,7 +30,7 @@ npm install
 node ../src/cli.js init --from-armada armada/armada.yaml
 ```
 
-`git worktree list` shows all sandboxes. `git worktree remove sandbox/<name>`
+`git worktree list` shows all docks. `git worktree remove sandbox/<name>`
 cleans up when done. No `.gitignore` change needed for the worktree itself — git
 manages the checkout — but the parent `sandbox/` path is gitignored below.
 
@@ -49,9 +49,9 @@ npm install
 
 This copy is its own repo. `/sandbox/` in `.gitignore` covers it.
 
-## Scaffolding `armada init` inside a sandbox
+## Scaffolding `armada init` inside a dock
 
-Two ways to bring the team into a sandbox:
+Two ways to bring the team into a dock:
 
 1. **Copy the parent's `armada.yaml`** — same team/preset as the live repo:
    ```bash
@@ -59,14 +59,14 @@ Two ways to bring the team into a sandbox:
    node ../src/cli.js init --from-armada armada/armada.yaml
    ```
 2. **Run fresh `init`** — let stack detection and the questionnaire pick the team
-   for the sandbox context:
+   for the dock context:
    ```bash
    node ../src/cli.js init --stack docs --budget balanced
    ```
 
 `armada init` writes only into the cwd, so the parent repo is never touched.
 Worktree checkouts record the scaffold on the feature branch directly; plain
-copies record it in the sandbox's own `.git`.
+copies record it in the copy's own `.git`.
 
 ## Lifecycle
 
@@ -75,17 +75,17 @@ create → work → test → merge → clean
 ```
 
 - **create**: `git worktree add -b feat/<name> sandbox/<name>` (or `cp -R` for plain).
-- **work**: edit, run tests, scaffold the team, drive `/armada`.
-- **test**: `node --test 'tests/*.test.js'` from the sandbox root. Must be green.
-- **merge**: **PR-first** — `gh pr create --base master` from the lane branch; never `git merge`
+- **work**: edit, run tests, scaffold the team, run `/armada`.
+- **test**: `node --test 'tests/*.test.js'` from the dock root. Must be green.
+- **merge**: **PR-first** — `gh pr create --base master` from the dock branch; never `git merge`
   locally, never push master directly. Merge via the PR once evidence is verified.
 - **clean**: `git worktree remove sandbox/<name>` (worktree) or `rm -rf sandbox/<name>` (plain).
 
-After the team is scaffolded, use `armada drive <lane-path>` to boot the session and auto-attach
+After the team is scaffolded, use `armada voyage <lane-path>` to boot the ship and auto-attach
 a visible terminal. See [docs/armada-improves-armada.md](./armada-improves-armada.md) for the
-full Lane B flow.
+full voyage flow.
 
-## Sandbox vs. external sibling
+## Dock vs. external sibling
 
 The repo is also used *from outside* via a sibling directory (e.g.
 `../opencode-armada-sandbox/landing-page/`) — that's where you scaffold a team
@@ -107,15 +107,15 @@ manages them.
 /sandbox/
 ```
 
-If a plain-copy sandbox needs to keep its own `.git`, the worktree flavour is
+If a plain-copy dock needs to keep its own `.git`, the worktree flavour is
 usually a better fit.
 
 ## Conventions
 
 - **Branch name:** `feat/<short-kebab>` (e.g. `feat/init-flag`, `feat/sandbox-doc`).
-- **Sandbox path mirrors branch:** `sandbox/feat-init-flag/`.
-- **One feature per sandbox.** If work splits, branch from the feature, not master.
-- **Don't merge broken state.** Tests must be green in the sandbox before merge.
+- **Dock path mirrors branch:** `sandbox/feat-init-flag/`.
+- **One feature per dock.** If work splits, branch from the feature, not master.
+- **Don't merge broken state.** Tests must be green in the dock before merge.
   See [docs/validation.md](./validation.md).
 
 ## Engine note: `.slim/worktrees/`
@@ -123,18 +123,18 @@ usually a better fit.
 The superpowers `worktrees` skill has its own
 convention: `.slim/worktrees/<slug>/`, with a `.slim/worktrees.json` manifest
 managed by the `worktrees` skill. It is functionally equivalent to this doc's
-`sandbox/` path — git worktree, isolated lane, ignored — just under a different
+`sandbox/` path — git worktree, isolated dock, ignored — just under a different
 name and tied to engine skill state.
 
 Use `sandbox/` when you want a self-contained convention owned by this repo.
-Use `.slim/worktrees/` when you want the engine to track the lane in its
+Use `.slim/worktrees/` when you want the engine to track the dock in its
 manifest and benefit from skill-driven orchestration hooks.
 
 Both are valid; pick one per project and stay consistent.
 
 ## See also
 
-- [docs/armada-improves-armada.md](./armada-improves-armada.md) — the two-lane workflow this venue serves (audit + feature).
+- [docs/armada-improves-armada.md](./armada-improves-armada.md) — the patrol/voyage workflow this venue serves.
 - [docs/validation.md](./validation.md) — what "done" means.
 - [TODO.md](../../TODO.md) — current roadmap.
 - [ARCHITECTURE.md](../../ARCHITECTURE.md) — module map and data flow.

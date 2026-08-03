@@ -604,3 +604,66 @@ test("uninstall --dry-run does not modify .gitignore", async () => {
   const after = readFileSync(join(dir, ".gitignore"), "utf8")
   assert.strictEqual(after, before)
 })
+
+// DEF-002: voyage --help and drive --help print usage, do not boot a lane
+test("voyage --help prints usage and exits 0", async () => {
+  const r = await runCli(["voyage", "--help"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
+  assert.match(r.stdout, /armada voyage/)
+  assert.match(r.stdout, /armada drive.*alias for voyage/)
+})
+
+test("drive --help prints usage and exits 0", async () => {
+  const r = await runCli(["drive", "--help"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
+  assert.match(r.stdout, /armada voyage/)
+  assert.match(r.stdout, /armada drive.*alias for voyage/)
+})
+
+// -- Phase 4: armada voyage (primary command; drive = alias) --
+
+test("voyage boots a lane session and prints success", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "voyage-lane-"))
+  const r = await runCli(["voyage", lanePath], { env: { PATH: binDir } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /session/)
+  assert.match(r.stdout, /auto-attach skipped/)
+  assert.match(r.stdout, /tmux attach -t/)
+  assert.match(r.stdout, /armada voyage:/)
+})
+
+test("voyage with nonexistent path exits 1", async () => {
+  const r = await runCli(["voyage", "/nonexistent/path/12345"])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /lane path not found/)
+})
+
+test("voyage --no-open prints skipped message", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "voyage-noopen-"))
+  const r = await runCli(["voyage", "--no-open", lanePath], { env: { PATH: binDir } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /--no-open: skipped auto-attach/)
+  assert.match(r.stdout, /session/)
+})
+
+test("voyage on existing session says already running", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 0 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "voyage-reattach-"))
+  const r = await runCli(["voyage", lanePath], { env: { PATH: binDir } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /already running|reattach/)
+  assert.doesNotMatch(r.stdout, /prompt registered/)
+})

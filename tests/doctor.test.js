@@ -17,7 +17,7 @@ test("all checks pass on healthy env", async () => {
   const checks = await runDoctor({
     env: envWith(binDir, { OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS: "true" }),
   })
-  assert.deepStrictEqual(checks.map((c) => c.status), ["pass", "pass", "pass", "pass", "pass", "pass"])
+  assert.deepStrictEqual(checks.map((c) => c.status), ["pass", "pass", "pass", "pass", "pass", "pass", "pass"])
 })
 
 test("background dispatch reports the native flag when enabled", async () => {
@@ -48,6 +48,7 @@ test("fails when opencode missing", async () => {
       { name: "background dispatch", status: "pass" },
       { name: "node", status: "pass" },
       { name: "global armada binary", status: "fail" },
+      { name: "team roster", status: "pass" },
     ]
   )
 })
@@ -145,4 +146,45 @@ test("global armada binary resolves a valid two-hop symlink chain", async () => 
   const ga = checks.find((c) => c.name === "global armada binary")
   assert.strictEqual(ga.status, "pass")
   assert.match(ga.detail, /v0\.6\.2/)
+})
+
+test("team roster check appears with display names when team is provided", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const team = [
+    { role: "orchestrator", model: "opencode-go/minimax-m3", enabled: true },
+    { role: "backend-dev", model: "opencode-go/deepseek-v4-pro", enabled: true },
+  ]
+  const checks = await runDoctor({ env: envWith(binDir), team })
+  const roster = checks.find((c) => c.name === "team roster")
+  assert.strictEqual(roster.status, "pass")
+  assert.match(roster.detail, /Commodore: opencode-go\/minimax-m3/)
+  assert.match(roster.detail, /Galleon: opencode-go\/deepseek-v4-pro/)
+  assert.ok(!roster.detail.includes("orchestrator:"), "roster must not contain bare role key orchestrator:")
+  assert.ok(!roster.detail.includes("backend-dev:"), "roster must not contain bare role key backend-dev:")
+})
+
+test("team roster shows 'no team' when team is empty or not provided", async () => {
+  const binDir = makeBin({ opencode: SH })
+  let checks = await runDoctor({ env: envWith(binDir) })
+  let roster = checks.find((c) => c.name === "team roster")
+  assert.strictEqual(roster.status, "pass")
+  assert.strictEqual(roster.detail, "no team")
+
+  checks = await runDoctor({ env: envWith(binDir), team: [] })
+  roster = checks.find((c) => c.name === "team roster")
+  assert.strictEqual(roster.status, "pass")
+  assert.strictEqual(roster.detail, "no team")
+})
+
+test("team roster omits disabled roles", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const team = [
+    { role: "orchestrator", model: "opencode-go/minimax-m3", enabled: true },
+    { role: "security", model: "opencode/big-pickle", enabled: false },
+  ]
+  const checks = await runDoctor({ env: envWith(binDir), team })
+  const roster = checks.find((c) => c.name === "team roster")
+  assert.match(roster.detail, /Commodore: opencode-go\/minimax-m3/)
+  assert.ok(!roster.detail.includes("Frigate:"), "roster must omit disabled Frigate role")
+  assert.ok(!roster.detail.includes("security:"), "roster must omit disabled security role")
 })

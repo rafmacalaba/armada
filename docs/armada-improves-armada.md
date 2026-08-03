@@ -1,17 +1,18 @@
 # Using armada to improve armada
 
 The recurring loop: armada's own team audits and builds armada itself. Everything happens in a
-`sandbox/<name>/` worktree so the live repo stays pristine. Two lanes share one skeleton:
+`sandbox/<name>/` worktree so the live repo stays pristine. A patrol and a voyage share one
+skeleton:
 
-- **Lane A — Audit** (recurring): the team reviews armada's code, files findings.
-- **Lane B — Feature** (one-off): the team implements a TODO item or feature.
+- **Patrol — Audit** (recurring): the team reviews armada's code, files findings.
+- **Voyage — Feature** (one-off): the team implements a TODO item or feature.
 
-This doc is the canonical two-lane workflow. For using armada on **other** repos, see
+This doc is the canonical patrol/voyage workflow. For using armada on **other** repos, see
 [docs/using-armada.md](./using-armada.md).
 
 > **Currency note (2026-08-02):** this flow now targets the **per-feature contract + on-disk
 > state** direction in `TODO.md` — each feature is its own contract (the end-goal spec of what
-> the user wants), scaffolded into a worktree, driven autonomously with `--yolo`. As armada
+> the user wants), scaffolded into a worktree, run autonomously with `--yolo`. As armada
 > becomes session-based (state/, restart-proof), this loop is what it uses to keep improving
 > itself across sessions.
 
@@ -21,12 +22,12 @@ This doc is the canonical two-lane workflow. For using armada on **other** repos
   overrides, `formatStack` crashing on an empty stack, and catalog drift on live providers.
 - **The team is stack-aware and opinionated.** Have architect/security review armada's own
   `src/` — they know what multi-agent code should look like.
-- **Sandbox keeps the live repo clean.** `sandbox/` is gitignored; worktrees share `.git` so
+- **Docks keep the live repo clean.** The `sandbox/` path is gitignored; worktrees share `.git` so
   merge is a fast-forward. The live repo is never scaffolded.
 
 ## The trigger
 
-Opening `opencode` inside a scaffolded sandbox **is** the trigger. The orchestrator is a native
+Opening `opencode` inside a scaffolded dock **is** the trigger. The orchestrator is a native
 primary agent (`.opencode/agent/orchestrator.md`) whose prompt is the full self-contained
 delivery protocol; `opencode.json` sets `default_agent: "orchestrator"` so the TUI boots
 straight into it. There is no separate "start armada" step — the protocol is live the moment the
@@ -67,28 +68,28 @@ node ../../src/cli.js init --yes --yolo --budget balanced
 # 3. write the contract (or leave blank to co-write with the orchestrator)
 #    armada/REQUIREMENTS.md  <- the end-goal spec of the feature
 
-# 4. drive it — boots into the orchestrator (default_agent)
+# 4. set sail — boots into the orchestrator (default_agent)
 opencode
 ```
 
-`git worktree list` shows all sandboxes. Cleanup when done:
+`git worktree list` shows all docks. Cleanup when done:
 `git worktree remove sandbox/<name>` (after the feature's PR merges).
 
-### Fleet dashboard for parallel lanes
+### Fleet dashboard for parallel docks
 
-When two or more lanes run in parallel, `armada fleet` is the single view across all of them:
-one row per active lane, session, phase, and status. The run store lives **outside** the repo
+When two or more docks run in parallel, `armada fleet` is the single view across all of them:
+one row per active dock, ship, phase, and status. The run store lives **outside** the repo
 (`~/.armada/runs/`), so it never pollutes the live tree or any worktree:
 
 ```
-armada fleet            # every active lane, one row each
+armada fleet            # every active dock, one row each
 ```
 
 Entries go STALLED after 2 minutes without a heartbeat — the session likely died. The opt-in
 fleet plugin (`armada init --fleet-tracker`, or `project.supervision.fleet: true` in
 `armada.yaml`) keeps the entries fresh automatically.
 
-## Lane A — Recurring audit
+## Patrol — Recurring audit
 
 The audit is read-only: the team reviews the code, the orchestrator writes findings. No code
 changes.
@@ -121,14 +122,14 @@ separating bugs from improvements. Do not change code.
 ### Capture → fix → test
 
 1. Read `AUDIT.md`.
-2. File each real finding in `TODO.md` — bugs vs improvements. (Bugs are usually a feature
-   lane: "fix the bug" is a small contract.)
+2. File each real finding in `TODO.md` — bugs vs improvements. (Bugs are usually a voyage:
+   "fix the bug" is a small contract.)
 3. Fix with TDD (`node --test 'tests/*.test.js'` must stay green).
 4. Append the outcome to `docs/validation.md`.
 
-## Lane B — Feature implementation
+## Voyage — Feature implementation
 
-> Lane B uses `armada drive` (Phase 1) to boot the team and hand it the contract — no more manual
+> Voyages use `armada voyage` to boot the team and hand it the contract — no more manual
 > `tmux new-session` + `sleep` + `send-keys` dance.
 
 Anything in `TODO.md`: a new command like `armada feature`, a state schema, a bugfix — each is
@@ -149,27 +150,28 @@ Write the contract at `armada/REQUIREMENTS.md` — either hand-drafted from the 
 Then:
 
 ```bash
-# 4. drive it — boots into the orchestrator, waits until the TUI is ready,
-#    then sends the drive prompt. Safe to re-run; attaches if the session exists.
-node ../../src/cli.js drive sandbox/<name>
+# 4. set sail — boots into the orchestrator, waits until the TUI is ready,
+#    then sends the voyage prompt. Safe to re-run; attaches if the session exists.
+node ../../src/cli.js voyage sandbox/<name>
+#    (alias: node ../../src/cli.js drive sandbox/<name>)
 ```
 
-`armada drive` is a subcommand of the existing `armada` binary, so a global install can just run
-`armada drive sandbox/<name>`. It creates the tmux session (idempotent — attaches if present),
-polls `tmux capture-pane` until the TUI shows its prompt bar, sends the drive prompt, verifies it
+`armada voyage` is the primary subcommand (`armada drive` remains a hidden alias), so a global install can just run
+`armada voyage sandbox/<name>`. It creates the ship (a tmux session; idempotent — attaches if present),
+polls `tmux capture-pane` until the TUI shows its prompt bar, sends the voyage prompt, verifies it
 registered (the pane flips to the orchestrator's `thinking` indicator, resending once if not), and
 on timeout prints the captured pane tail and exits non-zero.
 
-Once the session is up, `armada drive` auto-opens a visible terminal attached to it: macOS opens
+Once the session is up, `armada voyage` auto-opens a visible terminal attached to it: macOS opens
 Terminal.app (or iTerm if installed), Linux opens the default X terminal emulator
 (`gnome-terminal`, `konsole`, or `x-terminal-emulator`; `wezterm start` fallback if installed;
 requires `DISPLAY`), and Windows opens Windows Terminal with a new tab (wezterm fallback if
 installed). wezterm is optional — never required. If no terminal can be opened (headless, missing
-binary, no `DISPLAY`), it prints `tmux attach -t <name>` and continues — the drive never fails.
+binary, no `DISPLAY`), it prints `tmux attach -t <name>` and continues — the launch never fails.
 Pass `--no-open` to skip the auto-open for CI/headless use.
 
-If you're already running in a terminal (the common case — you ran `armada drive` from one),
-`armada drive` opens a **tab in that terminal** instead of a fresh window. Detection uses
+If you're already running in a terminal (the common case — you ran `armada voyage` from one),
+`armada voyage` opens a **tab in that terminal** instead of a fresh window. Detection uses
 `TERM_PROGRAM` (Apple_Terminal, iTerm.app, WezTerm) on macOS and `KONSOLE_VERSION` on Linux;
 wezterm's daemon reuses the existing instance. vscode / cursor users get a `tmux attach`
 hint instead (their integrated terminal can't be addressed from outside). The success message
@@ -182,14 +184,14 @@ citation. The per-feature ledgers `armada/ledgers/<feature>/DEFECTS.md` and
 
 ### Driving it yourself (the co-write interview)
 
-`armada drive` creates the tmux session and hands off to the attach automatically — the TUI is
-yours when the drive prompt lands. To drive the co-write interview yourself, attach manually:
+`armada voyage` creates the ship — a tmux session — and hands off to the attach automatically; the
+TUI is yours when the voyage prompt lands. To steer the co-write interview yourself, attach manually:
 
 ```bash
 tmux attach -t <session>        # you're now IN the orchestrator's TUI
 ```
 
-The orchestrator is the only agent you address. To co-write a feature you're driving:
+The orchestrator is the only agent you address. To co-write a feature you're steering:
 
 1. **Start a blank contract** — leave `armada/REQUIREMENTS.md` as the stub (don't hand-author
    phases). That's the signal to co-write.
@@ -209,7 +211,7 @@ yours.
 ### Finish
 
 ```bash
-# from sandbox: tests must be green
+# from the dock: tests must be green
 node --test 'tests/*.test.js'
 
 # from the live repo (PR, never merge locally)
@@ -221,14 +223,14 @@ git worktree remove sandbox/<name>
 git branch -d feat/<name>
 ```
 
-Rule: a lane is done when its PR is merged by the user — never `git merge` locally, never push
+Rule: a dock is done when its PR is merged by the user — never `git merge` locally, never push
 master directly. Every armada feature lands as a reviewed PR.
 
-### Self-modification rule (learned in the first Lane B run)
+### Self-modification rule (learned in the first voyage run)
 
-When a Lane B feature touches armada's **own** generators or templates (e.g. the orchestrator
+When a voyage feature touches armada's **own** generators or templates (e.g. the orchestrator
 prompt, command renderers, scaffold output), the fleet edits the **tracked source**
-(`agents/**`, `src/**`), not just the sandbox's generated `.opencode/` copies — those are
+(`agents/**`, `src/**`), not just the dock's generated `.opencode/` copies — those are
 gitignored and lost on re-scaffold. Add a gate to such contracts: after the change, run
 `armada init --from-armada armada/armada.yaml` and verify the generated output still reflects
 the change (survives re-scaffold). The first run missed this and the fix had to be ported
@@ -236,7 +238,7 @@ manually (see `8e0fab3`).
 
 ## Shared mechanics
 
-- **Sandbox worktree:** isolated branch + working tree; live repo never scaffolded. See
+- **Dock worktree:** isolated branch + working tree; live repo never scaffolded. See
   [docs/sandbox.md](./sandbox.md) for the venue details (worktree vs plain copy).
 - **Read-only reviewers stay read-only.** security/architect/adversary `edit: deny` by design;
   they report in-session and the orchestrator writes files. See the generated `AGENTS.md`.
@@ -244,7 +246,7 @@ manually (see `8e0fab3`).
   in the live TUI. One-shot `opencode run` uses **inline** subagent dispatch (results land after
   the orchestrator's turn ends). With `--yolo`, `opencode run` is fully autonomous (no prompts).
 - **`--yolo`** sets `permission: { "*": "allow" }` in `opencode.json` + orchestrator/qa bash to
-  `allow`, so the fleet never stalls on a prompt — the default for self-improvement lanes.
+  `allow`, so the fleet never stalls on a prompt — the default for self-improvement docks.
   Role `edit` boundaries are kept (the orchestrator still delegates writes).
 - **`--headless`** (older) scopes orchestrator bash for CI; `--yolo` is the strict superset.
 - **`external_directory: deny`** in generated `opencode.json` blocks writing outside the repo;

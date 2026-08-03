@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process"
 import { existsSync, lstatSync, realpathSync } from "node:fs"
 import { join } from "node:path"
+import { displayFor } from "./role-display.js"
 
 function run(bin, args, env) {
   return new Promise((resolve) => {
@@ -104,6 +105,15 @@ export async function runDoctor(opts = {}) {
         detail: "armada not on PATH — run npm link from ~/WBG/opencode-armada",
       })
     }
+  }
+
+  const team = opts.team ?? []
+  const enabled = team.filter((t) => t && t.enabled !== false)
+  if (enabled.length > 0) {
+    const lines = enabled.map((t) => `${displayFor(t.role)}: ${t.model}`)
+    checks.push({ name: "team roster", status: "pass", detail: lines.join("\n") })
+  } else {
+    checks.push({ name: "team roster", status: "pass", detail: "no team" })
   }
 
   if (opts.project?.supervision?.plugin) {

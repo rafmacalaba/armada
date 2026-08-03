@@ -68,6 +68,7 @@ export async function bootLane({
   contractPath = null,
   cost = 0,
   gitBranch = defaultGitBranch,
+  cmdName = "drive",
 }) {
   const run = givenExec || defaultExec
   const laneName = lane ?? basename(cwd)
@@ -76,7 +77,7 @@ export async function bootLane({
 
   const has = await run(tmuxBin, ["has-session", "-t", name])
   if (has.code === 0) {
-    log(`[drive] session ${name} exists, reattaching`)
+    log(`[${cmdName}] session ${name} exists, reattaching`)
 
     // Refresh heartbeat on reattach
     if (track) {
@@ -88,14 +89,14 @@ export async function bootLane({
           tmuxPaneTail: paneTail,
         })
       } catch (err) {
-        log(`[drive] tracker warning: updateRun failed for reattach — ${err.message}`)
+        log(`[${cmdName}] tracker warning: updateRun failed for reattach — ${err.message}`)
       }
     }
 
     return { name, attached: true }
   }
 
-  log(`[drive] creating session ${name}`)
+  log(`[${cmdName}] creating session ${name}`)
   const create = await run(tmuxBin, [
     "new-session",
     "-d",
@@ -121,7 +122,7 @@ export async function bootLane({
       entry.cost = cost
       await writeRun(entry)
     } catch (err) {
-      log(`[drive] tracker warning: writeRun failed — ${err.message}`)
+      log(`[${cmdName}] tracker warning: writeRun failed — ${err.message}`)
     }
   }
 
@@ -139,7 +140,7 @@ export async function bootLane({
     paneOutput = stdout
     if (MODAL_PATTERN.test(paneOutput)) {
       if (modalDismissals < MAX_MODAL_DISMISSALS) {
-        log(`[drive] modal detected, dismissing with Escape`)
+        log(`[${cmdName}] modal detected, dismissing with Escape`)
         await run(tmuxBin, ["send-keys", "-t", name, "Escape"])
         modalDismissals++
       }
@@ -164,7 +165,7 @@ export async function bootLane({
   }
 
   await sendPrompt()
-  log(`[drive] prompt sent to ${name}`)
+  log(`[${cmdName}] prompt sent to ${name}`)
 
   const checkRegister = async () => {
     const regDeadline = Date.now() + registerTimeoutMs
@@ -184,7 +185,7 @@ export async function bootLane({
   let registered = await checkRegister()
 
   if (!registered) {
-    log(`[drive] register pattern not detected, resending prompt`)
+    log(`[${cmdName}] register pattern not detected, resending prompt`)
     await sendPrompt()
     registered = await checkRegister()
     if (!registered) {

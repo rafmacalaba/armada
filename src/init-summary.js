@@ -1,6 +1,8 @@
 // Pure renderer for init-end summary block.
 // Takes a manifest in the shape returned by parseManifestYaml.
 
+import { displayFor } from "./role-display.js"
+
 const COST_HINTS = {
   free: "Cost:   zero usage cost",
   balanced: "Cost:   free workers, paid reviewers/judges",
@@ -21,7 +23,7 @@ export function renderInitSummary(manifest) {
   ]
 
   for (const t of enabled) {
-    lines.push(`  ${t.role}: ${t.model}`)
+    lines.push(`  ${displayFor(t.role)}: ${t.model}`)
   }
 
   lines.push(
