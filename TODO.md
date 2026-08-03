@@ -535,6 +535,81 @@ Constraints: zero runtime dependency, ESM + `.js`, Node >= 20, no emojis. The fi
 not be permission-guarded to the point it stalls — every role that runs can append to
 `armada/findings/` (low-risk append-only, gitignored).
 
+### Runtime artifacts under armada/ + per-feature ledgers + gitignore (HIGH)
+
+Today `armada init` writes **no `.gitignore`** (verified in a fresh temp repo: after init, `git
+status` shows `?? .opencode/ ?? AGENTS.md ?? armada/ ?? opencode.json`), and the fleet's runtime
+files land at the repo root: `DEFECTS.md`, `ADVERSARIAL_REVIEW.md`, `e2e/`, `screenshots/`. In
+armada's own repo those are tracked by design (dogfooding); in a **user's repo** they are clutter
+armada doesn't own and shouldn't force onto their git status. Multi-feature makes it worse: the
+ledgers are **global, not per-feature** — `DEFECTS.md` / `ADVERSARIAL_REVIEW.md` are single
+root files (manifest.js DEFAULT_PLAYBOOK), so DEF-001 from feature A and feature B collide, and
+`feature close` evidence is ambiguous. Contracts/state are already per-feature
+(`armada/contracts/<name>.md`, `armada/state/features/<name>.json`); ledgers/e2e/screenshots
+are the laggards.
+
+Goal: **everything armada generates at runtime lives under `armada/` (gitignored as a whole),
+ledgers/e2e/screenshots/findings are per-feature (per lane/voyage), and `armada init` appends a
+marker-based `.gitignore` block so the user's repo stays clean.**
+
+Worktree-aware design (decided): with worktree-per-feature, each worktree's `armada/` is
+naturally isolated — worktree = feature = its own ledgers. The `.gitignore` block is tracked
+(shared across worktrees), so it is appended **once per repo** and covers every worktree. In the
+same-checkout mode (today), features share `armada/`, so ledgers are namespaced per feature
+under it. Both modes use the same layout:
+
+```
+armada/
+├── armada.yaml                    # manifest (armada-owned, always rewritten)
+├── contracts/<feature>.md         # per-feature contract (existing)
+├── state/                         # active / features/<name>.json / history (existing)
+├── findings/                      # notable-findings ledger (specced, gitignored)
+├── ledgers/
+│   ├── <feature>/DEFECTS.md            # per-feature defect ledger
+│   ├── <feature>/ADVERSARIAL_REVIEW.md # per-feature adversary findings
+│   └── shared/                         # cross-feature defects (regressions that span features)
+├── e2e/<feature>/                 # per-feature e2e tests (qa-owned)
+└── screenshots/<feature>/         # per-feature evidence
+```
+
+Refactor scope:
+
+- [ ] **`.gitignore` block.** `armada init` + `armada new` append a marker-based block
+  (`# armada:start` … `# armada:end`, same merge pattern AGENTS.md uses) ignoring `/armada/`,
+  `/.opencode/`, `/opencode.json`. Appends only — never rewrites an existing `.gitignore`; if the
+  file is absent, create it. `uninstall` removes the block. Ask-once at init unless `--yes`/
+  `--yolo` (matches no-clobber posture: modifying a user file, but reversible + marked).
+- [ ] **Per-feature ledger paths.** `DEFAULT_PLAYBOOK` ledger paths become
+  `armada/ledgers/<feature>/…` (+ `shared/` for cross-feature). Feature name resolves from the
+  active feature (state active.json) or the lane/worktree name.
+- [ ] **Prompts reference the per-feature path.** The 7× `DEFECTS.md` + 5× `ADVERSARIAL_REVIEW.md`
+  references in `agents/*/prompt.template.md` become `{ledgers_dir}` placeholders (already have
+  placeholder machinery + a no-dangling-placeholder test).
+- [ ] **Permissions.** `BASE_PERMISSIONS` globs `"DEFECTS.md": allow/deny` become
+  `"armada/ledgers/*"` rules; qa owns `armada/ledgers/*` + `armada/e2e/*` + `armada/screenshots/*`;
+  read-only roles keep read-only under `armada/`. (All in `src/generator.js` BASE_PERMISSIONS +
+  the supervision plugin's deny mirrors.)
+- [ ] **Role descriptions.** `src/model-catalog.js` role `reasoning` strings reference the old
+  paths ("e2e tests, screenshots, DEFECTS.md ownership", "ADVERSARIAL_REVIEW.md") — update to
+  the armada/ledgers paths (feeds routing prompt + `/armada` output).
+- [ ] **Findings + state move cleanly.** `armada/findings/` (specced) and existing
+  `armada/state/` already live under the gitignored dir — confirm nothing references a root-level
+  path anymore.
+- [ ] **uninstall.** Removes the `.gitignore` block + the whole `armada/` runtime dir (already
+  removes armada/ recursively) + `.opencode/`.
+- [ ] **armada new templates.** Starter `.gitignore` files gain the armada block so a fresh repo
+  is clean from day one.
+- [ ] **Generator renderers.** Every root-path reference in `src/generator.js` (20 refs: 5×
+  DEFECTS.md, 5× ADVERSARIAL_REVIEW.md, 5× e2e/, 5× screenshots/ — across BASE_PERMISSIONS,
+  AGENTS.md playbook renderer, requirements renderer, supervision-plugin deny mirrors) resolves
+  through the per-feature ledgers dir. The `DEFAULT_PLAYBOOK` ledger file fields
+  (`src/manifest.js`) become per-feature paths; `{ledgers_dir}` placeholder flows into the
+  generated AGENTS.md + agent prompts.
+- [ ] **Tests.** Fresh-repo e2e: after init, `git status` shows no armada files as untracked;
+  ledgers render under `armada/ledgers/<feature>/`; round-trip + no-clobber still hold; uninstall
+  restores the user's `.gitignore`; multi-feature: two features → two ledger namespaces, no
+  DEF collision; placeholder test still green.
+
 ---
 
 ## History — done
