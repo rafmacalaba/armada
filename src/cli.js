@@ -35,6 +35,7 @@ Usage:
                           create new project from curated starter template
   armada init --stack <s> --budget <b>       declarative setup
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
+  armada init --supervision-plugin           opt-in thin supervision plugin (.opencode/plugins/)
   armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
   armada init --target <dir>                 scaffold into a directory (default cwd)
   armada init --from-armada armada/armada.yaml      regenerate from manifest
@@ -224,6 +225,10 @@ async function init(args) {
   if (args.includes("--headless")) {
     manifest.project.headless = true
   }
+  if (args.includes("--supervision-plugin")) {
+    manifest.project.supervision = manifest.project.supervision ?? { plugin: false }
+    manifest.project.supervision.plugin = true
+  }
   const reqIdx = args.indexOf("--requirements")
   if (reqIdx !== -1 && args[reqIdx + 1] && !args[reqIdx + 1].startsWith("--")) {
     try {
@@ -273,6 +278,7 @@ export function defaultManifest(target = ".") {
       devcontainer: false,
       useAgentBrowser: false,
       headless: false,
+      supervision: { plugin: false },
       requirementsFile: "armada/REQUIREMENTS.md",
       stack: {},
     },
@@ -315,7 +321,20 @@ async function models(args) {
 
 async function doctor() {
   console.log("opencode-armada doctor")
-  const checks = await runDoctor()
+  // If the cwd has an armada manifest, surface its supervision.plugin setting so
+  // the plugin-presence check runs.
+  let manifest
+  try {
+    const { parseManifestYaml } = await import("./manifest.js")
+    const { readFileSync } = await import("node:fs")
+    manifest = parseManifestYaml(readFileSync("armada/armada.yaml", "utf8"))
+  } catch {
+    manifest = null
+  }
+  const checks = await runDoctor({
+    project: manifest?.project,
+    targetDir: ".",
+  })
   let anyFail = false
   for (const { name, status, detail } of checks) {
     console.log(`${name}: ${status} — ${detail}`)

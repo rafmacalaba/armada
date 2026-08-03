@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
-import { buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand } from "../src/generator.js"
+import { buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaSupervisionPlugin } from "../src/generator.js"
 import { parseManifestYaml } from "../src/manifest.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -254,6 +254,18 @@ test("renderManifestYaml quotes scalars to survive round-trip", () => {
   assert.strictEqual(reparsed.project.requirementsFile, "REQUIREMENTS-admin.md")
 })
 
+test("supervision.plugin round-trips through manifest", () => {
+  const m = structuredClone(baseManifest)
+  m.project.supervision = { plugin: true }
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  assert.match(yaml, /supervision:\n    plugin: true/)
+  const reparsed = parseManifestYaml(yaml)
+  assert.strictEqual(reparsed.project.supervision.plugin, true)
+  // default is false when absent
+  const dflt = parseManifestYaml(renderManifestYaml(baseManifest, buildTeam(baseManifest)))
+  assert.strictEqual(dflt.project.supervision.plugin, false)
+})
+
 test("renderRequirementsMd invites co-writing the contract", () => {
   const md = renderRequirementsMd(baseManifest)
   assert.match(md, /Co-write this with the orchestrator/)
@@ -304,4 +316,106 @@ test("renderArmadaResumeCommand reads fleet status and asks next action", () => 
   assert.match(md, /\.opencode\/fleet-status\.md/)
   assert.match(md, /next action|resume/i)
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
+})
+
+test("renderArmadaSupervisionPlugin is valid JS with three handlers", async () => {
+  const team = buildTeam(baseManifest)
+  const src = renderArmadaSupervisionPlugin(team)
+  assert.match(src, /export const ArmadaSupervision/)
+  assert.match(src, /session\.created/)
+  assert.match(src, /session\.idle/)
+  assert.match(src, /tool\.execute\.before/)
+  assert.match(src, /fleet-status\.md/)
+  assert.match(src, /promptAsync/)
+  assert.ok(!/\{[a-z_]+\}/.test(src), "no dangling placeholders")
+  // parses + loads as an ES module with a valid plugin export
+  const { writeFileSync, mkdtempSync } = await import("node:fs")
+  const { tmpdir } = await import("node:os")
+  const { join } = await import("node:path")
+  const dir = mkdtempSync(join(tmpdir(), "armada-plugin-"))
+  const file = join(dir, "armada-supervision.mjs")
+  writeFileSync(file, src)
+  const mod = await import(file)
+  assert.strictEqual(typeof mod.ArmadaSupervision, "function", "exports plugin factory")
+})
+
+test("renderArmadaSupervisionPlugin event handlers reference fleet-status + dedup state", async () => {
+  const team = buildTeam(baseManifest)
+  const src = renderArmadaSupervisionPlugin(team)
+  const { writeFileSync, mkdtempSync } = await import("node:fs")
+  const { tmpdir } = await import("node:os")
+  const { join } = await import("node:path")
+  const dir = mkdtempSync(join(tmpdir(), "armada-plugin-events-"))
+  const file = join(dir, "armada-supervision.mjs")
+  writeFileSync(file, src)
+  const mod = await import(file)
+
+  const client = {
+    session: { promptAsync: async () => {} },
+    app: { log: async () => {} },
+  }
+  const hooks = await mod.ArmadaSupervision({ client, directory: dir })
+
+  // structural: both handlers wired, fleet-status path + per-session dedup present
+  assert.strictEqual(typeof hooks.event, "function")
+  assert.strictEqual(typeof hooks["tool.execute.before"], "function")
+  assert.match(src, /session\.created/)
+  assert.match(src, /session\.idle/)
+  assert.match(src, /\.opencode.*fleet-status\.md/)
+  assert.match(src, /nudgedSessions|skipNextIdle/)
+  // behavior: no fleet-status at the plugin's cwd -> session.created injects nothing
+  await hooks.event({ event: { type: "session.created", properties: { sessionID: "s1" } } })
+})
+
+test("renderArmadaSupervisionPlugin tool.execute.before denies protected redirects", async () => {
+  const team = buildTeam(baseManifest)
+  const src = renderArmadaSupervisionPlugin(team)
+  const { writeFileSync, mkdtempSync } = await import("node:fs")
+  const { tmpdir } = await import("node:os")
+  const { join } = await import("node:path")
+  const dir = mkdtempSync(join(tmpdir(), "armada-plugin-deny-"))
+  const file = join(dir, "armada-supervision.mjs")
+  writeFileSync(file, src)
+  const mod = await import(file)
+  const client = { session: { promptAsync: async () => {} }, app: { log: async () => {} } }
+  const hooks = await mod.ArmadaSupervision({ client, directory: dir })
+
+  // redirects to orchestrator edit-deny targets must throw
+  for (const cmd of [
+    "echo x > REQUIREMENTS.md",
+    "echo x >> AGENTS.md",
+    "tee armada/armada.yaml",
+    "sed -i s/a/b/ .opencode/foo.json",
+  ]) {
+    await assert.rejects(
+      () => hooks["tool.execute.before"]({ input: { tool: "bash" }, output: { args: { command: cmd } } }),
+      /denied by armada-supervision/,
+      `must deny: ${cmd}`
+    )
+  }
+
+  // non-bash tools and safe bash must pass through
+  await assert.doesNotReject(
+    () => hooks["tool.execute.before"]({ input: { tool: "read" }, output: { args: { filePath: "REQUIREMENTS.md" } } })
+  )
+  await assert.doesNotReject(
+    () => hooks["tool.execute.before"]({ input: { tool: "bash" }, output: { args: { command: "git status" } } })
+  )
+  await assert.doesNotReject(
+    () => hooks["tool.execute.before"]({ input: { tool: "bash" }, output: { args: { command: "echo x > notes.md" } } })
+  )
+})
+
+test("renderArmadaSupervisionPlugin denies orchestrator edit-deny targets", () => {
+  const team = buildTeam(baseManifest)
+  const orch = team.find((a) => a.role === "orchestrator")
+  const denyGlobs = Object.entries(orch.permissions.edit).filter(([, v]) => v === "deny").map(([g]) => g)
+  assert.ok(denyGlobs.length > 0, "orchestrator has edit-deny globs")
+  const src = renderArmadaSupervisionPlugin(team)
+  for (const g of denyGlobs) {
+    if (g !== "*") assert.ok(src.includes(JSON.stringify(g)), `deny glob ${g} in plugin`)
+  }
+  assert.match(src, /REQUIREMENTS\.md/)
+  assert.match(src, /AGENTS\.md/)
+  assert.match(src, /\.opencode\/\*/)
 })

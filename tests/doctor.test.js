@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { mkdtempSync } from "node:fs"
+import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { runDoctor } from "../src/doctor.js"
@@ -65,4 +65,23 @@ test("openrouter auth fails when missing with remediation", async () => {
   const or = checks.find((c) => c.name === "openrouter auth")
   assert.strictEqual(or.status, "fail")
   assert.match(or.detail, /openrouter|OPENROUTER_API_KEY/i)
+})
+
+test("supervision plugin check only when enabled", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const dir = mkdtempSync(join(tmpdir(), "armada-dr-sup-"))
+  // not enabled -> no check emitted
+  let checks = await runDoctor({ env: envWith(binDir), project: { supervision: { plugin: false } }, targetDir: dir })
+  assert.ok(!checks.some((c) => c.name === "supervision plugin"))
+  // enabled but file missing -> fail
+  checks = await runDoctor({ env: envWith(binDir), project: { supervision: { plugin: true } }, targetDir: dir })
+  const missing = checks.find((c) => c.name === "supervision plugin")
+  assert.strictEqual(missing.status, "fail")
+  assert.match(missing.detail, /re-run armada init/)
+  // enabled + file present -> pass
+  mkdirSync(join(dir, ".opencode/plugins"), { recursive: true })
+  writeFileSync(join(dir, ".opencode/plugins/armada-supervision.js"), "// plugin")
+  checks = await runDoctor({ env: envWith(binDir), project: { supervision: { plugin: true } }, targetDir: dir })
+  const present = checks.find((c) => c.name === "supervision plugin")
+  assert.strictEqual(present.status, "pass")
 })
