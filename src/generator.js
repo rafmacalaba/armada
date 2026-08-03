@@ -34,48 +34,59 @@ const BASE_PERMISSIONS = {
       "AGENTS.md": "deny",
       ".opencode/*": "deny",
       "armada/*": "deny",
-      "DEFECTS.md": "allow",
-      "ADVERSARIAL_REVIEW.md": "allow",
+      "armada/ledgers/*/DEFECTS.md": "allow",
+      "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "allow",
     },
     bash: { "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow" },
   },
   "backend-dev": {
     edit: {
-      "DEFECTS.md": "deny",
-      "ADVERSARIAL_REVIEW.md": "deny",
+      "armada/ledgers/*/DEFECTS.md": "deny",
+      "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "deny",
+      "armada/ledgers/*": "deny",
+      "armada/e2e/*": "deny",
+      "armada/screenshots/*": "deny",
+      "armada/state/*": "deny",
       "REQUIREMENTS.md": "deny",
       "AGENTS.md": "deny",
       ".opencode/*": "deny",
+      "opencode.json": "deny",
+      "DEFECTS.md": "deny",
+      "ADVERSARIAL_REVIEW.md": "deny",
       "armada/*": "deny",
-      "e2e/*": "deny",
     },
   },
   "frontend-dev": {
     edit: {
-      "DEFECTS.md": "deny",
-      "ADVERSARIAL_REVIEW.md": "deny",
+      "armada/ledgers/*/DEFECTS.md": "deny",
+      "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "deny",
+      "armada/ledgers/*": "deny",
+      "armada/e2e/*": "deny",
+      "armada/screenshots/*": "deny",
+      "armada/state/*": "deny",
       "REQUIREMENTS.md": "deny",
       "AGENTS.md": "deny",
       ".opencode/*": "deny",
+      "opencode.json": "deny",
+      "DEFECTS.md": "deny",
+      "ADVERSARIAL_REVIEW.md": "deny",
       "armada/*": "deny",
-      "e2e/*": "deny",
     },
   },
   qa: {
     edit: {
       "*": "deny",
-      "e2e/*": "allow",
-      "DEFECTS.md": "allow",
-      "ADVERSARIAL_REVIEW.md": "deny",
-      "screenshots/*": "allow",
+      "armada/e2e/*": "allow",
+      "armada/ledgers/*": "allow",
+      "armada/screenshots/*": "allow",
     },
     bash: { "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow" },
   },
   adversary: {
     edit: {
       "*": "deny",
-      "ADVERSARIAL_REVIEW.md": "allow",
-      "screenshots/*": "allow",
+      "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "allow",
+      "armada/screenshots/*": "allow",
     },
   },
   security: {
@@ -83,7 +94,7 @@ const BASE_PERMISSIONS = {
     webfetch: "allow",
   },
   docs: {
-    edit: { "*": "allow", ".opencode/*": "deny", "e2e/*": "deny" },
+    edit: { "*": "allow", ".opencode/*": "deny", "armada/ledgers/*": "deny", "armada/e2e/*": "deny" },
     bash: "deny",
   },
   architect: {
@@ -205,8 +216,15 @@ export function renderOpenCodeJson(manifest, team) {
 }
 
 // Build `AGENTS.md` playbook content from the manifest + team.
-export function renderAgentsMd(manifest, team) {
+export function renderAgentsMd(manifest, team, featureName) {
+  const fname = featureName || "default"
+  const ledgersDir = `armada/ledgers/${fname}/`
+  const e2eDir = `armada/e2e/${fname}/`
+  const screenshotsDir = `armada/screenshots/${fname}/`
   const pb = { ...DEFAULT_PLAYBOOK, ...(manifest.playbook || {}) }
+  // Resolve {feature} token in playbook file paths
+  const defectFile = (pb.defectLedger.file || "armada/ledgers/{feature}/DEFECTS.md").replace(/\{feature\}/g, fname)
+  const adversarialFile = (pb.adversarialLedger.file || "armada/ledgers/{feature}/ADVERSARIAL_REVIEW.md").replace(/\{feature\}/g, fname)
   const enabled = team.filter((a) => a.enabled)
   const roles = enabled
     .map(
@@ -235,15 +253,15 @@ shell commands: if the edit tool would deny a file, do not modify that file any 
 
 ## Repository conventions
 
-- End-to-end tests and their configuration live under \`e2e/\`. Only qa writes there.
-- Screenshots live under \`screenshots/\`.
+- End-to-end tests live under \`${e2eDir}\`. Only qa writes there.
+- Screenshots live under \`${screenshotsDir}\`.
 - ${pb.conventions.noEmojisInCode ? "No emojis in code, comments, print statements or logging." : ""}
 - ${pb.conventions.keepItSimple ? "Keep it simple: small modules, clear names, no defensive programming, no overengineering." : ""}
 - ${pb.conventions.preferPopularLibraries ? "Prefer popular, well-supported libraries over custom code." : ""}
 
-## ${pb.defectLedger.file} — the defect ledger
+## ${defectFile} — the defect ledger
 
-All defects live in \`${pb.defectLedger.file}\` at the repo root, one entry per defect, newest
+All defects live in \`${defectFile}\`, one entry per defect, newest
 first. Writers: **qa** (create, close, reopen) and **orchestrator** (record developer
 responses, reject). Nobody else edits it, ever.
 
@@ -261,7 +279,7 @@ Format, exactly:
 
     Expected: What should happen.
     Actual: What happens instead.
-    Screenshot: screenshots/def-001.png (optional)
+    Screenshot: ${screenshotsDir}def-001.png (optional)
 
     History:
     - qa: opened
@@ -279,9 +297,9 @@ Statuses and who may set them:
 Every status change appends a History line. A defect is never done because a developer says
 so — it is done when qa closes it.
 
-## ${pb.adversarialLedger.file} — the adversary's findings
+## ${adversarialFile} — the adversary's findings
 
-All adversary findings live in \`${pb.adversarialLedger.file}\`. Writers: **adversary** (create
+All adversary findings live in \`${adversarialFile}\`. Writers: **adversary** (create
 entries) and **orchestrator** (fill Disposition). Nobody else.
 
 Format, exactly:
@@ -294,12 +312,12 @@ Format, exactly:
     What I did: ...
     Expected: ...
     Actual: ...
-    Screenshot: screenshots/adv-001.png (optional)
+    Screenshot: ${screenshotsDir}adv-001.png (optional)
 
     Disposition: PENDING
 
 The orchestrator replaces PENDING with either \`ACCEPTED -> DEF-NNN\` or \`REJECTED - reason\`.
-Accepted findings are reproduced and filed in DEFECTS.md by qa. No entry may remain PENDING
+Accepted findings are reproduced and filed in ${defectFile} by qa. No entry may remain PENDING
 when the final phase completes.
 
 ## Phase gates
@@ -659,7 +677,7 @@ project:
   headless: ${manifest.project.headless ?? false}
   yolo: ${manifest.project.yolo ?? false}
   requirementsFile: ${q(manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md")}
-  supervision:
+${manifest.project.feature ? `  feature: ${q(manifest.project.feature)}\n` : ""}  supervision:
     plugin: ${manifest.project.supervision?.plugin ?? false}
     fleet: ${manifest.project.supervision?.fleet ?? false}
   stack:

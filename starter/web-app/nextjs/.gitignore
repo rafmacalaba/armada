@@ -10,3 +10,9 @@ coverage/
 .env
 *.tsbuildinfo
 next-env.d.ts
+
+# armada:start
+/armada/
+/.opencode/
+/opencode.json
+# armada:end

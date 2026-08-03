@@ -27,7 +27,7 @@ opencode                            # launch opencode — the team loads
 - **Parallel by dependency.** backend-dev and frontend-dev advance independent phases together;
   nothing blocks on work it doesn't depend on.
 - **Boundaries you can't talk your way past.** Per-role SDK permissions: qa read-only on product
-  code, devs locked out of `e2e/` and `DEFECTS.md`, adversary confined to its ledger.
+  code, devs locked out of `armada/e2e/<feature>/` and `armada/ledgers/<feature>/`, adversary confined to its ledger.
 
 [read more ↓](#why)
 
@@ -57,12 +57,13 @@ Public. Transparent. MIT-licensed. Full spec in [SPEC.md](./SPEC.md).
 - **Ships on evidence, not promises.** The orchestrator co-writes `REQUIREMENTS.md` with you,
   runs it in phases, and unlocks the next phase only when the current one shows proof — a passing
   test run, a screenshot, or both. You approve at the gates.
-- **Defects close on retest, not on claim.** `DEFECTS.md` is owned by qa: a developer's "fixed"
-  is filed FIX-READY, but only qa's passing retest closes it. A dev's word can't clear a bug.
+- **Defects close on retest, not on claim.** `armada/ledgers/<feature>/DEFECTS.md` — a per-feature
+  defect ledger — is owned by qa: a developer's "fixed" is filed FIX-READY, but only qa's
+  passing retest closes it. A dev's word can't clear a bug.
 - **Hostile review is a role, not an afterthought.** The adversary tries to break the running app
-  and files findings to `ADVERSARIAL_REVIEW.md`; security audits auth, authz, and dependency risk.
+  and files findings to `armada/ledgers/<feature>/ADVERSARIAL_REVIEW.md`; security audits auth, authz, and dependency risk.
 - **Boundaries enforced, not requested.** SDK-level file permissions per role: qa read-only on
-  product code, devs locked out of `e2e/` and `DEFECTS.md`. There is no "please don't" prompt.
+  product code, devs locked out of `armada/e2e/<feature>/` and `armada/ledgers/<feature>/`. There is no "please don't" prompt.
 - **Parallel by dependency.** Independent phases advance together as background subagents; nothing
   blocks on work it doesn't depend on.
 - **Reproducible from one file.** `armada.yaml` is the manifest; `armada init --from-armada`
@@ -216,9 +217,16 @@ your-repo/
 ├── AGENTS.md                         # playbook: team roles, defect ledger, phase gates (if absent)
 ├── REQUIREMENTS.md                   # contract scaffold: phases + success criteria (if absent)
 ├── armada.yaml                       # manifest — source of truth, re-runnable
-├── armada/state/                     # the loop's memory — written by the fleet, restart-proof
-│   ├── active.json                   # active feature, phase graph, evidence, next action
-│   └── features/                     # per-feature contracts + index.json
+├── armada/
+│   ├── state/                        # the loop's memory — written by the fleet, restart-proof
+│   │   ├── active.json               # active feature, phase graph, evidence, next action
+│   │   └── features/                 # per-feature contracts + index.json
+│   ├── ledgers/
+│   │   ├── <feature>/DEFECTS.md      # per-feature defect ledger (qa-owned)
+│   │   ├── <feature>/ADVERSARIAL_REVIEW.md  # per-feature adversarial findings
+│   │   └── shared/                   # cross-feature defects
+│   ├── e2e/<feature>/                # per-feature e2e evidence (qa-owned)
+│   └── screenshots/<feature>/        # per-feature screenshot evidence
 └── .opencode/
     ├── agent/                        # native opencode agents: mode/model/permission frontmatter
     │   ├── orchestrator.md           # primary agent, default_agent, self-contained prompt
@@ -275,13 +283,13 @@ is also scaffolded.
 
 | Role | What it does | File access |
 |---|---|---|
-| **orchestrator** | plans, delegates, reviews, gates phases. Never writes code | markdown ledgers only |
-| **backend-dev** | server, API, storage, seed data, backend unit tests | product code; denied e2e/DEFECTS |
-| **frontend-dev** | UI/UX implementation, visual polish, frontend unit tests | product code; denied e2e/DEFECTS |
-| **qa** | e2e tests, screenshots, owns DEFECTS.md, retests/closes defects | e2e/, DEFECTS.md, screenshots/ only |
-| **adversary** | hostile-user testing, breaks the running app | ADVERSARIAL_REVIEW.md, screenshots/ |
+| **orchestrator** | plans, delegates, reviews, gates phases. Never writes code | `armada/ledgers/<feature>/` only |
+| **backend-dev** | server, API, storage, seed data, backend unit tests | product code; denied ledger/e2e/screenshots |
+| **frontend-dev** | UI/UX implementation, visual polish, frontend unit tests | product code; denied ledger/e2e/screenshots |
+| **qa** | e2e tests, screenshots, owns DEFECTS.md, retests/closes defects | `armada/e2e/<feature>/`, `armada/ledgers/<feature>/`, `armada/screenshots/<feature>/` |
+| **adversary** | hostile-user testing, breaks the running app | `armada/ledgers/<feature>/ADVERSARIAL_REVIEW.md`, `armada/screenshots/<feature>/` |
 | **security** | vulnerability audit, auth/authz, dependency risk | read-only |
-| **docs** | README, API docs, changelog | docs; denied e2e/.opencode |
+| **docs** | README, API docs, changelog | docs; denied `armada/e2e/`, `.opencode/` |
 | **architect** | architecture, refactor risk, review | read-only |
 
 ---

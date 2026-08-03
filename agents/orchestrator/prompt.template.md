@@ -52,15 +52,15 @@ start building. Co-write the contract with the user:
 
 ## Defects
 
-- Dispatch OPEN defects from DEFECTS.md to the right developer, highest severity first.
+- Dispatch OPEN defects from {ledgers_dir}DEFECTS.md to the right developer, highest severity first.
 - Developers report back exactly one of: FIX READY, CANNOT REPRODUCE, or WORKING AS INTENDED,
-  with detail. Record it in DEFECTS.md.
+  with detail. Record it in {ledgers_dir}DEFECTS.md.
 - You never set CLOSED. Only qa closes a defect, after retesting.
 - You may set REJECTED, with a written reason.
 
 ## Adversary triage
 
-For every ADV entry in ADVERSARIAL_REVIEW.md, judge it against {requirements_file}: ACCEPTED
+For every ADV entry in {ledgers_dir}ADVERSARIAL_REVIEW.md, judge it against {requirements_file}: ACCEPTED
 (have qa reproduce and file the DEF entry) or REJECTED - reason. No entry stays PENDING when
 the final phase completes.
 

@@ -1237,6 +1237,121 @@ Disposition: ACCEPTED -> DEF-030 (regression test).
 
 ---
 
-Disposition: ACCEPTED -> fixed in 0ae33ff
-History:
-- orchestrator: ACCEPTED -> fixed in 0ae33ff
+## ADV-048: README references root-level e2e/, DEFECTS.md, ADVERSARIAL_REVIEW.md — stale after per-feature migration
+
+- Session: final
+- Suggested severity: MEDIUM
+
+What I did: Read README.md. Lines 30, 60, 63, 65, 278, 281, 282 reference root-level paths (`e2e/`, `DEFECTS.md`, `ADVERSARIAL_REVIEW.md`). The "What gets generated" tree at lines 213-233 omits `armada/ledgers/`, `armada/e2e/`, `armada/screenshots/`.
+
+Expected: README reflects per-feature paths: `armada/ledgers/<feature>/DEFECTS.md`, `armada/e2e/<feature>/`, `armada/screenshots/<feature>/`. Generated tree shows new directories.
+
+Actual: README not updated for per-feature layout. User-facing documentation contradicts actual output.
+
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-031
+
+`README.md:30,60,63,65,278,281,282,213-233` — root-path references stale; generated tree incomplete.
+
+---
+
+## ADV-049: slugify drops non-ASCII characters silently (e.g., CJK)
+
+- Session: final
+- Suggested severity: LOW
+
+What I did: Called `slugify("unicode-日本語")` → `"unicode"`. `slugify("Café")` → `"caf"`. Non-ASCII stripped by `[^a-z0-9]+` regex without warning.
+
+Expected: Document the ASCII-only convention. Or transliterate (e.g. "cafe"), or warn when chars are dropped.
+
+Actual: Characters silently dropped. `"unicode-日本語"` and `"unicode"` produce identical ledger dir — collision risk.
+
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-032
+
+`src/scaffold.js:136-142` — `slugify()` regex `/^[a-z0-9]+/g` strips non-ASCII, no transliteration, no warning.
+
+---
+
+## ADV-050: slugify produces unlimited-length slugs — risks filesystem ENAMETOOLONG
+
+- Session: final
+- Suggested severity: MEDIUM
+
+What I did: Slugified 500+ char project name. Path `armada/ledgers/<500+char-slug>/DEFECTS.md` would fail `mkdir` with ENAMETOOLONG on macOS (255-char limit), ext4, NTFS.
+
+Expected: Slug truncated to safe length (e.g., 100 chars) or mkdir error caught with clear message.
+
+Actual: No truncation. `scaffold` crashes with cryptic ENAMETOOLONG when writing ledger/e2e/screenshots dirs.
+
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-033
+
+`src/scaffold.js:136-142` — `slugify()` no length limit. Used for `{ledgers_dir}`, `{e2e_dir}`, `{screenshots_dir}`.
+
+---
+
+## ADV-051: P4 — fleet e2e tests not moved to tests/; all 5 test product behavior
+
+- Session: final
+- Suggested severity: MEDIUM
+
+What I did: Reviewed `e2e/*.test.js` (5 files, 1248 lines). All test product CLI behavior: reconcile, resume command, CLI wiring, validation, round-trip. They complement but don't duplicate `tests/` coverage.
+
+Expected: Per REQUIREMENTS.md:88-89: "Any fleet-written e2e test that genuinely tests the PRODUCT (i.e. would run in CI) is moved into tests/ where it belongs and is wired into the suite."
+
+Actual: All 5 remain in `e2e/`, untracked via `.gitignore` process block. Not moved to `tests/`. Not wired into `npm test`. Product e2e tests siloed from CI.
+
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-034
+
+`e2e/cli-wiring.test.js`, `e2e/reconcile.test.js`, `e2e/validation.test.js`, `e2e/armada-resume-command.test.js`, `e2e/armada-resume-roundtrip.test.js` — should be in `tests/`.
+
+---
+
+## ADV-052: P4 — untrack-process-artifacts.sh fails silently from subdirectory
+
+- Session: final
+- Suggested severity: MEDIUM
+
+What I did: Created temp git repo with tracked DEFECTS.md etc. Ran script from subdirectory. All 8 files report "Already untracked (skip)". Files remain tracked in index.
+
+Root cause: `git ls-files --error-unmatch "DEFECTS.md"` resolves path relative to cwd (subdir), not repo root. Exit 1 causes skip branch. `git rm --cached` same issue.
+
+Expected: Script cd's to repo root (`git rev-parse --show-toplevel`) or errors clearly when run from wrong directory.
+
+Actual: Silent false success. User thinks artifacts untracked but they stay in git index.
+
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-035
+
+`scripts/untrack-process-artifacts.sh:19-39` — relative paths resolved relative to cwd by git commands. No `cd $(git rev-parse --show-toplevel)`.
+
+---
+
+## Summary — new findings
+
+| # | Severity | Area | Finding |
+|---|----------|------|---------|
+| ADV-048 | MEDIUM | README.md:30,60,63,65,278,281,282 | Stale root paths in user-facing docs |
+| ADV-049 | LOW | scaffold.js:136 | slugify drops non-ASCII silently |
+| ADV-050 | MEDIUM | scaffold.js:136 | slugify no truncation, ENAMETOOLONG risk |
+| ADV-051 | MEDIUM | e2e/*.test.js (5 files) | Product e2e tests not moved to tests/ |
+| ADV-052 | MEDIUM | scripts/untrack-process-artifacts.sh:19 | Fails silently from subdirectory |
+
+## No-finding areas
+
+- **`.gitignore` marker block**: P1 `# armada:start`/`# armada:end` survives `--yes` init, idempotent, uninstall restores correctly. Coexists with P4 `# armada:process`/`# armada:process:end` — different markers, different lifecycles, `removeGitignoreBlock` only touches `# armada:start`/`# armada:end` block.
+- **Per-feature ledgers**: All 8 agent prompts correctly use `{ledgers_dir}`, `{e2e_dir}`, `{screenshots_dir}`. `renderAgentsMd()` resolves to per-feature paths. `model-catalog.js` reasoning strings updated for qa/adversary.
+- **`{ledgers_dir}` placeholder**: `fillTemplate()` resolves correctly. `resolveFeatureName()` defensive: empty/whitespace/null → `slugify(name)` → "default". `project.feature` takes precedence. No dangling placeholders in rendered output.
+- **Permission globs**: `BASE_PERMISSIONS` correctly scoped. qa owns `armada/ledgers/*`, `armada/e2e/*`, `armada/screenshots/*`. adversary owns `armada/ledgers/*/ADVERSARIAL_REVIEW.md`. orchestrator allows specific ledger files, denies rest of armada/. backend-dev/frontend-dev deny all ledgers/e2e/state. No cross-role leaks.
+- **Multi-feature collision**: `renderAgentsMd` per-feature DEF-001 numbering; two features → separate namespaces. Verified by `scaffold.test.js:679`.
+- **Backwards compatibility**: `init --from-armada` round-trip byte-identical (roundtrip.test.js). New fields don't break re-scaffold.
+- **Tests**: 478/478 pass. New tests substantive — gitignore lifecycle, placeholder resolution, permission assertions, multi-feature isolation, script validation. No tautologies.
+- **Agent prompt templates**: No stale root paths in any of 8 prompt files.
+- **P4 deliverables**: `scripts/untrack-process-artifacts.sh` exists + executable. `docs/process-artifacts.md` written. `.gitignore` `# armada:process` block appended. `tests/scripts.test.js` 13 tests pass.

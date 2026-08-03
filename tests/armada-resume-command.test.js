@@ -22,7 +22,7 @@ import { join } from "node:path"
 import { tmpdir } from "node:os"
 import { spawnSync } from "node:child_process"
 import { renderArmadaResumeCommand } from "../src/generator.js"
-import { makeBin } from "../tests/helpers.js"
+import { makeBin } from "./helpers.js"
 
 const CLI = join(process.cwd(), "src", "cli.js")
 

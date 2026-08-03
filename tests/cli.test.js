@@ -1,11 +1,12 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { existsSync, readFileSync, mkdtempSync, chmodSync, mkdirSync, symlinkSync, unlinkSync } from "node:fs"
+import { existsSync, readFileSync, mkdtempSync, chmodSync, mkdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { execFile } from "node:child_process"
+import { execFile, execSync } from "node:child_process"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { buildTeam, renderManifestYaml } from "../src/generator.js"
+import { GITIGNORE_START } from "../src/scaffold.js"
 import { runCli, makeTempRepo, makeBin, parseFrontmatter } from "./helpers.js"
 import { main } from "../src/cli.js"
 
@@ -512,4 +513,56 @@ test("drive --heartbeat starts a heartbeat for the session", async () => {
     child.on("close", resolve)
     setTimeout(resolve, 5_000)
   })
+})
+
+// -- Phase 1: managed .gitignore block CLI tests --
+
+test("init --yes writes managed .gitignore block", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  const gi = readFileSync(join(dir, ".gitignore"), "utf8")
+  assert.match(gi, /# armada:start/)
+  assert.match(gi, /\/armada\//)
+  assert.match(gi, /\/\.opencode\//)
+  assert.match(gi, /\/opencode\.json/)
+})
+
+test("init --yes from a fresh git repo leaves clean git status", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-clean-"))
+  execSync("git init -q", { cwd: dir })
+  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  const status = execSync("git status --short", { cwd: dir, encoding: "utf8" })
+  // Expect no armada-owned untracked files
+  assert.doesNotMatch(status, /\?{2} armada\//)
+  assert.doesNotMatch(status, /\?{2} \.opencode\//)
+  assert.doesNotMatch(status, /\?{2} opencode\.json/)
+})
+
+test("uninstall removes gitignore block and restores prior content", async () => {
+  const dir = makeTempRepo({})
+  writeFileSync(join(dir, ".gitignore"), "node_modules/\n.env\n")
+  await runCli(["init", "--yes", "--budget", "free", "--no-browser"], { cwd: dir })
+  // Verify block was added
+  let gi = readFileSync(join(dir, ".gitignore"), "utf8")
+  assert.match(gi, /# armada:start/)
+  assert.match(gi, /node_modules/)
+  // Uninstall
+  const r = await runCli(["uninstall"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  gi = readFileSync(join(dir, ".gitignore"), "utf8")
+  assert.doesNotMatch(gi, /# armada:start/)
+  assert.match(gi, /node_modules/)
+  assert.match(gi, /\.env/)
+})
+
+test("uninstall --dry-run does not modify .gitignore", async () => {
+  const dir = makeTempRepo({})
+  await runCli(["init", "--yes", "--budget", "free", "--no-browser"], { cwd: dir })
+  const before = readFileSync(join(dir, ".gitignore"), "utf8")
+  const r = await runCli(["uninstall", "--dry-run"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  const after = readFileSync(join(dir, ".gitignore"), "utf8")
+  assert.strictEqual(after, before)
 })

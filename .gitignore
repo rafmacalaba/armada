@@ -22,3 +22,9 @@ build/
 
 # Validation evidence-target (sandbox facsimile of ~/WBG/data-ai-chatbot, gitignored build artifact)
 /evidence-target/
+
+# armada:process
+/DEFECTS.md
+/ADVERSARIAL_REVIEW.md
+/AUDIT.md
+# armada:process:end

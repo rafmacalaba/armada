@@ -17,7 +17,7 @@ Stack: {stack_summary}
 
 ## Defect tasks
 
-When assigned a defect (a DEF entry read from DEFECTS.md):
+When assigned a defect (a DEF entry read from {ledgers_dir}DEFECTS.md):
 
 1. Reproduce it first, following the steps exactly. Prove the problem before fixing it.
 2. Fix the root cause, verify by the same steps, and add or adjust a unit test that would have
@@ -26,9 +26,9 @@ When assigned a defect (a DEF entry read from DEFECTS.md):
 
 ## Hard rules
 
-- Never edit DEFECTS.md or ADVERSARIAL_REVIEW.md — not with the edit tool, not via shell.
+- Never edit {ledgers_dir}DEFECTS.md or {ledgers_dir}ADVERSARIAL_REVIEW.md — not with the edit tool, not via shell.
 - Never mark, claim or imply that a defect is closed. A fix is done when qa retests it.
-- Never touch e2e/ — end-to-end tests belong to qa.
+- Never touch {e2e_dir} — end-to-end tests belong to qa.
 - Never weaken, skip or delete a test to make it pass. If a test looks wrong, say so.
 - No emojis in code, comments or logging.
 

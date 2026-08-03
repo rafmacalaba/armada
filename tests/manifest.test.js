@@ -311,3 +311,63 @@ test("parses missing supervision block defaults both to false", () => {
   assert.strictEqual(parsed.project.supervision.plugin, false)
   assert.strictEqual(parsed.project.supervision.fleet, false)
 })
+
+// -- Phase 2: per-feature ledger paths --
+
+test("DEFAULT_PLAYBOOK defectLedger and adversarialLedger have per-feature paths", async () => {
+  // Import the module to access DEFAULT_PLAYBOOK
+  const mod = await import("../src/manifest.js")
+  assert.match(mod.DEFAULT_PLAYBOOK.defectLedger.file, /armada\/ledgers\/\{feature\}\/DEFECTS\.md/)
+  assert.match(mod.DEFAULT_PLAYBOOK.adversarialLedger.file, /armada\/ledgers\/\{feature\}\/ADVERSARIAL_REVIEW\.md/)
+  assert.strictEqual(mod.DEFAULT_PLAYBOOK.defectLedger.shared, "armada/ledgers/shared/DEFECTS.md")
+  assert.strictEqual(mod.DEFAULT_PLAYBOOK.adversarialLedger.shared, "armada/ledgers/shared/ADVERSARIAL_REVIEW.md")
+})
+
+test("parseManifestYaml accepts optional project.feature", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: free",
+    "  feature: my-feature",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+    "",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.feature, "my-feature")
+})
+
+test("parseManifestYaml rejects empty project.feature", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: free\n  feature: ''\nteam:\n  - role: qa\n    model: x\n    enabled: true"
+    ),
+    /schema/
+  )
+})
+
+test("parseManifestYaml rejects project.feature with path separators", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: free\n  feature: 'foo/bar'\nteam:\n  - role: qa\n    model: x\n    enabled: true"
+    ),
+    /schema/
+  )
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: free\n  feature: 'foo\\bar'\nteam:\n  - role: qa\n    model: x\n    enabled: true"
+    ),
+    /schema/
+  )
+})
+
+test("parseManifestYaml rejects project.feature with .. traversal", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: free\n  feature: '../escape'\nteam:\n  - role: qa\n    model: x\n    enabled: true"
+    ),
+    /schema/
+  )
+})

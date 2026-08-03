@@ -16,7 +16,7 @@ import { existsSync, readFileSync, realpathSync } from "node:fs"
 import { basename, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { runQuestionnaire, guessName } from "./questionnaire.js"
+import { runQuestionnaire, guessName, confirm } from "./questionnaire.js"
 import { detectStack } from "./stack-detect.js"
 import { scaffold, uninstall } from "./scaffold.js"
 import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache, listOpenRouterModels, renderOpenRouterModels } from "./model-catalog.js"
@@ -318,9 +318,20 @@ async function init(args) {
   manifest.project.stack = stack
 
   const dryRun = args.includes("--dry-run")
+
+  // Ask about managed .gitignore block (skip when --yes / --yolo / non-TTY)
+  const skipGitignore = args.includes("--yes") || args.includes("--yolo") || dryRun
+  let gitignore = true
+  if (!skipGitignore && process.stdin.isTTY) {
+    const ok = await confirm("armada wants to add a managed block to .gitignore (reversible, marked). Continue?", true)
+    if (ok === false) gitignore = false
+    // ok === null means EOF (Ctrl+D) — treat as skip too
+    if (ok === null) gitignore = false
+  }
+
   let files
   try {
-    files = scaffold(manifest, stack, { dryRun })
+    files = scaffold(manifest, stack, { dryRun, gitignore })
   } catch (err) {
     logError(err, `check permissions on the target directory`)
     process.exitCode = 1
@@ -329,6 +340,7 @@ async function init(args) {
   console.log(`\n${dryRun ? "(dry-run) " : ""}Scaffolded opencode-armada team:`)
   for (const f of files) console.log(`  ${dryRun ? "(dry-run) + " : "+ "}${f}`)
   console.log(renderInitSummary(manifest))
+  if (!gitignore) console.log("\nNote: .gitignore block was skipped. Re-run 'armada init --from-armada armada/armada.yaml' to add it later.")
   return 0
 }
 
