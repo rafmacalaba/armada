@@ -415,3 +415,62 @@ node --test 'tests/*.test.js'
 
 246 pass (was 243): added 3 e2e validation tests (mid-phase resume, multi-feature disjoint,
 state round-trip). All prior 243 stay green.
+
+---
+
+## Phase 5 — Restart-proof reconcile
+
+**Date:** 2026-08-03
+**Validated by:** bac-3 (post-implementation, `sandbox/reconcile`)
+**Full suite:** tests: 264 pass, 0 fail | e2e: 5 pass, 0 fail
+
+Engine (`src/reconcile.js`, 297 lines), CLI (`src/reconcile-cli.js`, 48 lines), unit tests
+(`tests/reconcile.test.js`, 20 tests), e2e tests (`e2e/reconcile.test.js`, 5 scenarios),
+and generator update (`src/generator.js:383-389`) all landed. Phases 1-2 per contract
+(`armada/REQUIREMENTS.md:47-84`) are met. Reconcile is read-only — zero state writes.
+
+### Scenario A: no active feature
+
+Setup: empty state directory (no `armada/state/active.json`).
+Command: `node src/cli.js reconcile --state-dir <tmp>/armada/state --repo <tmp>`
+
+```
+resume: no active feature
+```
+
+**Result: PASS** — exit 0, correct message.
+
+### Scenario B: happy path with one passed phase
+
+Setup: `armada/state/active.json` with feature `demo`, phase-1 `passed` (criterion c1 with
+evidence `tests/smoke.test.js`), phase-2 `pending`. Evidence file exists and passes.
+Contract has phase-1 criteria all ticked `[x]`.
+
+```
+resume: feature demo, phase phase-2 (pending), evidence 1 in, drift 0, next "E2E pass"
+```
+
+**Result: PASS** — exit 0, resume line names active feature, current phase, evidence count,
+no drifts.
+
+### Scenario C: drifted feature (evidence-missing)
+
+Setup: same as Scenario B but evidence file `tests/deleted.test.js` does not exist on disk.
+
+```
+resume: feature demo, phase phase-1 (in_progress), evidence 1 in, drift 1, next continue to next phase
+drifts (1):
+  - [evidence-missing] phase phase-1, criterion c1: tests/deleted.test.js
+```
+
+**Result: PASS** — exit 2, drift `evidence-missing` reported with phase, criterion and ref.
+
+### How to reproduce
+
+```bash
+cd sandbox/reconcile
+node --test 'tests/reconcile.test.js'     # 20 tests, all pass
+node --test 'e2e/reconcile.test.js'       # 5 scenarios, all pass
+node src/cli.js reconcile                 # scenario A (if no active feature)
+node src/cli.js reconcile --state-dir /tmp/test-state --repo /tmp/test-repo
+```

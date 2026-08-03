@@ -24,6 +24,7 @@ import { parseManifestYaml, validateRequirementsFile } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 import { runNew } from "./new-command.js"
 import { createFeature, listFeatures, closeFeature, setActiveContract, readActive, readFeatureEntry } from "./feature-commands.js"
+import { main as reconcileMain } from "./reconcile-cli.js"
 
 export const VERSION = "0.6.2"
 
@@ -49,6 +50,8 @@ Usage:
   armada feature list                        list open/in-progress/shipped features
   armada feature close <name>                verify evidence + mark shipped
   armada feature status [name]               show active or named feature state
+  armada reconcile [--json] [--state-dir <p>] [--repo <p>]
+                          check for evidence drifts against contract (exit 2 if drifts)
   armada ping                                sanity check
   armada help                                this help
 `
@@ -129,6 +132,8 @@ export async function main(argv = process.argv.slice(2)) {
     }
     case "feature":
       return featureCmd(rest)
+    case "reconcile":
+      return reconcileCmd(rest)
     case "help":
     case "-h":
     case "--help":
@@ -399,6 +404,16 @@ async function uninstallCmd(args) {
   console.log(`\n${dryRun ? "(dry-run) " : ""}Removed armada artifacts:`)
   for (const f of removed) console.log(`  ${dryRun ? "(dry-run) - " : "- "}${f}`)
   return 0
+}
+
+async function reconcileCmd(args) {
+  try {
+    return await reconcileMain(args, { cwd: process.cwd() })
+  } catch (err) {
+    logError(err)
+    process.exitCode = 1
+    return 1
+  }
 }
 
 async function featureCmd(args) {

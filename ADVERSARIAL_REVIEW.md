@@ -176,5 +176,76 @@ This is a design limitation, not a bug. Users who want to scaffold into a specif
 | ADV-008 | LOW | generator.js:164 | opencode.json model ignores budget tier |
 | ADV-009 | LOW | scaffold.js:60 | Symlinks followed without warning |
 | ADV-010 | LOW | cli.js:187 | No `--target` flag for output directory |
+| ADV-011 | MEDIUM | reconcile.js:20 | `/\d+ failing/` false positive on "0 failing" |
+| ADV-012 | MEDIUM | reconcile.js:71 | Uppercase `X` in checkboxes not parsed |
+| ADV-013 | LOW | reconcile.js:286 | Inconsistent activeFeature/resumeLine with no phases |
+| ADV-014 | LOW | reconcile.js:104-111 | Directory evidence flagged as `evidence-missing` |
 
 `main() returns undefined` / exit code propagation: **FIXED** — `main()` is async, returns Promise. Resolved promise with `undefined` value exits 0. On rejection, catch handler sets `process.exitCode = 1`. Commands that set `process.exitCode` inline (unknown command, missing manifest) exit correctly.
+
+---
+
+## ADV-011: `/\d+ failing/` regex triggers false positive on "0 failing"
+
+- Session: phase-3 gate
+- Suggested severity: MEDIUM
+
+What I did: Wrote evidence file containing `Tests: 25 passed, 0 failing, 0 skipped` (a common passing test summary), then ran `reconcile()` with `kind: "test"` pointing at it.
+Expected: No drift — "0 failing" means everything passed.
+Actual: Drift `evidence-failed` reported.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-002
+
+`src/reconcile.js:20` — `/\d+ failing/` matches `0 failing`. Fix: change to `/^[1-9]\d* failing/m` or `/\b[1-9]\d* failing\b/`. Reproduce:
+```js
+// evidence file: 'Tests: 25 passed, 0 failing, 0 skipped\n'
+// regex /\d+ failing/ matches '0 failing' -> evidence-failed
+```
+
+---
+
+## ADV-012: Uppercase `X` in checkboxes not parsed as ticked
+
+- Session: phase-3 gate
+- Suggested severity: MEDIUM
+
+What I did: Contract markdown with `- [X] Test A` (uppercase X in checkbox). Phase status `passed`, evidence exists on disk.
+Expected: Criterion recognized as ticked per contract spec (`- [X]` counts as ticked). No drift.
+Actual: Regex at `src/reconcile.js:71` (`/^-\s+\[([ x])\]\s+(.+)/`) only captures `[ ]` and `[x]`. Uppercase `[X]` is silently ignored — the criterion line is not parsed at all. `contractCriteria` for that phase is empty, so `criterion-unticked` check never fires. The criterion is invisible.
+
+Disposition: ACCEPTED -> DEF-003
+
+`src/reconcile.js:71` — change character class from `[ x]` to `[ xX]`. The contract spec (`armada/REQUIREMENTS.md`) explicitly says `- [X]` should count as ticked.
+
+---
+
+## ADV-013: Active feature with empty/null phaseGraph reports "no active feature" in resumeLine
+
+- Session: phase-3 gate
+- Suggested severity: LOW
+
+What I did: `active.json` with `feature: "feat"` and `phaseGraph: null` (or `phaseGraph.phases: []`). Ran `reconcile()`.
+Expected: `resumeLine` reflects there is an active feature but no phases (e.g. "resume: feature feat, phase (none)").
+Actual: `plan.activeFeature === "feat"` but `plan.resumeLine === "resume: no active feature"`. JSON fields are internally inconsistent — the plan says there IS an active feature (`activeFeature: "feat"`) while the resume line says there isn't.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-004
+
+`src/reconcile.js:286-288` — `resumeLine` uses `currentPhase` as a proxy for "has active feature". When `findCurrentPhase` returns `null` (empty phases array), the line defaults to "no active feature" even though `active.feature` is set. Fix: separate the null-phase case from the null-feature case.
+
+---
+
+## ADV-014: Evidence path pointing to directory flagged as `evidence-missing`
+
+- Session: phase-3 gate
+- Suggested severity: LOW
+
+What I did: Evidence ref `tests/somedir` is a directory that exists on disk (not a missing file). Ran `reconcile()`.
+Expected: Either recognize directory as existing evidence (no drift), or report a distinct drift like `evidence-is-directory`.
+Actual: `existsSync()` returns true for directories, then `readFileSync()` throws (EISDIR), caught by `try/catch` → `evidence-missing`. User sees "evidence-missing" for a path that definitely exists — misleading.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-005
+
+`src/reconcile.js:96-117` — `checkEvidence` does not distinguish a missing file from a directory. Add an `fs.statSync(fullPath).isFile()` check after `existsSync`, or handle the `EISDIR` error code in the catch block.

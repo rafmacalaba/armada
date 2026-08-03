@@ -86,7 +86,7 @@ the final phase completes.
 - `/armada-status` — read `armada/state/active.json` + `armada/state/features/index.json`,
   report active feature, pending phases, next action.
 - `/armada-scout` — dispatch a read-only investigation (adversary/architect), no writes.
-- `/armada-resume` — read the state index, summarize, ask the user the next action.
+- `/armada-resume` — run `node src/cli.js reconcile`, print the resume line and drift list.
 
 ## Cost discipline
 

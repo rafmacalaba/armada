@@ -53,15 +53,23 @@ test("orchestrator prompt: writes state on every transition (rule 4)", () => {
     "rule #4 must write armada/state/active.json")
 })
 
-test("armada-status / armada-resume command renderers read the state index", () => {
-  for (const body of [renderArmadaStatusCommand(), renderArmadaResumeCommand()]) {
-    assert.ok(
-      body.includes("armada/state/active.json") || body.includes("armada/state/features/index.json"),
-      "command must reference armada/state/active.json or the features index"
-    )
-    assert.ok(
-      !/read \.opencode\/fleet-status\.md/i.test(body),
-      "command must not read .opencode/fleet-status.md as the primary state"
-    )
-  }
+test("armada-status / armada-resume command renderers reference correct sources", () => {
+  // armada-status reads the state index directly.
+  const status = renderArmadaStatusCommand()
+  assert.ok(
+    status.includes("armada/state/active.json") || status.includes("armada/state/features/index.json"),
+    "armada-status must reference armada/state/active.json or the features index"
+  )
+  assert.ok(
+    !/read \.opencode\/fleet-status\.md/i.test(status),
+    "armada-status must not read .opencode/fleet-status.md as the primary state"
+  )
+  // armada-resume calls the engine (no direct state reads).
+  const resume = renderArmadaResumeCommand()
+  assert.ok(
+    resume.includes("node src/cli.js reconcile"),
+    "armada-resume must call node src/cli.js reconcile"
+  )
+  assert.ok(resume.includes("resume line"), "armada-resume must mention resume line")
+  assert.ok(resume.includes("drift list"), "armada-resume must mention drift list")
 })
