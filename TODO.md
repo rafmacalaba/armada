@@ -14,16 +14,19 @@ are history.
 
 Small, low-risk, high-leverage. Do first.
 
-- [ ] **Mark restart-proof reconcile done.** PR #44 (`4b2c17b`) shipped the engine, CLI,
+- [x] **Mark restart-proof reconcile done.** PR #44 (`4b2c17b`) shipped the engine, CLI,
   `/armada-resume`, e2e. Update the ledger (done below) and confirm the generated-repo path —
   see the resume-reachability spec under High.
-- [ ] **`armada models --list-openrouter`** — show the live model list from the OpenRouter API
-  for pick-your-own workflows.
-- [ ] **`(Recommended)` catalog marker** — flag only the true first-choice model per budget
-  tier in `models` output, not every option.
-- [ ] **Init end summary** — after `init`, emit models chosen, cost hint per tier, next steps.
-- [ ] **`armada preset <name>`** — apply a preset to an existing manifest (`armada preset power`).
-- [ ] **`renderCatalog` auto-size columns** — replace hardcoded padding with computed widths.
+- [x] **`armada models --list-openrouter`** — show the live model list from the OpenRouter API
+  for pick-your-own workflows. Shipped 2026-08-03.
+- [x] **`(Recommended)` catalog marker** — flag only the true first-choice model per budget
+  tier in `models` output, not every option. Shipped 2026-08-03.
+- [x] **Init end summary** — after `init`, emit models chosen, cost hint per tier, next steps.
+  Shipped 2026-08-03.
+- [x] **`armada preset <name>`** — apply a preset to an existing manifest (`armada preset power`).
+  Shipped 2026-08-03.
+- [x] **`renderCatalog` auto-size columns** — replace hardcoded padding with computed widths.
+  Shipped 2026-08-03.
 
 ### High
 
@@ -59,7 +62,8 @@ Bigger features, well-specified, sequenced after the High items.
   `feature list` shows each worktree; zero cross-feature clobber; per-feature fast-forward
   merge. Upgrades the disjoint-files prompt rule (the fragile same-tree fallback). Test: two
   features in two worktrees, both implemented + merged, no clobber.
-- [ ] **Arrow-key questionnaire** — readline arrow-key selection instead of numbered prompts.
+- [x] **Arrow-key questionnaire** — `select`/`multiSelect`/`confirm` in `src/ui.js` already ship
+  this; questionnaire uses them. Shipped 2026-08-03.
 
 ### Low
 

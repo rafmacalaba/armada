@@ -249,3 +249,98 @@ Screenshot: n/a
 Disposition: ACCEPTED -> DEF-005
 
 `src/reconcile.js:96-117` — `checkEvidence` does not distinguish a missing file from a directory. Add an `fs.statSync(fullPath).isFile()` check after `existsSync`, or handle the `EISDIR` error code in the catch block.
+
+---
+
+## ADV-015: `parseManifestYaml` drops `variant` field — lost on re-scaffold
+
+- Session: final
+- Suggested severity: MEDIUM
+
+What I did: armada.yaml with `variant: thinking` on orchestrator team entry. Ran `parseManifestYaml`.
+Expected: parsed team entry includes `variant: "thinking"`, survives round-trip.
+Actual: `variant` is validated (line 65) but not returned in the team entry object (lines 66-71). `variant` is always `undefined` in parseManifestYaml output. On `init --from-armada`, `buildTeam` reads `override?.variant` → undefined → falls back to `CATALOG[role].variant`. This means preset-written variants only work by coincidence (balanced preset's `thinking` matches catalog default). A custom preset variant would be silently ignored.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-006
+
+`src/manifest.js:63-71` — validates variant at line 65 but the `return { role, model, fallback, enabled }` at lines 66-71 omits variant. `buildTeam` in `src/generator.js:125` reads `override?.variant` which is always undefined. `renderManifestYaml` in `src/generator.js:503-507` doesn't write variant either, so even a direct-to-YAML round-trip would drop it.
+
+---
+
+## ADV-016: Duplicate next-steps sections in `armada init` output
+
+- Session: final
+- Suggested severity: LOW
+
+What I did: `armada init --yes --headless`, examined stdout.
+Expected: One "Next steps:" section printed.
+Actual: Two identical sections — "Next:" from `cli.js:293-296` AND "Next steps:" from `renderInitSummary` output (init-summary.js:27-32). Both contain the same three steps (opencode, /armada, ping all agents).
+
+Disposition: ACCEPTED -> DEF-007
+
+`src/cli.js:293-298` — explicit "Next:" block still printed before `renderInitSummary(manifest)`. `src/init-summary.js:27-32` — summary itself includes "Next steps:" with identical content. Remove the cli.js "Next:" block (lines 293-296) since renderInitSummary now covers it.
+
+---
+
+## ADV-017: `renderOpenRouterModels` crashes on null/undefined `id` or `name`
+
+- Session: final
+- Suggested severity: MEDIUM
+
+What I did: `renderOpenRouterModels([{ id: 'test/foo', name: null }])` and `renderOpenRouterModels([{ id: null, name: 'Test' }])`
+Expected: Graceful rendering with empty string for missing field, or defensive guard.
+Actual: `TypeError: Cannot read properties of null (reading 'length')` at `m.id.length` (line 194) or `m.name.length` (line 195). Uncaught crash.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-008
+
+`src/model-catalog.js:194-195` — `m.id.length` and `m.name.length` assume both fields are strings. OpenRouter API contract says `{ id: string, name: string }` but a malformed response would crash. Fix: `(m.id || "").length` and `(m.name || "").length`.
+
+---
+
+## ADV-018: `listOpenRouterModels` misleading error for non-array `data` field
+
+- Session: final
+- Suggested severity: LOW
+
+What I did: Fake-fetch that returns `ok: true` with `data: {x: 1}` (object, not array).
+Expected: Error message indicating response format was unexpected (e.g., "data field is not an array").
+Actual: `json.data.map is not a function — check network / OPENROUTER_API_KEY`. The `.map is not a function` error is wrapped with a network/auth hint that doesn't apply — this is a response format error, not a network/auth issue.
+Screenshot: n/a
+
+Disposition: REJECTED - "check network / OPENROUTER_API_KEY" is a general hint; the per-cause distinction is polish, not a contract violation.
+
+`src/model-catalog.js:183-184` — `if (!json.data)` only checks falsy, not `Array.isArray(json.data)`. Add an `Array.isArray(json.data)` check and throw a distinct message like "data field is not an array" before `— check network / OPENROUTER_API_KEY`.
+
+---
+
+## ADV-019: `applyPreset` drops `stack.instructions` from armada.yaml
+
+- Session: final
+- Suggested severity: MEDIUM
+
+What I did: armada.yaml with `stack.instructions: [".cursor/rules", "CLAUDE.md"]`. Ran `armada preset power --target <dir>`.
+Expected: `instructions` field preserved in the rewritten armada.yaml (preset only changes budget + team models).
+Actual: `instructions` silently dropped from output. Post-preset armada.yaml has zero `instructions` lines. Data loss on preset apply.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-009
+
+`src/preset-command.js:56-98` — local `renderArmadaYaml` template at lines 87-92 doesn't include `instructions` field. The canonical `renderManifestYaml` in `src/generator.js:530` does include `instructions`. The local copy diverges: it supports `variant` (generator doesn't) but drops `instructions` (generator includes them). Fix: either use `renderManifestYaml(buildTeam(...))` as the contract specifies, or keep the local renderer in sync.
+
+---
+
+## ADV-020: `applyPreset` local renderer silently drops any future manifest fields
+
+- Session: final
+- Suggested severity: MEDIUM
+
+What I did: armada.yaml with any field not in the local `renderArmadaYaml` template (e.g., `stack.instructions`, or any future `project.` field).
+Expected: Non-model/budget fields pass through unchanged (preset only overrides budget + team models/variants).
+Actual: Any field not explicitly in `renderArmadaYaml`'s template is silently dropped. The contract for Phase 3 says "writes back via renderManifestYaml(buildTeam(manifest))" but the code uses a locally-maintained copy. Schema evolution creates a maintenance fork.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-010
+
+`src/preset-command.js:56-98` — `renderArmadaYaml` is a local copy distinct from the canonical `renderManifestYaml` in `src/generator.js:501-536`. Differences: local supports variant but drops instructions; canonical supports instructions but drops variant. Any schema change must be mirrored in both places.

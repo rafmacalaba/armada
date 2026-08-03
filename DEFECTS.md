@@ -123,3 +123,103 @@ History:
 - qa: opened
 - backend-dev: FIX READY — fixed in src/reconcile.js:96-111, statSync().isDirectory() check with detail field
 - qa: closed — regression test "Bug D — directory as evidence path reports useful drift" (tests/reconcile.test.js:733) passes; engine output includes `detail: "path is a directory: tests/not-a-file"`
+
+## DEF-006: parseManifestYaml drops `variant` field — lost on re-scaffold
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: adversary (ADV-015)
+- Phase: 4
+
+Steps to reproduce:
+1. Create armada.yaml with `variant: thinking` on the orchestrator team entry.
+2. Parse armada.yaml with `parseManifestYaml`.
+3. Inspect the parsed team entry for the orchestrator role.
+4. Run `armada init --from-armada armada.yaml`, then `armada init --from-armada armada.yaml` again (re-scaffold).
+
+Expected: The parsed team entry includes `variant: "thinking"` and the value survives the round-trip through parse → render → parse.
+Actual: `variant` is validated at manifest.js:65 but not included in the returned team entry object (lines 66-71). The field is always `undefined` in parseManifestYaml output. On re-scaffold, `buildTeam` reads `override?.variant` → undefined → falls back to CATALOG[role].variant. A custom variant would be silently replaced with the catalog default.
+Screenshot: n/a
+
+History:
+- qa: opened
+- qa: closed — fixed (parseManifestYaml returns `variant`; renderManifestYaml serializes it); retested 323/323, variant round-trip test added
+
+## DEF-007: Duplicate next-steps sections in `armada init` output
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: adversary (ADV-016)
+- Phase: 4
+
+Steps to reproduce:
+1. Run `armada init --yes --headless` in a project directory.
+2. Examine stdout output.
+
+Expected: One "Next steps:" section is printed after scaffolding.
+Actual: Two identical sections appear — "Next:" from cli.js:293-296 AND "Next steps:" from the renderInitSummary output (init-summary.js:27-32). Both contain the same three steps (run opencode, use /armada, ping agents).
+Screenshot: n/a
+
+History:
+- qa: opened
+- qa: closed — fixed (old "Next:" block removed; renderInitSummary is the single source); retested 323/323
+
+## DEF-008: renderOpenRouterModels crashes on null/undefined `id` or `name`
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: adversary (ADV-017)
+- Phase: 1
+
+Steps to reproduce:
+1. From Node REPL or a script, import renderOpenRouterModels from src/model-catalog.js.
+2. Call `renderOpenRouterModels([{ id: 'test/foo', name: null }])`.
+3. Also call `renderOpenRouterModels([{ id: null, name: 'Test' }])`.
+
+Expected: Graceful rendering with an empty string for the missing field, or a defensive guard preventing crash.
+Actual: `TypeError: Cannot read properties of null (reading 'length')` at m.id.length (line 194) or m.name.length (line 195). Uncaught crash with no recovery.
+Screenshot: n/a
+
+History:
+- qa: opened
+- qa: closed — fixed (String() coercion with null-safe default); retested 323/323, null id/name render test added
+
+## DEF-009: applyPreset drops `stack.instructions` from armada.yaml
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: adversary (ADV-019)
+- Phase: 3
+
+Steps to reproduce:
+1. Create armada.yaml with `stack.instructions: [".cursor/rules", "CLAUDE.md"]`.
+2. Run `armada preset power --target <dir>` (or any preset).
+3. Inspect the rewritten armada.yaml in the target directory.
+
+Expected: The `instructions` field is preserved in the rewritten armada.yaml (preset only changes budget + team models).
+Actual: The `instructions` field is silently dropped from the output. The post-preset armada.yaml has zero `instructions` lines. Data loss on preset apply.
+Screenshot: n/a
+
+History:
+- qa: opened
+- qa: closed — fixed (applyPreset renders through generator.renderManifestYaml; generator now serializes stack.instructions); retested 323/323, instructions+variant preservation test added
+
+## DEF-010: applyPreset local renderer silently drops any future manifest fields
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: adversary (ADV-020)
+- Phase: 3
+
+Steps to reproduce:
+1. Create armada.yaml with any field not in the local renderArmadaYaml template (e.g., `stack.instructions`, or any future `project.` field).
+2. Run `armada preset power --target <dir>`.
+3. Inspect the rewritten armada.yaml in the target directory.
+
+Expected: Non-model/budget fields pass through unchanged (preset only overrides budget + team models/variants).
+Actual: Any field not explicitly in the local renderArmadaYaml template is silently dropped. The canonical renderManifestYaml in generator.js includes instructions; the local copy in preset-command.js does not. Schema evolution creates a maintenance fork.
+Screenshot: n/a
+
+History:
+- qa: opened
+- qa: closed — fixed (renderArmadaYaml fork deleted; applyPreset uses the generator as single source of truth); retested 323/323
