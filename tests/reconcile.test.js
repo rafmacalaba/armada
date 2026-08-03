@@ -730,6 +730,121 @@ test("Bug C — active feature with empty phases gives meaningful resume line", 
   assert.match(plan.resumeLine, /evidence 0 in/)
 })
 
+// ADV-023: Array.isArray guard on phase.criteria — non-array (null, string) must not throw
+test("ADV-023 — non-array phase.criteria handled without throw", () => {
+  const dir = makeTmpDir()
+  const repoRoot = dir
+  const stateDir = join(repoRoot, "armada", "state")
+
+  // Phase with criteria set to null
+  const phaseNull = phase("phase-1", [], null)
+  phaseNull.criteria = null
+
+  const phases = [phaseNull]
+  phases[0].status = "in_progress"
+
+  writeJson(stateDir, "active.json", active("feat", "armada/contracts/feat.md", phases, []))
+  writeJson(stateDir, "features/index.json", [
+    featureIndexEntry("feat", "in_progress", "armada/contracts/feat.md"),
+  ])
+  writeFile(repoRoot, "armada/contracts/feat.md", contractMarkdown("feat", []))
+  writeFile(repoRoot, "tests/ok.js", "// ok")
+
+  assert.doesNotThrow(() => reconcile(stateDir, repoRoot))
+  const plan = reconcile(stateDir, repoRoot)
+  assert.notStrictEqual(plan.activeFeature, null)
+  assert.deepStrictEqual(plan.drifts, [])
+})
+
+test("ADV-023 — string phase.criteria does not throw", () => {
+  const dir = makeTmpDir()
+  const repoRoot = dir
+  const stateDir = join(repoRoot, "armada", "state")
+
+  const phaseStr = phase("phase-1", [], [])
+  phaseStr.criteria = "not-an-array"
+
+  const phases = [phaseStr]
+  phases[0].status = "in_progress"
+
+  writeJson(stateDir, "active.json", active("feat", "armada/contracts/feat.md", phases, []))
+  writeJson(stateDir, "features/index.json", [
+    featureIndexEntry("feat", "in_progress", "armada/contracts/feat.md"),
+  ])
+  writeFile(repoRoot, "armada/contracts/feat.md", contractMarkdown("feat", []))
+  writeFile(repoRoot, "tests/ok.js", "// ok")
+
+  assert.doesNotThrow(() => reconcile(stateDir, repoRoot))
+  const plan = reconcile(stateDir, repoRoot)
+  assert.notStrictEqual(plan.activeFeature, null)
+  assert.deepStrictEqual(plan.drifts, [])
+})
+
+// ADV-025: null phase entries in phases array must not crash
+test("ADV-025 — null phase entry in phases array does not throw", () => {
+  const dir = makeTmpDir()
+  const repoRoot = dir
+  const stateDir = join(repoRoot, "armada", "state")
+
+  const goodPhase = phase("phase-1", [], [
+    criterion("c1", "Test", { kind: "test", ref: "tests/ok.js" }),
+  ])
+  goodPhase.status = "in_progress"
+
+  writeJson(stateDir, "active.json", active("feat", "armada/contracts/feat.md", [goodPhase, null], [
+    { phase: "phase-1", criterion: "c1", kind: "test", ref: "tests/ok.js" },
+  ]))
+  writeJson(stateDir, "features/index.json", [
+    featureIndexEntry("feat", "in_progress", "armada/contracts/feat.md"),
+  ])
+  writeFile(repoRoot, "armada/contracts/feat.md", contractMarkdown("feat", [
+    { id: "phase-1", dependsOn: [], criteria: [{ id: "c1", text: "Test", ticked: true }] },
+  ]))
+  writeFile(repoRoot, "tests/ok.js", "// ok")
+
+  assert.doesNotThrow(() => reconcile(stateDir, repoRoot))
+  const plan = reconcile(stateDir, repoRoot)
+  assert.notStrictEqual(plan.activeFeature, null)
+  assert.deepStrictEqual(plan.drifts, [])
+})
+
+// ADV-026: checkEvidence must not crash on undefined evidence.ref
+test("ADV-026 — missing evidence.ref returns evidence-missing drift instead of crash", () => {
+  const dir = makeTmpDir()
+  const repoRoot = dir
+  const stateDir = join(repoRoot, "armada", "state")
+
+  const phases = [
+    {
+      id: "phase-1",
+      title: "Phase 1",
+      dependsOn: [],
+      status: "in_progress",
+      criteria: [
+        { id: "c1", text: "Test", evidence: { kind: "test" } }, // no ref!
+      ],
+    },
+  ]
+
+  writeJson(stateDir, "active.json", active("feat", "armada/contracts/feat.md", phases, [
+    { phase: "phase-1", criterion: "c1", kind: "test", ref: undefined },
+  ]))
+  writeJson(stateDir, "features/index.json", [
+    featureIndexEntry("feat", "in_progress", "armada/contracts/feat.md"),
+  ])
+  writeFile(repoRoot, "armada/contracts/feat.md", contractMarkdown("feat", [
+    { id: "phase-1", dependsOn: [], criteria: [{ id: "c1", text: "Test", ticked: true }] },
+  ]))
+
+  assert.doesNotThrow(() => reconcile(stateDir, repoRoot))
+  const plan = reconcile(stateDir, repoRoot)
+  assert.strictEqual(plan.activeFeature, "feat")
+  const drift = plan.drifts.find((d) => d.criterion === "c1")
+  assert.ok(drift, "should have drift for c1")
+  assert.strictEqual(drift.kind, "evidence-missing")
+  assert.strictEqual(drift.detail, "criterion has no evidence.ref")
+})
+
 // Bug D: evidence path is a directory -> not treated as evidence-missing (silently)
 test("Bug D — directory as evidence path reports useful drift", () => {
   const dir = makeTmpDir()

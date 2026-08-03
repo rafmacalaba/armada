@@ -579,9 +579,12 @@ Live target remains a user-side re-scaffold + manual walkthrough.
 - **Manifest round-trip.** `parseManifestYaml(evidence-target/armada/armada.yaml)` accepts
   it (8 team members, correct stack). Evidence at
   `armada/state/evidence/phase-1/armada-roundtrip.txt`.
-- **Stack detection (live target).** Read-only probe of `~/WBG/data-ai-chatbot` confirms
-  the live repo's stack detected correctly. Evidence at
-  `armada/state/evidence/phase-1/stack-detection.txt` and
+- **Stack detection (live target).** The live `~/WBG/data-ai-chatbot` re-scaffold is a
+  user-side manual step (see `armada/state/evidence/phase-2/manual-walkthrough.md`); the
+  in-lane validation runs against the in-sandbox `evidence-target/` facsimile. The lane
+  can read the live target's files (read-only, no writes): inspection of
+  `opencode.json`, `armada/armada.yaml`, and `.opencode/agent/*.md` confirmed stack
+  detection matches. Evidence at `armada/state/evidence/phase-1/stack-detection.txt` and
   `armada/state/evidence/phase-1/live-target-note.txt`.
 
 ### What armada-side fixed (Phase 1)
