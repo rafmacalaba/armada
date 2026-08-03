@@ -70,7 +70,7 @@ test("buildTeam includes all roles with permissions", () => {
   assert.strictEqual(team.length, ROLES.length)
   const qa = team.find((a) => a.role === "qa")
   assert.strictEqual(qa.permissions.edit["*"], "deny")
-  assert.strictEqual(qa.permissions.edit["e2e/*"], "allow")
+  assert.strictEqual(qa.permissions.edit["armada/e2e/*"], "allow")
 })
 
 test("buildTeam honors manifest per-role model, variant, fallback", () => {
@@ -533,7 +533,7 @@ test("buildTeam deep-merges user permissions over base", () => {
   const m = structuredClone(baseManifest)
   m.team = [
     { role: "backend-dev", model: modelFor("backend-dev", "balanced"), variant: null, fallback: null, enabled: true,
-      permissions: { edit: { "*": "allow", "e2e/*": "deny" }, bash: { "*": "ask" } } },
+      permissions: { edit: { "*": "allow", "armada/e2e/*": "deny" }, bash: { "*": "ask" } } },
     { role: "qa", model: modelFor("qa", "balanced"), variant: null, fallback: null, enabled: true },
   ]
   const team = buildTeam(m)
@@ -541,14 +541,14 @@ test("buildTeam deep-merges user permissions over base", () => {
   // user override wins
   assert.strictEqual(backend.permissions.edit["*"], "allow")
   // user override present
-  assert.strictEqual(backend.permissions.edit["e2e/*"], "deny")
+  assert.strictEqual(backend.permissions.edit["armada/e2e/*"], "deny")
   // base keys not overridden survive
-  assert.strictEqual(backend.permissions.edit["DEFECTS.md"], "deny")
+  assert.strictEqual(backend.permissions.edit["armada/ledgers/*/DEFECTS.md"], "deny")
   assert.strictEqual(backend.permissions.edit["armada/*"], "deny")
   // QA has no overrides, uses base
   const qa = team.find((a) => a.role === "qa")
   assert.strictEqual(qa.permissions.edit["*"], "deny")
-  assert.strictEqual(qa.permissions.edit["e2e/*"], "allow")
+  assert.strictEqual(qa.permissions.edit["armada/e2e/*"], "allow")
 })
 
 test("buildTeam passes through instructions and prompt", () => {
@@ -569,4 +569,76 @@ test("buildTeam instructions and prompt default to null", () => {
     assert.strictEqual(a.instructions, null)
     assert.strictEqual(a.prompt, null)
   }
+})
+
+// -- Phase 2: per-feature ledger paths in rendered output --
+
+test("renderAgentsMd uses per-feature ledger path in defect ledger section", () => {
+  const m = structuredClone(baseManifest)
+  m.project.name = "my-app"
+  const team = buildTeam(m)
+  const md = renderAgentsMd(m, team, "my-app")
+  assert.match(md, /armada\/ledgers\/my-app\/DEFECTS\.md/)
+  assert.doesNotMatch(md, /\bDEFECTS\.md\b.*repo root/)
+})
+
+test("renderAgentsMd 'Repository conventions' uses armada/ paths", () => {
+  const m = structuredClone(baseManifest)
+  m.project.name = "my-app"
+  const team = buildTeam(m)
+  const md = renderAgentsMd(m, team, "my-app")
+  assert.match(md, /armada\/e2e\/my-app\//)
+  assert.match(md, /armada\/screenshots\/my-app\//)
+  assert.doesNotMatch(md, /live under `e2e\/`\./)
+  assert.doesNotMatch(md, /live under `screenshots\/`\./)
+})
+
+test("renderAgentsMd defect ledger title and format use per-feature paths", () => {
+  const m = structuredClone(baseManifest)
+  m.project.name = "my-app"
+  const team = buildTeam(m)
+  const md = renderAgentsMd(m, team, "my-app")
+  // Title sections
+  assert.match(md, /## armada\/ledgers\/my-app\/DEFECTS\.md/)
+  assert.match(md, /## armada\/ledgers\/my-app\/ADVERSARIAL_REVIEW\.md/)
+  // Format block paths
+  assert.match(md, /armada\/screenshots\/my-app\/def-001\.png/)
+  assert.match(md, /armada\/screenshots\/my-app\/adv-001\.png/)
+  // Status table path references  
+  assert.match(md, /All defects live in `armada\/ledgers\/my-app\/DEFECTS\.md`/)
+  assert.match(md, /All adversary findings live in `armada\/ledgers\/my-app\/ADVERSARIAL_REVIEW\.md`/)
+})
+
+test("renderAgentsMd resolves {feature} token in playbook file paths", () => {
+  const m = structuredClone(baseManifest)
+  m.project.name = "my-app"
+  // Override playbook with {feature} token
+  m.playbook = {
+    defectLedger: { file: "armada/ledgers/{feature}/DEFECTS.md" },
+    adversarialLedger: { file: "armada/ledgers/{feature}/ADVERSARIAL_REVIEW.md" },
+  }
+  const team = buildTeam(m)
+  const md = renderAgentsMd(m, team, "my-app")
+  assert.match(md, /armada\/ledgers\/my-app\/DEFECTS\.md/)
+  assert.match(md, /armada\/ledgers\/my-app\/ADVERSARIAL_REVIEW\.md/)
+})
+
+test("renderArmadaSupervisionPlugin deny list absence confirms per-feature ledger is allow", () => {
+  const team = buildTeam(baseManifest)
+  const orch = team.find((a) => a.role === "orchestrator")
+  // Ledger files are ALLOW for orchestrator, not DENY — they won't appear in deny list
+  assert.strictEqual(orch.permissions.edit["armada/ledgers/*/DEFECTS.md"], "allow")
+  assert.strictEqual(orch.permissions.edit["armada/ledgers/*/ADVERSARIAL_REVIEW.md"], "allow")
+  const src = renderArmadaSupervisionPlugin(team)
+  // Root-level ledger files removed; only per-feature paths present
+  assert.ok(!/["']DEFECTS\.md["']/.test(src) || src.includes("armada/ledgers"), "no root-level DEFECTS.md in deny list")
+})
+
+test("renderArmadaSupervisionPlugin still denies old protected paths", () => {
+  const team = buildTeam(baseManifest)
+  const src = renderArmadaSupervisionPlugin(team)
+  assert.match(src, /REQUIREMENTS\.md/)
+  assert.match(src, /AGENTS\.md/)
+  assert.match(src, /\.opencode\/\*/)
+  assert.match(src, /armada\//)
 })

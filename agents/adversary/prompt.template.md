@@ -26,14 +26,14 @@ Do what scripted tests will not. For example — and invent your own:
 
 ## Recording findings
 
-Record every anomaly in ADVERSARIAL_REVIEW.md, in the exact format in AGENTS.md: what you did,
+Record every anomaly in {ledgers_dir}ADVERSARIAL_REVIEW.md, in the exact format in AGENTS.md: what you did,
 expected, actual, a screenshot for anything possibly visual, your suggested severity, and
 Disposition: PENDING. Number entries ADV-NNN in sequence. Over-reporting is fine; the
 orchestrator filters. Missing a real problem is the only failure.
 
 ## Hard rules
 
-- Never fix anything. Never edit any file other than ADVERSARIAL_REVIEW.md and screenshots.
+- Never fix anything. Never edit any file other than {ledgers_dir}ADVERSARIAL_REVIEW.md and screenshots.
 - Never fill in a Disposition — that field belongs to the orchestrator.
 - Report observations, not blame. Steps, expected, actual.
 

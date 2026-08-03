@@ -1,11 +1,16 @@
 // tests/new-command.test.js (unit tests section)
 import { test } from "node:test"
 import assert from "node:assert"
-import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, mkdirSync, writeFileSync, rmSync, readFileSync, mkdtempSync } from "node:fs"
+import { join, dirname } from "node:path"
+import { fileURLToPath } from "node:url"
 import { tmpdir } from "node:os"
+import { execSync } from "node:child_process"
 import { detectExperience, renderTemplate, experienceDetectForDir } from "../src/new-command.js"
 import { CATEGORIES } from "../src/recommendations.js"
+import { GITIGNORE_START } from "../src/scaffold.js"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 test("detectExperience returns beginner or experienced", () => {
   const level = detectExperience()
@@ -161,6 +166,31 @@ test("new CLI scaffolds agentic files for ml-training", async () => {
   assert.ok(existsSync(join(projDir, "LICENSE")), "LICENSE missing")
   assert.ok(existsSync(join(projDir, ".github/workflows/ci.yml")), "CI missing")
   assert.ok(existsSync(join(projDir, "tests/test_model.py")), "test bootstrap missing")
+})
+
+// -- Phase 1: starter templates ship .gitignore block --
+
+test("starter web-app/nextjs .gitignore contains armada block", () => {
+  const gi = readFileSync(join(__dirname, "..", "starter", "web-app", "nextjs", ".gitignore"), "utf8")
+  const count = (gi.match(/# armada:start/g) || []).length
+  assert.strictEqual(count, 1, "starter .gitignore must have exactly one armada block")
+  assert.match(gi, /\/armada\//)
+  assert.match(gi, /\/\.opencode\//)
+  assert.match(gi, /\/opencode\.json/)
+})
+
+test("armada new in fresh git repo yields clean git status", async () => {
+  const parent = mkdtempSync(join(tmpdir(), "armada-new-clean-"))
+  execSync("git init -q", { cwd: parent })
+  const r = await runCli(["new", "clean-proj", "--type", "web-app", "--beginner", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 0)
+  const projDir = join(parent, "clean-proj")
+  // git init inside the project dir too so git status works
+  execSync("git init -q", { cwd: projDir })
+  const status = execSync("git status --short", { cwd: projDir, encoding: "utf8" })
+  assert.doesNotMatch(status, /\?{2} armada\//)
+  assert.doesNotMatch(status, /\?{2} \.opencode\//)
+  assert.doesNotMatch(status, /\?{2} opencode\.json/)
 })
 
 test("new CLI scaffolds agentic files for research-paper", async () => {

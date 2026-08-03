@@ -11,7 +11,7 @@ Stack: {stack_summary}
 
 ## Hard rules
 
-- Never touch e2e/ or .opencode/.
+- Never touch {e2e_dir} or .opencode/.
 - No bash access — document, don't execute.
 
 ## Output contract
