@@ -150,7 +150,7 @@ test("renderAgentFile orchestrator is primary with color, no displayName", () =>
   const orch = team.find((a) => a.role === "orchestrator")
   const out = renderAgentFile(orch, "You are the orchestrator.")
   assert.match(out, /mode: primary\n/)
-  assert.match(out, /color: cyan\n/)
+  assert.match(out, /color: "#00bcd4"/)
   assert.doesNotMatch(out, /displayName/)
 })
 

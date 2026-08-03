@@ -133,7 +133,7 @@ export function renderAgentFile(agent, promptText) {
     mode: agent.role === "orchestrator" ? "primary" : "subagent",
     ...(agent.model ? { model: agent.model } : {}),
     ...(agent.variant ? { variant: agent.variant } : {}),
-    ...(agent.role === "orchestrator" ? { color: "cyan" } : {}),
+    ...(agent.role === "orchestrator" ? { color: "#00bcd4" } : {}),
     ...(Object.keys(agent.permissions || {}).length ? { permission: agent.permissions } : {}),
   }
   const yaml = YAML.stringify(frontmatter).trim()
