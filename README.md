@@ -3,12 +3,11 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/rafmacalaba/opencode-armada/ci.yml)](https://github.com/rafmacalaba/opencode-armada/actions)
 [![Node](https://img.shields.io/node/v/opencode-armada)](https://nodejs.org)
 
-**Reproducible AI-engineer multi-agent teams for [opencode](https://opencode.ai).** Install
-armada into an existing repo, or start a brand-new one with a curated stack — then a configured
-team of specialized agents (backend, frontend, qa, adversary, security, docs, architect) plus an
-orchestrator that plans, delegates, and gates phases is ready the first time you open opencode.
-Stack-aware from your repo's actual manifests. Per-repo and reproducible via a single manifest
-file. MIT-licensed.
+**Evidence-gated AI teams for [opencode](https://opencode.ai).** A crew — orchestrator, backend,
+frontend, qa, adversary, security, docs, architect — that ships work **only on proof**: a phase
+unlocks when its tests pass and evidence is shown, a defect closes only when qa retests it, and
+role boundaries are enforced by the SDK, not by a prompt. One command scaffolds the team into your
+repo, stack-aware and reproducible from a single manifest. MIT-licensed.
 
 Runs with either runtime — `npx` (node) or `bunx` (bun), same package.
 
@@ -21,12 +20,12 @@ opencode                            # launch opencode — the team loads
 "Implement the /admin dashboard"   # orchestrator delegates in parallel
 ```
 
-- **Orchestrator that plans and gates** — drafts the contract with you, runs phases, requires
-  evidence at every gate before unlocking the next.
-- **Specialists that run in parallel** — backend-dev + frontend-dev per phase, independent phases
-  advance together, nothing blocks on something that doesn't depend on it.
-- **Boundaries that can't be bypassed** — per-role file permissions enforced by the SDK; qa is
-  read-only on product code, devs are locked out of `e2e/` and `DEFECTS.md`.
+- **Nothing ships on a word.** A phase passes on evidence — a green test run, a screenshot — and
+  you approve at every gate. A developer's "it's fixed" never closes a defect; only qa does.
+- **Parallel by dependency.** backend-dev and frontend-dev advance independent phases together;
+  nothing blocks on work it doesn't depend on.
+- **Boundaries you can't talk your way past.** Per-role SDK permissions: qa read-only on product
+  code, devs locked out of `e2e/` and `DEFECTS.md`, adversary confined to its ledger.
 
 [read more ↓](#why)
 
@@ -34,12 +33,14 @@ opencode                            # launch opencode — the team loads
 
 # opencode-armada
 
-Reproducible **AI-engineer multi-agent teams** for [opencode](https://opencode.ai), built on
+**Evidence-gated AI teams** for [opencode](https://opencode.ai), built on
 [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim).
 
-`armada init` asks a few questions (or reads a manifest), inspects your repo's tech stack, and
-scaffolds a configured team of specialized agents — backend-dev, frontend-dev, qa, adversary,
-security, docs, architect — plus an orchestrator that plans, delegates, and gates phases.
+armada is the process, not just the prompts. It scaffolds a crew of specialized agents —
+backend-dev, frontend-dev, qa, adversary, security, docs, architect — under an orchestrator that
+writes a contract with you, runs it in gated phases, and demands evidence at every gate. The
+boring-sounding part — reproducible from one manifest — is what makes it trustable: `armada init
+--from-armada armada.yaml` rebuilds the identical team anywhere.
 
 Public. Transparent. MIT-licensed. Full spec in [SPEC.md](./SPEC.md).
 
@@ -47,28 +48,28 @@ Public. Transparent. MIT-licensed. Full spec in [SPEC.md](./SPEC.md).
 
 ## Why
 
-- **Auto-routes and delegates.** The orchestrator schedules background specialists, tracks
-  file ownership, reconciles results, and verifies — using omo-slim's native background
-  orchestration.
-- **Stack-aware agents.** Prompts are generated from your repo's actual stack (detected from
-  package.json / pyproject.toml / requirements.txt / Dockerfile), not generic boilerplate.
-- **Per-repo, reproducible.** `armada.yaml` is the manifest. Re-run `armada init
-  --from-armada armada.yaml` anywhere to reproduce the identical team.
-- **Model choice per role.** Primary = opencode/go-zen models (free where available), fallback
-  = equivalent OpenRouter models. Choose a budget tier: free / balanced / power.
-- **Token-lean.** Agent prompts use terse, caveman-style output contracts. Armada-orchestrator
-  context stays coordination-only; workers run in child sessions.
-- **Enforced boundaries.** Each role has SDK-level file permissions (like the
-  [personal-space](https://github.com/ed-donner/personal-space) pattern): qa read-only on
-  product code, devs can't touch e2e/DEFECTS.md, adversary only its ledger.
+- **Ships on evidence, not promises.** The orchestrator co-writes `REQUIREMENTS.md` with you,
+  runs it in phases, and unlocks the next phase only when the current one shows proof — a passing
+  test run, a screenshot, or both. You approve at the gates.
+- **Defects close on retest, not on claim.** `DEFECTS.md` is owned by qa: a developer's "fixed"
+  is filed FIX-READY, but only qa's passing retest closes it. A dev's word can't clear a bug.
+- **Hostile review is a role, not an afterthought.** The adversary tries to break the running app
+  and files findings to `ADVERSARIAL_REVIEW.md`; security audits auth, authz, and dependency risk.
+- **Boundaries enforced, not requested.** SDK-level file permissions per role: qa read-only on
+  product code, devs locked out of `e2e/` and `DEFECTS.md`. There is no "please don't" prompt.
+- **Parallel by dependency.** Independent phases advance together as background subagents; nothing
+  blocks on work it doesn't depend on.
+- **Reproducible from one file.** `armada.yaml` is the manifest; `armada init --from-armada`
+  rebuilds the identical team anywhere. Stack-aware prompts, per-role model choice, free-tier
+  support, and terse token-lean output contracts come along for free.
 
 ---
 
 ## How you use it
 
-armada is a **one-time generator** (the create-react-app model, not a runtime). You run it
-once, it writes the team config, and you're done — from then on you just use `opencode`, where
-omo-slim runs the team.
+You run armada once; it writes the team into your repo, and from then on you just use `opencode`
+(omo-slim runs the crew at runtime). It's a **one-time generator** — the create-react-app model,
+not a runtime — and what it generates is a process, not just a pile of prompts.
 
 There are two ways to install armada:
 
