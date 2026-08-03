@@ -13,6 +13,9 @@ import {
   renderRequirementsMd,
   renderManifestYaml,
   renderArmadaCommand,
+  renderArmadaStatusCommand,
+  renderArmadaScoutCommand,
+  renderArmadaResumeCommand,
 } from "./generator.js"
 import { ROLES } from "./model-catalog.js"
 import { formatStack } from "./stack-detect.js"
@@ -145,8 +148,11 @@ export function scaffold(manifest, stack, opts = {}) {
   // 6. armada.yaml — always write (manifest is the re-runnable source of truth).
   write("armada/armada.yaml", renderManifestYaml(manifest, team))
 
-  // 7. armada command for in-session use.
+  // 7. armada commands for in-session use.
   write(".opencode/commands/armada.md", renderArmadaCommand())
+  write(".opencode/commands/armada-status.md", renderArmadaStatusCommand())
+  write(".opencode/commands/armada-scout.md", renderArmadaScoutCommand())
+  write(".opencode/commands/armada-resume.md", renderArmadaResumeCommand())
 
   // 8. Optional devcontainer.
   if (manifest.project.devcontainer) {
@@ -195,7 +201,9 @@ export function uninstall(manifest, opts = {}) {
   const requirementsFile = manifest?.project?.requirementsFile ?? "armada/REQUIREMENTS.md"
   removeFile(requirementsFile)
   removeEmptyDir("armada")
-  removeFile(".opencode/commands/armada.md")
+  for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume"]) {
+    removeFile(`.opencode/commands/${cmd}.md`)
+  }
   // Remove armada's native agent files by exact role name; keep any user agent files.
   const agentDir = join(target, ".opencode/agent")
   if (existsSync(agentDir)) {

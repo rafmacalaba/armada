@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
-import { buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand } from "../src/generator.js"
+import { buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand } from "../src/generator.js"
 import { parseManifestYaml } from "../src/manifest.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -276,4 +276,32 @@ test("renderArmadaCommand lives in generator.js and is pure", () => {
   const md = renderArmadaCommand()
   assert.match(md, /armada init --from-armada/)
   assert.match(md, /---/)
+})
+
+test("renderArmadaStatusCommand reads fleet status, terse", () => {
+  const md = renderArmadaStatusCommand()
+  assert.match(md, /^---\n/)
+  assert.match(md, /description:/)
+  assert.match(md, /\.opencode\/fleet-status\.md/)
+  assert.match(md, /active phases|active_phases/i)
+  assert.match(md, /orchestrator/i)
+  assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
+})
+
+test("renderArmadaScoutCommand is read-only, dispatches investigation", () => {
+  const md = renderArmadaScoutCommand()
+  assert.match(md, /^---\n/)
+  assert.match(md, /description:/)
+  assert.match(md, /read-only|no writes|never write/i)
+  assert.match(md, /adversary|architect/i)
+  assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
+})
+
+test("renderArmadaResumeCommand reads fleet status and asks next action", () => {
+  const md = renderArmadaResumeCommand()
+  assert.match(md, /^---\n/)
+  assert.match(md, /description:/)
+  assert.match(md, /\.opencode\/fleet-status\.md/)
+  assert.match(md, /next action|resume/i)
+  assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
 })
