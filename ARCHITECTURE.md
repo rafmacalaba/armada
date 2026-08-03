@@ -1,124 +1,256 @@
 # opencode-armada — Architecture
 
-How the code is organized and how data flows. Read this before contributing.
+*How armada works, and the ideas it's built on. Read this to understand the system — whether
+you're contributing, dogfooding, or thinking about running a fleet on your own repo.*
 
 ---
 
-## Module map
+## The one-sentence version
+
+armada is a **generator that turns any repository into a self-organizing AI engineering team**:
+a single orchestrator agent you talk to, backed by a crew of specialist subagents it dispatches
+in parallel, all governed by evidence — no plugin required (an opt-in supervision plugin is
+available but the default works with plain opencode).
+
+## The mental model
+
+```
+        YOU                        THE FLEET
+   (one person,              (many agents, one boss)
+   one conversation)
+        │                              ▲
+        │  "ship the /about page"      │  phases, evidence, results
+        ▼                              │
+   ┌───────────────────┐         ┌─────────────────────────────────────┐
+   │   ORCHESTRATOR     │────────►│ backend-dev   frontend-dev   qa     │
+   │  (the only agent   │ delegate │ adversary    security       docs   │
+   │   you ever talk to)│────────►│ architect                         │
+   └───────────────────┘         └─────────────────────────────────────┘
+        │                              │
+        │  contract + state            │  disjoint files / worktrees
+        ▼                              ▼
+   ┌───────────────────────────────────────────────────────────────────┐
+   │   THE REPO  (AGENTS.md, armada/contracts, armada/state, src/)      │
+   └───────────────────────────────────────────────────────────────────┘
+```
+
+The core deal: **you steer with words and approvals; the fleet executes with tools.** You never
+touch the code yourself if you don't want to — you shape the contract, the orchestrator does
+everything else.
+
+---
+
+## The two engineering ideas armada combines
+
+armada sits at the intersection of two recent, well-defined disciplines. Knowing both makes the
+whole design legible.
+
+### 1. Harness engineering
+
+*Coined by OpenAI (see [References](#references)).* The insight: when an agent fails, the fix is
+rarely "try harder" — it's **"what is the environment missing, and how do we make the right
+behavior legible and enforceable?"** You engineer the *harness* around the agent: the repo
+structure, the instructions, the invariants, the feedback loops. Humans steer; agents execute.
+
+armada is a harness-engineering product:
+- **The repo is the harness.** `AGENTS.md` (the playbook), `armada/REQUIREMENTS.md` (the
+  contract), `.opencode/agent/*.md` (per-role prompts with real frontmatter: `mode`, `model`,
+  `permission`).
+- **Enforcement is mechanical, not aspirational.** Permissions are in the agent frontmatter
+  and enforced by the SDK — the orchestrator literally cannot `edit` code (its `edit: { "*":
+  "deny" }`), security/architect physically cannot write files. Boundaries aren't a promise in
+  a prompt; they're a fact of the config.
+- **Knowledge is progressive disclosure.** The orchestrator's prompt is the table of contents;
+  the contract + state files hold the working detail. Agents read what they need, not the whole
+  repo.
+- **Feedback loops are built in.** qa gates every phase on evidence; the adversary runs a
+  hostile review pass; defects flow through a ledger that only qa can close.
+
+### 2. Loop engineering
+
+*Popularized by Cobus Greyling and others (see [References](#references)).* The insight: stop
+prompting agents one-off; **design loops that prompt the agents for you** — scheduler → triage
+skill → sub-agents → verification → human gate → merge. "You shouldn't be prompting coding
+agents anymore. You should be designing loops that prompt your agents."
+
+armada is loop-engineering in its execution layer:
+- **The orchestrator IS the loop.** It reads the contract, builds a dependency graph, dispatches
+  ready phases in parallel as background subagents, collects evidence, gates, advances. That's a
+  control loop: *plan → dispatch → verify → gate → next*.
+- **Maker/checker split.** backend-dev/frontend-dev *make*; qa/adversary *check*. The loop
+  never lets a maker pass its own work.
+- **State is the loop's memory.** `armada/state/active.json` (active feature, phase graph,
+  evidence, next action) + `armada/state/features/` index. The orchestrator reads it on session
+  start and writes it on every transition — so a killed session resumes, and the loop is
+  restart-proof (the loop-engineering "memory/state" building block).
+- **The human is a gate, not a driver.** The loop runs; it pauses only for judgment —
+  contract approval, an ambiguous decision, or a permission override.
+
+**The distinction in one line:** harness engineering builds the *field* the agents play on;
+loop engineering builds the *game* that runs on it. armada's generator is the harness; the
+orchestrator's dispatch/gate/reconcile cycle is the loop.
+
+---
+
+## The lifecycle of a feature (the workflow you can copy)
+
+This is the part that adapts to **any repo** — you don't need armada-the-tool to copy the
+pattern; you need the loop + the harness.
+
+### 0. Arm the repo (one-time)
+
+```bash
+npx opencode-armada init --yes --yolo
+# or, for a fresh project:
+npx opencode-armada new my-app --type web-app --beginner --yes
+```
+
+This writes the harness: `.opencode/agent/*.md`, `opencode.json`, `AGENTS.md`, and the
+`armada/` state area. `--yolo` = autonomous (no permission prompts); it changes *permissions*,
+never the *conversation*.
+
+### 1. Co-write the contract (the interview)
+
+Open opencode — it boots straight into the orchestrator. Describe the feature in plain language.
+The contract (`armada/REQUIREMENTS.md`) is blank, so the orchestrator **does not build**. It
+asks you one question at a time (scope, users, data, pages), drafts phases + success criteria,
+and iterates until you **explicitly approve**.
+
+> This is the moment that makes it feel like magic: the AI is asking *you* clarifying questions
+> instead of guessing. It works because the contract is the *end-goal spec*, not a vague wish —
+> and nothing ships until you agree it's right.
+
+### 2. The orchestrator runs the loop
+
+Once approved, the orchestrator:
+1. Builds a **dependency graph** from the phases.
+2. Dispatches **ready phases in parallel** as background subagents — backend-dev ∥ frontend-dev
+   within a phase, independent phases concurrently.
+3. **Gates each phase on evidence**: a passing test run, a screenshot, a file:line citation.
+   Nothing advances without proof.
+4. Sends **qa** for end-to-end tests + **adversary** for a hostile review pass on the finished
+   work.
+5. Writes every phase transition to `armada/state/active.json` — never ends a turn with
+   unsaved state.
+
+### 3. You approve; it merges; the state persists
+
+You review the evidence, approve the outcome. The loop is restart-proof: kill the session
+mid-feature, reopen, and the orchestrator reads state and reports *"resume: feature X, phase 2,
+evidence in, next action Y."*
+
+### Running multiple features (no clobbering)
+
+Each feature is its own contract + state file. For true parallel isolation, **spawn a git
+worktree per feature** — separate working trees can't collide, and merging is a per-feature
+fast-forward. (This is the roadmap's multi-feature step; today features share the checkout and
+rely on the "disjoint files" prompt rule.)
+
+---
+
+## The code, organized
 
 ```
 src/
-├── cli.js              entry + subcommand dispatch (init / models / doctor / uninstall / ping / help)
-├── index.js            library entry (programmatic API re-exports)
-├── model-catalog.js    roles, curated model recommendations, budget tiers, table renderer, models cache
-├── stack-detect.js     detect tech stack from manifests + instruction files (recurses subdirs for monorepos)
-├── questionnaire.js    interactive setup prompts (node readline, zero deps)
-├── generator.js        pure renderers: team, native agent files, opencode.json, AGENTS.md,
-│                       REQUIREMENTS.md, armada.yaml
-├── scaffold.js         file I/O: writes generated files into a target repo, fills prompts,
-│                       uninstall
-├── doctor.js           environment health checks (spawns opencode, checks providers + background dispatch)
-└── manifest.js         manifest schema, default playbook, YAML parser (parseManifestYaml)
+├── cli.js               entry + subcommands (new/init/feature/models/doctor/uninstall/ping/help)
+├── index.js             library entry (programmatic API)
+├── model-catalog.js     the 8 roles, curated models, budget tiers (free/balanced/power)
+├── stack-detect.js      detect the tech stack from manifests/instruction files (monorepos too)
+├── questionnaire.js     interactive setup (node readline, zero deps)
+├── generator.js         PURE renderers — team, agent files, opencode.json, AGENTS.md, commands
+├── scaffold.js          the I/O side — writes generated files, fills prompts, uninstall
+├── state.js             the loop's memory — pure state schema + validators
+├── feature-commands.js  per-feature contracts — feature new/list/close
+├── doctor.js            environment health checks (opencode, providers, openrouter auth)
+└── manifest.js          the armada.yaml schema + parser
 
 agents/<role>/prompt.template.md   per-role system prompt with {placeholders}
-presets/*.yaml                     budget presets (free / balanced / power)
-template/.devcontainer/*           static devcontainer files copied on demand
+presets/*.yaml                     budget presets
+starter/<category>/                cookiecutter-style repo templates (agentic best practices)
 ```
+
+**The key architectural invariant:** `generator.js` is **pure** (zero I/O) and `scaffold.js`
+owns all file writes. Every decision is a function of the manifest + team; the generator is
+deterministic and fully testable. `state.js` is likewise pure — the loop's memory is a data
+structure, not a side effect.
 
 ---
 
-## Data flow
+## The fleet, role by role
 
-```
-user input (questionnaire / flags / armada.yaml)
-        │
-        ▼
-  manifest object  { project: {name, budget, browserTesting, devcontainer,
-  ─────────────────   useAgentBrowser, stack}, team: [{role, model, fallback, variant,
-  │                   enabled}], playbook }
-  │
-  ▼
-buildTeam(manifest)  ──────────────►  team[] (8 roles, model from budget, permissions,
-  │                                     orchestratorPrompt routing)
-  │
-  ├── renderAgentFile(agent, prompt)    → .opencode/agent/<role>.md
-  ├── renderOpenCodeJson(manifest, team)→ opencode.json
-  ├── renderAgentsMd(manifest, team)    → AGENTS.md
-  ├── renderRequirementsMd(manifest)    → REQUIREMENTS.md
-  ├── renderManifestYaml(manifest, team)→ armada.yaml
-  ├── renderArmadaCommand()             → .opencode/commands/armada.md
-  └── fillPrompt(template, manifest, stack) → prompt text (rendered into each agent file)
-        │
-        ▼
-scaffold(manifest, stack)  — writes all of the above into target repo
-```
+| Role | Mode | What it owns | Can it write code? |
+|---|---|---|---|
+| **orchestrator** | primary | dispatch, gating, contract, state, the only agent you talk to | **No** — delegates everything |
+| **backend-dev** | subagent | server, API, storage, backend tests | Yes (backend files) |
+| **frontend-dev** | subagent | UI, visual polish, frontend tests | Yes (frontend files) |
+| **qa** | subagent | e2e tests, screenshots, DEFECTS.md, the only one who closes defects | Only e2e/ + screenshots |
+| **adversary** | subagent | hostile review, breaks the running app, ADVERSARIAL_REVIEW.md | **No** — read-only attacker |
+| **security** | subagent | vulnerability/authz audit | **No** — read-only auditor |
+| **docs** | subagent | README, API docs, changelog | Docs only |
+| **architect** | subagent | architecture, refactor risk, cross-cutting review | **No** — read-only reviewer |
+
+The boundaries are **enforced by permissions in the agent frontmatter** — not by prompt
+politeness. The SDK resolves the most specific rule first, so a read-only role physically
+cannot edit, and the orchestrator physically cannot do its own code writes.
 
 ---
 
-## Key invariants
+## The tools that make the loop observable
 
-1. **Generator is pure.** `generator.js` has zero I/O — everything is a function of the
-   manifest + team. Testable and deterministic.
-2. **Scaffold owns I/O.** `scaffold.js` writes files; it never makes decisions about content
-   beyond "does this file already exist?" for the protected set.
-3. **No clobber on user files.** `opencode.json`, `AGENTS.md`, `REQUIREMENTS.md` are written
-   only if absent. `armada.yaml` and `.opencode/` artifacts are always (re)written — they're
-   armada-owned.
-4. **Placeholders.** Prompt templates use `{placeholder}` syntax. `fillPrompt` substitutes
-   from the manifest stack. A test asserts no dangling placeholders survive.
-5. **One runtime dep.** `yaml` (manifest parsing). Everything else is node built-ins
-   (readline, fs, path, url). The questionnaire stays zero-dep. Everything runs with plain
-   `node` or `bun`.
+- **`armada feature new/list/close`** — per-feature contracts + state index. `close` is
+  evidence-gated: it refuses until every criterion has a passing test or citation.
+- **`/armada-status`** — reads `armada/state/active.json` + the features index.
+- **`/armada-resume`** — the human-facing restart wrapper.
+- **`/armada-scout`** — dispatch a read-only investigation (adversary/architect), no writes.
+- **`armada doctor`** — checks the harness: opencode, providers, openrouter auth, background
+  dispatch, supervision-plugin presence.
+- **`npm run test:smoke`** — live OpenRouter smoke against the cheapest model (opt-in).
 
 ---
 
-## Conventions
+## The self-improvement loop
 
-- **ESM everywhere.** `"type": "module"`; imports use explicit `.js` extensions.
-- **Node-version compatible.** Targets node >= 20 (tests use `node:test`).
-- **Caveman-terse prompts.** Agent prompts ship with terse output contracts to reduce token
-  burn. Keep new agents consistent.
-- **Model IDs are `provider/model`.** e.g. `opencode-go/minimax-m3`,
-  `openrouter/z-ai/glm-5.2`. Never a bare model name.
+armada uses itself. `docs/armada-improves-armada.md` documents the two-lane workflow:
+- **Lane A — Audit:** the fleet reviews armada's own code, files findings.
+- **Lane B — Feature:** the fleet implements armada's next feature (in a `sandbox/<name>/`
+  worktree so the live repo stays clean).
 
----
-
-## Adding a new role
-
-1. Add a dir `agents/<role>/prompt.template.md` (with placeholders + output contract).
-2. Add the role to `ROLES` and `CATALOG` in `src/model-catalog.js` (primary/fallback/free/power).
-3. Add a default `permission` block + `ROUTING` in `src/generator.js`.
-4. Add the prompt source path in `src/scaffold.js` (`PROMPT_SOURCE`).
-5. Update `presets/*.yaml` and the README model table.
-6. Extend `tests/` (catalog coverage + generated files).
-7. Update SPEC.md team table + this file if layout changed.
+It has proven itself: the fleet built armada's own session-based state system (~26 minutes,
+$0.18, autonomous `--yolo`), surfaced a real permission deadlock and asked the right question,
+and self-corrected 3 test failures it introduced while writing its own code. **That's the
+million-dollar property: a system that can improve the system.**
 
 ---
 
-## Testing
+## References (for education)
 
-```bash
-node --test 'tests/*.test.js'
-```
+**Harness engineering**
+- OpenAI, *"Harness engineering"* — https://openai.com/index/harness-engineering/
+  (environment design, `AGENTS.md` as system of record, feedback loops, "humans steer, agents
+  execute")
+- Anthropic, *"Building effective agents"* — https://www.anthropic.com/engineering/building-effective-agents
+  (workflows vs agents, and how the harness/loop shape what the agent can do)
 
-Suites (all under `tests/`, run by `node --test 'tests/*.test.js'`):
-- `generator.test.js` — catalog coverage, budget logic, opencode.json / agent-file / AGENTS.md /
-  manifest / command / supervision-plugin rendering
-- `scaffold.test.js` — prompt filling, file emission, no-clobber, bundled commands, uninstall,
-  stale-layout pruning
-- `manifest.test.js` — schema validation, round-trip
-- `doctor.test.js` — health checks (opencode, providers, openrouter auth, background dispatch,
-  supervision-plugin presence)
-- `stack-detect.test.js` — stack detection cases
-- `cli.test.js` — CLI e2e (spawns the real CLI)
-- `questionnaire.test.js`, `ui.test.js`, `new-command.test.js`, `recommendations.test.js`,
-  `dogfood.test.js`, `fixtures.test.js`, `models-refresh.test.js`, `roundtrip.test.js`
-- `tests/smoke/` — live OpenRouter smoke (`npm run test:smoke`), skipped without a credential
+**Loop engineering**
+- Cobus Greyling, *"Loop Engineering"* — https://github.com/cobusgreyling/loop-engineering
+  (the five building blocks: automations, worktrees, skills, plugins, sub-agents + memory; the
+  seven loop patterns)
+- Boris Cherny / Anthropic on loops — "I don't prompt Claude anymore. I have loops running
+  that prompt Claude." (loop-engineering's origin quote)
 
-Run e2e manually:
+**Agent teams & worktrees**
+- firstmate — https://github.com/kunchenguid/firstmate
+  (an agent distro running crews: per-task worktrees, event-driven supervision, restart-proof
+  state — the clearest "loop engineering as a product")
 
-```bash
-mkdir -p /tmp/armada-e2e && cd /tmp/armada-e2e
-# create package.json + armada.yaml, then:
-node /path/to/opencode-armada/src/cli.js init --from-armada armada.yaml
-```
+**Project scaffolding**
+- Cookiecutter — https://github.com/cookiecutter/cookiecutter
+  (template-driven project generation; armada's `new` command is cookiecutter-inspired)
+
+---
+
+## Module map (contributor quick-ref)
+
+See [SPEC.md](./SPEC.md) for design decisions and [TODO.md](../TODO.md) for the roadmap.
+The rest of this file's module map and data-flow diagrams live above; for the mechanical
+rendering pipeline, see [src/](src/) and the tests in [tests/](tests/).
