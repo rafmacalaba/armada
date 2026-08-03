@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process"
-import { existsSync } from "node:fs"
+import { existsSync, lstatSync, realpathSync } from "node:fs"
 import { join } from "node:path"
 
 function run(bin, args, env) {
@@ -12,6 +12,17 @@ function run(bin, args, env) {
 function firstLine(out, fallback) {
   const line = out.split("\n").map((l) => l.trim()).find((l) => l.length > 0)
   return line ?? fallback
+}
+
+function findOnPath(name, env) {
+  for (const dir of (env.PATH ?? "").split(":")) {
+    const full = join(dir, name)
+    try {
+      const st = lstatSync(full)
+      if (st.isFile() || st.isSymbolicLink()) return full
+    } catch {}
+  }
+  return null
 }
 
 export async function runDoctor(opts = {}) {
@@ -55,6 +66,45 @@ export async function runDoctor(opts = {}) {
   })
 
   checks.push({ name: "node", status: "pass", detail: process.version })
+
+  const armadaDirOnPath = (env.PATH ?? "").split(":").some((dir) => {
+    try { return lstatSync(join(dir, "armada")).isDirectory() } catch { return false }
+  })
+  if (armadaDirOnPath) {
+    checks.push({
+      name: "global armada binary",
+      status: "fail",
+      detail: "a directory named armada is on PATH — remove it or ensure a proper binary has priority",
+    })
+  } else {
+    const armadaPath = findOnPath("armada", env)
+    if (armadaPath) {
+      try {
+        realpathSync(armadaPath)
+        const armadaRun = await run("armada", ["help"], env)
+        checks.push({
+          name: "global armada binary",
+          status: armadaRun.ok ? "pass" : "fail",
+          detail: armadaRun.ok ? armadaRun.out || "exit 0" : firstLine(armadaRun.out, "armada command failed"),
+        })
+      } catch (err) {
+        const isLoop = err?.code === 'ELOOP'
+        checks.push({
+          name: "global armada binary",
+          status: "fail",
+          detail: isLoop
+            ? `symlink loop detected at ${armadaPath} — remove the loop and re-link`
+            : "broken symlink — run npm link from ~/WBG/opencode-armada",
+        })
+      }
+    } else {
+      checks.push({
+        name: "global armada binary",
+        status: "fail",
+        detail: "armada not on PATH — run npm link from ~/WBG/opencode-armada",
+      })
+    }
+  }
 
   if (opts.project?.supervision?.plugin) {
     const pluginPath = join(opts.targetDir ?? ".", ".opencode/plugins/armada-supervision.js")

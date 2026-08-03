@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs"
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { runDoctor } from "../src/doctor.js"
@@ -13,11 +13,11 @@ function envWith(binDir, extra = {}) {
 }
 
 test("all checks pass on healthy env", async () => {
-  const binDir = makeBin({ opencode: SH })
+  const binDir = makeBin({ opencode: SH, armada: "#!/bin/sh\necho v0.6.2\n" })
   const checks = await runDoctor({
     env: envWith(binDir, { OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS: "true" }),
   })
-  assert.deepStrictEqual(checks.map((c) => c.status), ["pass", "pass", "pass", "pass", "pass"])
+  assert.deepStrictEqual(checks.map((c) => c.status), ["pass", "pass", "pass", "pass", "pass", "pass"])
 })
 
 test("background dispatch reports the native flag when enabled", async () => {
@@ -47,6 +47,7 @@ test("fails when opencode missing", async () => {
       { name: "openrouter auth", status: "fail" },
       { name: "background dispatch", status: "pass" },
       { name: "node", status: "pass" },
+      { name: "global armada binary", status: "fail" },
     ]
   )
 })
@@ -103,4 +104,45 @@ test("fleet tracker plugin check only when enabled", async () => {
   checks = await runDoctor({ env: envWith(binDir), project: { supervision: { fleet: true } }, targetDir: dir })
   const present = checks.find((c) => c.name === "fleet tracker plugin")
   assert.strictEqual(present.status, "pass")
+})
+
+test("global armada binary pass when resolvable", async () => {
+  const binDir = makeBin({ opencode: SH, armada: "#!/bin/sh\necho v0.6.2\n" })
+  const checks = await runDoctor({
+    env: envWith(binDir, { OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS: "true" }),
+  })
+  const ga = checks.find((c) => c.name === "global armada binary")
+  assert.strictEqual(ga.status, "pass")
+  assert.match(ga.detail, /v0\.6\.2/)
+})
+
+test("global armada binary fail when missing", async () => {
+  const empty = mkdtempSync(join(tmpdir(), "armada-nobin-"))
+  const checks = await runDoctor({ env: { ...process.env, PATH: empty } })
+  const ga = checks.find((c) => c.name === "global armada binary")
+  assert.strictEqual(ga.status, "fail")
+  assert.match(ga.detail, /npm link|~\/WBG\/opencode-armada/)
+})
+
+test("global armada binary fail on broken symlink", async () => {
+  const tmp = mkdtempSync(join(tmpdir(), "armada-broken-"))
+  const target = join(tmp, "nonexistent-cli.js")
+  const link = join(tmp, "armada")
+  symlinkSync(target, link)
+  const checks = await runDoctor({ env: { ...process.env, PATH: `${tmp}:${process.env.PATH}` } })
+  const ga = checks.find((c) => c.name === "global armada binary")
+  assert.strictEqual(ga.status, "fail")
+  assert.match(ga.detail, /npm link|~\/WBG\/opencode-armada/)
+})
+
+test("global armada binary resolves a valid two-hop symlink chain", async () => {
+  const dirA = mkdtempSync(join(tmpdir(), "armada-hop-a-"))
+  const dirB = mkdtempSync(join(tmpdir(), "armada-hop-b-"))
+  const realScript = join(dirB, "cli.js")
+  writeFileSync(realScript, "#!/bin/sh\necho v0.6.2\n", { mode: 0o755 })
+  symlinkSync(realScript, join(dirA, "armada"))
+  const checks = await runDoctor({ env: { ...process.env, PATH: `${dirA}:${process.env.PATH}` } })
+  const ga = checks.find((c) => c.name === "global armada binary")
+  assert.strictEqual(ga.status, "pass")
+  assert.match(ga.detail, /v0\.6\.2/)
 })
