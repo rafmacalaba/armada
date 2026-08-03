@@ -15,3 +15,7 @@ build/
 /.slim/
 # Planning artifacts (specs/plans) stay local, not in the repo; the repo keeps TODO.md
 /docs/superpowers/
+
+# armada runtime state (contracts, state, active) — not source
+/armada/
+/opencode.json

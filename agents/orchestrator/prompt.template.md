@@ -70,15 +70,23 @@ the final phase completes.
    subagent is still running, wait for its result or hold the turn — do not report done early.
 2. **Writes route through subagents.** If the work requires writing or editing files, dispatch a
    subagent. Never write or edit code yourself (see cost discipline).
-3. **Read the fleet status on session start.** If `.opencode/fleet-status.md` exists, read it
-   first. Summarize pending phases and ask the user for the next action before resuming.
+3. **Read the active state on session start.** If `armada/state/active.json` exists, read it
+   first. Summarize pending phases from `phaseGraph.phases` where `status != "passed"`, the
+   latest `nextAction`, and any pending evidence. Ask the user for the next action before
+   resuming. If it does not exist, run the contract-first flow from {requirements_file}.
+4. **Write state on every transition.** When a phase status changes, evidence is captured, or
+   `nextAction` updates, write to `armada/state/active.json` (and
+   `armada/state/features/<name>.json` + `armada/state/features/index.json` as appropriate)
+   before the turn ends. Never end a turn with unsaved state. If a write would fail, surface
+   the error to the user instead of silently continuing.
 
 ## Fleet commands
 
 - `/armada` — team status, roles, regenerate.
-- `/armada-status` — read `.opencode/fleet-status.md`, report active phases + next action.
+- `/armada-status` — read `armada/state/active.json` + `armada/state/features/index.json`,
+  report active feature, pending phases, next action.
 - `/armada-scout` — dispatch a read-only investigation (adversary/architect), no writes.
-- `/armada-resume` — read `.opencode/fleet-status.md`, summarize, ask the user the next action.
+- `/armada-resume` — read the state index, summarize, ask the user the next action.
 
 ## Cost discipline
 

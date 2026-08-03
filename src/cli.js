@@ -23,6 +23,7 @@ import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache
 import { parseManifestYaml, validateRequirementsFile } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 import { runNew } from "./new-command.js"
+import { createFeature, listFeatures, closeFeature, setActiveContract, readActive, readFeatureEntry } from "./feature-commands.js"
 
 export const VERSION = "0.6.2"
 
@@ -44,6 +45,10 @@ Usage:
   armada models --refresh                    merge live provider models
   armada doctor                              environment health check
   armada uninstall [--all] [--dry-run] [--target <dir>]  remove armada-generated artifacts
+  armada feature new <name>                  create per-feature contract + register
+  armada feature list                        list open/in-progress/shipped features
+  armada feature close <name>                verify evidence + mark shipped
+  armada feature status [name]               show active or named feature state
   armada ping                                sanity check
   armada help                                this help
 `
@@ -122,6 +127,8 @@ export async function main(argv = process.argv.slice(2)) {
       })
       return code ?? process.exitCode ?? 0
     }
+    case "feature":
+      return featureCmd(rest)
     case "help":
     case "-h":
     case "--help":
@@ -243,6 +250,14 @@ async function init(args) {
       return 1
     }
     manifest.project.requirementsFile = args[reqIdx + 1]
+    // Wire the contract as the active feature
+    try {
+      setActiveContract(resolve(target), args[reqIdx + 1])
+    } catch (err) {
+      logError(err, `failed to set active contract`)
+      process.exitCode = 1
+      return 1
+    }
   }
 
   // Always detect the stack from the repo, then overlay any --stack hint onto
@@ -384,4 +399,130 @@ async function uninstallCmd(args) {
   console.log(`\n${dryRun ? "(dry-run) " : ""}Removed armada artifacts:`)
   for (const f of removed) console.log(`  ${dryRun ? "(dry-run) - " : "- "}${f}`)
   return 0
+}
+
+async function featureCmd(args) {
+  const targetIdx = args.indexOf("--target")
+  const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--")
+    ? args[targetIdx + 1]
+    : "."
+  const sub = args.find((a) => !a.startsWith("--") && a !== target) || (args[0] && args[0].startsWith("--") ? undefined : args[0])
+  const rest = args.filter((a) => a !== sub && a !== target && !(a.startsWith("--") && args.indexOf(a) === targetIdx))
+
+  switch (sub) {
+    case "new": {
+      const name = rest[0]
+      if (!name) {
+        console.error("feature new: name is required")
+        process.exitCode = 1
+        return 1
+      }
+      try {
+        const paths = createFeature(resolve(target), name)
+        console.log(`feature "${name}" created`)
+        console.log(`  contract: ${paths.contractPath}`)
+        console.log(`  entry:    ${paths.entryPath}`)
+        console.log(`  index:    ${paths.indexPath}`)
+        console.log(`  active:   ${paths.activePath}`)
+      } catch (err) {
+        logError(err)
+        process.exitCode = 1
+        return 1
+      }
+      return 0
+    }
+    case "list": {
+      try {
+        const features = listFeatures(resolve(target))
+        if (features.length === 0) {
+          console.log("No features registered.")
+          return 0
+        }
+        // Print aligned table
+        const nameWidth = Math.max(8, ...features.map((f) => f.name.length))
+        const statusWidth = Math.max(6, ...features.map((f) => f.status.length))
+        const contractWidth = Math.max(8, ...features.map((f) => f.contract.length))
+
+        const padName = "NAME".padEnd(nameWidth)
+        const padStatus = "STATUS".padEnd(statusWidth)
+        const padContract = "CONTRACT".padEnd(contractWidth)
+        console.log(`${padName}  ${padStatus}  ${padContract}`)
+        console.log(`${"-".repeat(nameWidth)}  ${"-".repeat(statusWidth)}  ${"-".repeat(contractWidth)}`)
+        for (const f of features) {
+          console.log(`${f.name.padEnd(nameWidth)}  ${f.status.padEnd(statusWidth)}  ${f.contract.padEnd(contractWidth)}`)
+        }
+      } catch (err) {
+        logError(err)
+        process.exitCode = 1
+        return 1
+      }
+      return 0
+    }
+    case "close": {
+      const name = rest[0]
+      if (!name) {
+        console.error("feature close: name is required")
+        process.exitCode = 1
+        return 1
+      }
+      try {
+        const result = closeFeature(resolve(target), name)
+        console.log(`shipped: "${name}"`)
+        console.log(`  shippedAt: ${result.entry.shippedAt}`)
+      } catch (err) {
+        logError(err)
+        process.exitCode = 1
+        return 1
+      }
+      return 0
+    }
+    case "status": {
+      const name = rest[0]
+      try {
+        if (name) {
+          const entry = readFeatureEntry(resolve(target), name)
+          if (!entry) {
+            console.error(`feature "${name}" not found`)
+            process.exitCode = 1
+            return 1
+          }
+          console.log(`feature: ${entry.name}`)
+          console.log(`status:  ${entry.status}`)
+          console.log(`contract: ${entry.contract}`)
+          console.log(`created: ${entry.createdAt}`)
+          if (entry.shippedAt) console.log(`shipped: ${entry.shippedAt}`)
+          console.log(`phases:`)
+          for (const p of entry.phases) {
+            console.log(`  ${p.id}: ${p.status}`)
+          }
+        } else {
+          const active = readActive(resolve(target))
+          if (!active) {
+            console.log("No active feature.")
+            return 0
+          }
+          console.log(`active feature: ${active.feature}`)
+          console.log(`contract: ${active.contract}`)
+          console.log(`next action: ${active.nextAction || "(none)"}`)
+          console.log(`updated: ${active.updatedAt}`)
+          if (active.phaseGraph && active.phaseGraph.phases) {
+            console.log(`phases:`)
+            for (const p of active.phaseGraph.phases) {
+              console.log(`  ${p.id}: ${p.status}`)
+            }
+          }
+        }
+      } catch (err) {
+        logError(err)
+        process.exitCode = 1
+        return 1
+      }
+      return 0
+    }
+    default:
+      console.error(`Unknown feature subcommand: ${sub}`)
+      console.error("Usage: armada feature new|list|close|status [name]")
+      process.exitCode = 1
+      return 1
+  }
 }

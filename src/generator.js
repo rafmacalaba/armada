@@ -358,11 +358,12 @@ the active preset, and how to regenerate (armada init --from-armada armada/armad
 // Build the `.opencode/commands/armada-status.md` command descriptor.
 export function renderArmadaStatusCommand() {
   return `---
-description: opencode-armada — fleet status, active phases, next action
+description: opencode-armada — fleet status, active feature, next action
 agent: orchestrator
 ---
-Read .opencode/fleet-status.md if it exists. Report the active phases, last update,
-and the next action. If it does not exist, say "no active fleet". Keep it terse.
+Read armada/state/active.json + armada/state/features/index.json if they exist. Report the
+active feature, pending phases (status != "passed"), and the next action. If no state exists,
+say "no active fleet". Keep it terse.
 `
 }
 
@@ -384,9 +385,9 @@ export function renderArmadaResumeCommand() {
 description: opencode-armada — resume after an interrupted session
 agent: orchestrator
 ---
-Read .opencode/fleet-status.md if it exists. Summarize pending phases and what is
-outstanding, then ask the user for the next action before resuming. If it does not
-exist, say "no active fleet — nothing to resume".
+Read armada/state/active.json + armada/state/features/index.json if they exist. Summarize
+pending phases (status != "passed") and what is outstanding, then ask the user for the next
+action before resuming. If no state exists, say "no active fleet — nothing to resume".
 `
 }
 

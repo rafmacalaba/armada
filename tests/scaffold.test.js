@@ -90,15 +90,15 @@ test("scaffold writes all expected files", () => {
   assert.match(orch, /^---\n/m)
   assert.match(orch, /mode: primary/)
 
-  // bundled commands carry frontmatter + fleet-status reference
+  // bundled commands carry frontmatter + state-index reference
   const status = readFileSync(join(dir, ".opencode/commands/armada-status.md"), "utf8")
   assert.match(status, /^---\n/m)
-  assert.match(status, /fleet-status\.md/)
+  assert.match(status, /armada\/state\/active\.json/)
   assert.match(status, /orchestrator/i)
   const scout = readFileSync(join(dir, ".opencode/commands/armada-scout.md"), "utf8")
   assert.match(scout, /read-only|no writes/i)
   const resume = readFileSync(join(dir, ".opencode/commands/armada-resume.md"), "utf8")
-  assert.match(resume, /fleet-status\.md/)
+  assert.match(resume, /armada\/state\/active\.json/)
 
   rmSync(dir, { recursive: true, force: true })
 })
@@ -323,11 +323,12 @@ test("orchestrator prompt routes writes through subagents", () => {
   assert.match(filled, /never write or edit code/, "orchestrator must not write/edit code directly")
 })
 
-test("orchestrator prompt reads fleet status on session start", () => {
+test("orchestrator prompt reads active state on session start", () => {
   const manifest = makeManifest(".")
   const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
-  assert.match(filled, /fleet-status|fleet status/i)
+  assert.match(filled, /armada\/state\/active\.json/)
   assert.match(filled, /session start|session begins|on start/i)
+  assert.match(filled, /write state on every transition/i)
 })
 
 test("orchestrator prompt prefers disjoint files to unlock parallel phases", () => {

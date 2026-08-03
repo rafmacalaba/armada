@@ -329,12 +329,12 @@ test("renderArmadaCommand lives in generator.js and is pure", () => {
   assert.match(md, /---/)
 })
 
-test("renderArmadaStatusCommand reads fleet status, terse", () => {
+test("renderArmadaStatusCommand reads state index, terse", () => {
   const md = renderArmadaStatusCommand()
   assert.match(md, /^---\n/)
   assert.match(md, /description:/)
-  assert.match(md, /\.opencode\/fleet-status\.md/)
-  assert.match(md, /active phases|active_phases/i)
+  assert.match(md, /armada\/state\/active\.json/)
+  assert.match(md, /pending phases|active feature/i)
   assert.match(md, /orchestrator/i)
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
 })
@@ -348,11 +348,11 @@ test("renderArmadaScoutCommand is read-only, dispatches investigation", () => {
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
 })
 
-test("renderArmadaResumeCommand reads fleet status and asks next action", () => {
+test("renderArmadaResumeCommand reads state index and asks next action", () => {
   const md = renderArmadaResumeCommand()
   assert.match(md, /^---\n/)
   assert.match(md, /description:/)
-  assert.match(md, /\.opencode\/fleet-status\.md/)
+  assert.match(md, /armada\/state\/active\.json/)
   assert.match(md, /next action|resume/i)
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
 })
