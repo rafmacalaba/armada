@@ -41,6 +41,10 @@ async function defaultGitBranch(cwd) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
+// Boot-time modal hint: opencode shows selection popups ("↑↓ select … esc dismiss")
+// that swallow keystrokes until dismissed. Dismiss with Escape before sending the prompt.
+const MODAL_PATTERN = /esc\s+dismiss|enter\s+submit/i
+
 function defaultLog(msg) {
   console.log(msg)
 }
@@ -123,6 +127,8 @@ export async function bootLane({
 
   const deadline = Date.now() + timeoutMs
   let paneOutput = ""
+  let modalDismissals = 0
+  const MAX_MODAL_DISMISSALS = 5
   while (Date.now() < deadline) {
     const { stdout } = await run(tmuxBin, [
       "capture-pane",
@@ -131,6 +137,15 @@ export async function bootLane({
       "-p",
     ])
     paneOutput = stdout
+    if (MODAL_PATTERN.test(paneOutput)) {
+      if (modalDismissals < MAX_MODAL_DISMISSALS) {
+        log(`[drive] modal detected, dismissing with Escape`)
+        await run(tmuxBin, ["send-keys", "-t", name, "Escape"])
+        modalDismissals++
+      }
+      await sleep(pollMs)
+      continue
+    }
     if (readyPattern.test(paneOutput)) break
     await sleep(pollMs)
   }
