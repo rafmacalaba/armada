@@ -155,8 +155,9 @@ Vision (loop-engineering outer layer — see the harness-vs-loop discussion):
   already exist — extend them to read the real state index instead of a single fleet-status file.
 - **Multi-feature workflows.** Run feature A and feature B on the same repo without either
   clobbering the other's contract or state; a patch on feature A's shipped code is a new
-  implementation that reopens A's contract. Parallel features that touch disjoint files run in
-  parallel; colliding ones serialize (existing prompt rule).
+  implementation that reopens A's contract. **Per-feature git worktrees** are the robust
+  mechanism (separate working trees = zero collision, per-feature fast-forward merge); the
+  disjoint-files prompt rule is the same-tree fallback for features that must share the checkout.
 
 Concrete steps (each its own PR, TDD):
 - [x] **State schema.** `armada/state/` layout shipped: `active.json` (feature + phase graph +
@@ -171,10 +172,13 @@ Concrete steps (each its own PR, TDD):
 - [ ] **Restart-proof reconcile.** On session start, orchestrator diffs on-disk state vs repo
   reality (what shipped, what changed), reports "resume: feature X phase 2, evidence in,
   next action Y". `/armada-resume` becomes the human-facing wrapper.
-- [ ] **Multi-feature safety.** Contracts + state are per-feature files (disjoint) so feature A
-  and B never collide at the state layer; the existing disjoint-files prompt rule covers code.
-  Test: scaffold two features, run both, verify no cross-clobber. (Fleet's e2e already covers
-  the disjoint + resume paths — extend to a full two-feature live run.)
+- [ ] **Multi-feature via worktrees.** Each feature runs in its own `git worktree`
+  (`git worktree add sandbox/<feature>`, per-feature branch) so features A and B never collide —
+  separate working trees = zero file clobber, per-feature merge is a fast-forward. This is the
+  robust answer to "multiple features on one repo at once" (upgrades the disjoint-files prompt
+  rule, which is the fragile same-tree fallback). CLI: `armada feature new <name>` optionally
+  creates the worktree; `feature list` shows each feature's worktree. Test: two features in two
+  worktrees, both implemented + merged, no cross-clobber.
 - [ ] **Live validation.** The `data-ai-chatbot` repo becomes the test bed: init the team, open
   feature 1 (implement), close it, kill the session mid-feature-2, reopen, verify resume + no
   state loss. Record in `docs/validation.md`.
@@ -206,4 +210,3 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 ## Deferred
 
 - [ ] **Multi-harness support** (codex, claude code). Parked. When we tackle it, the generator grows per-harness renderers (`renderOpencodeAgent`, `renderCodexAgent`, `renderClaudeCodeAgent`) + an `--harness <name>` flag. Reference (OpenRouter cookbook): `codex-cli`, `opencode-integration`, `claude-code-integration`. The robust-opencode tiers make opencode the reference implementation; multi-harness layers on top without weakening it.
-- [ ] **Worktree-per-task isolation** (firstmate's strongest idea — `git worktree` per parallel crewmate so edits can't collide). Aspirational. The prompt-contract "no blind stop" + fleet-status file are the lightweight substitutes. Revisit after the parallel-phase work settles.
