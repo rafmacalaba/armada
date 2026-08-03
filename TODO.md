@@ -130,6 +130,54 @@ template shape; we stay zero-dep (no cookiecutter dependency — the generator i
 - [ ] Revisit whether `security` should own a findings ledger (like DEFECTS.md /
   ADVERSARIAL_REVIEW.md) instead of inline reports.
 
+## Next — implementation/session-based armada (per-feature contracts + on-disk state)
+
+Armada should own a repo's *ongoing* implementation, not just one-shot feature runs. A project
+like `data-ai-chatbot` will get many features/patches/fixes over its life; each is a separate
+implementation on the same armada-armed repo. Today a scaffolded repo has ONE `REQUIREMENTS.md`
+and the fleet is a single shot. The target: armada as the durable implementation layer —
+restart-proof, per-feature, tracked by the orchestrator across sessions.
+
+Vision (loop-engineering outer layer — see the harness-vs-loop discussion):
+- **Per-feature contracts, not one file.** Each feature/patch/fix gets its own contract
+  (e.g. `armada/contracts/<feature>.md` or `armada/features/<slug>/REQUIREMENTS.md`). The single
+  `REQUIREMENTS.md` becomes the *current active feature* pointer or a backlog index, not the one
+  true contract. `armada init --requirements <file>` already supports per-file contracts — extend
+  it into a managed per-feature lifecycle.
+- **On-disk state/, restart-proof.** Replace the current ephemeral session state with a durable
+  `armada/state/` (or `.opencode/fleet/`) directory: active feature, phase graph, evidence links,
+  defects, decisions, next action. The orchestrator reads it on session start (hard rule 3 already
+  reads fleet-status) and writes it at every phase transition. Kill the session anytime; the next
+  one reconciles and carries on — firstmate's `state/` + reconcile pattern.
+- **Internal tracking linked to the orchestrator.** A fleet/feature index the orchestrator
+  maintains: what features exist, which are open / in-progress / shipped, per-feature status,
+  defects, and the dependency edges between features. `/armada-status` and `/armada-resume`
+  already exist — extend them to read the real state index instead of a single fleet-status file.
+- **Multi-feature workflows.** Run feature A and feature B on the same repo without either
+  clobbering the other's contract or state; a patch on feature A's shipped code is a new
+  implementation that reopens A's contract. Parallel features that touch disjoint files run in
+  parallel; colliding ones serialize (existing prompt rule).
+
+Concrete steps (each its own PR, TDD):
+- [ ] **State schema.** Define `armada/state/` layout: `active.json` (current feature + phase graph
+  + evidence + next action), `features/` index, `history/` log. Extend `.opencode/fleet-status.md`
+  to be a render of `active.json`, or replace it.
+- [ ] **Per-feature contract CLI.** `armada feature new <name>` → creates the contract file +
+  registers in the index; `armada feature list`; `armada feature close <name>` (evidence gate
+  before close). `armada init --requirements <file>` wires the active feature.
+- [ ] **Orchestrator state read/write.** Prompt hard rules: read `armada/state/active.json` on
+  start (replaces the fleet-status rule), write phase transitions + evidence to it, never end a
+  turn with unsaved state. Tests assert the prompt contract + a state round-trip.
+- [ ] **Restart-proof reconcile.** On session start, orchestrator diffs on-disk state vs repo
+  reality (what shipped, what changed), reports "resume: feature X phase 2, evidence in,
+  next action Y". `/armada-resume` becomes the human-facing wrapper.
+- [ ] **Multi-feature safety.** Contracts + state are per-feature files (disjoint) so feature A
+  and B never collide at the state layer; the existing disjoint-files prompt rule covers code.
+  Test: scaffold two features, run both, verify no cross-clobber.
+- [ ] **Live validation.** The `data-ai-chatbot` repo becomes the test bed: init the team, open
+  feature 1 (implement), close it, kill the session mid-feature-2, reopen, verify resume + no
+  state loss. Record in `docs/validation.md`.
+
 ## Deferred
 
 - [ ] **Multi-harness support** (codex, claude code). Parked. When we tackle it, the generator grows per-harness renderers (`renderOpencodeAgent`, `renderCodexAgent`, `renderClaudeCodeAgent`) + an `--harness <name>` flag. Reference (OpenRouter cookbook): `codex-cli`, `opencode-integration`, `claude-code-integration`. The robust-opencode tiers make opencode the reference implementation; multi-harness layers on top without weakening it.
