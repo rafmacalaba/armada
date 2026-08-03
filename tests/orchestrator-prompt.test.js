@@ -80,6 +80,10 @@ test("armada-status / armada-resume command renderers reference correct sources"
   // armada-resume calls the engine (no direct state reads).
   const resume = renderArmadaResumeCommand()
   assert.ok(
+    resume.includes("armada reconcile"),
+    "armada-resume must prefer the global armada binary"
+  )
+  assert.ok(
     resume.includes("node src/cli.js reconcile"),
     "armada-resume must call node src/cli.js reconcile"
   )

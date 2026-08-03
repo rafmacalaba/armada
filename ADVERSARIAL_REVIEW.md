@@ -180,6 +180,8 @@ This is a design limitation, not a bug. Users who want to scaffold into a specif
 | ADV-012 | MEDIUM | reconcile.js:71 | Uppercase `X` in checkboxes not parsed |
 | ADV-013 | LOW | reconcile.js:286 | Inconsistent activeFeature/resumeLine with no phases |
 | ADV-014 | LOW | reconcile.js:104-111 | Directory evidence flagged as `evidence-missing` |
+| ADV-021 | LOW | generator.js:383 | Fallback instruction unreachable in generated repos |
+| ADV-022 | LOW | docs/validation.md:480 | Live validation ran fallback, not primary path |
 
 `main() returns undefined` / exit code propagation: **FIXED** — `main()` is async, returns Promise. Resolved promise with `undefined` value exits 0. On rejection, catch handler sets `process.exitCode = 1`. Commands that set `process.exitCode` inline (unknown command, missing manifest) exit correctly.
 
@@ -344,3 +346,50 @@ Screenshot: n/a
 Disposition: ACCEPTED -> DEF-010
 
 `src/preset-command.js:56-98` — `renderArmadaYaml` is a local copy distinct from the canonical `renderManifestYaml` in `src/generator.js:501-536`. Differences: local supports variant but drops instructions; canonical supports instructions but drops variant. Any schema change must be mirrored in both places.
+
+---
+
+## ADV-021: Fallback instruction unreachable in generated repos
+
+- Session: final
+- Suggested severity: LOW
+
+What I did: Read the rendered command body from `renderArmadaResumeCommand()` (generator.js:383-389). The body says:
+`Run \`armada reconcile\` ... If the global \`armada\` binary is not on PATH, fall back to \`node src/cli.js reconcile\`.`
+
+In a generated repo (e.g. `~/WBG/data-ai-chatbot`), `src/cli.js` does not exist — only the armada source tree has that file. The command body is rendered identically for both source-tree and generated-repo contexts (`renderArmadaResumeCommand()` takes zero arguments). An orchestrator in a generated repo without the global binary would follow the fallback instruction and get `Error: Cannot find module '.../src/cli.js'` — silent failure, no resume line.
+
+Expected: Command body is either context-aware (mentions fallback only for source tree) or clarifies that the in-tree path exists only inside the armada source tree.
+
+Actual: Both paths rendered unconditionally. Fallback is unreachable in generated repos.
+
+Screenshot: n/a
+
+Disposition: PENDING
+
+Contract says fallback is "in-tree" (`armada/REQUIREMENTS.md:19` — "fall back to the in-tree `node src/cli.js reconcile`"). The command body text is correct per the contract, but the context (generated repo vs source tree) is lost by the time the orchestrator reads it. The orchestrator has no way to know the fallback won't work.
+
+Disposition: ACCEPTED -> fixed in `src/generator.js:388` (command body now conditions the fallback on `src/cli.js` existing in cwd; generated-repo orchestrator that loses the global binary gets a clear "missing binary" report instead of a confusing module-not-found error)
+
+---
+
+## ADV-022: Live validation ran fallback path, not primary path
+
+- Session: final
+- Suggested severity: LOW
+
+What I did: Read `docs/validation.md:480-535`. The Phase 2 live-validation criterion says (REQUIREMENTS.md:35-38): "init there, open a feature, kill a session mid-phase, run `armada reconcile` from the generated repo."
+
+The validation ran `node src/cli.js reconcile` (fallback), not `armada reconcile` (primary), because `command -v armada` returned not-found (line 500-501). The doc also used a clone of the target repo instead of the live checkout (lines 524-529), with rationale documented.
+
+Expected: Live validation exercises the primary path (`armada reconcile`) on a real global install, or explicitly documents that it was skipped and why.
+
+Actual: Doc is honest — it states the global binary is not installed and the fallback was used (line 518-522). The e2e test (`e2e/armada-resume-command.test.js`) covers the primary path with a fake binary. The combination (e2e primary + live fallback) covers both paths fully. The doc correctly notes "For a true end-to-end test of the primary path on this machine, install armada globally" (line 521-522).
+
+Screenshot: n/a
+
+Disposition: PENDING
+
+This is a documentation gap, not a code gap. The e2e test proves the primary path works (fake bin → real CLI reconcile → exit 0 + resume line). The live validation proves the fallback works on real state. The contract says "run `armada reconcile` from the generated repo" — this was not done with a real global install. The doc is transparent about the limitation.
+
+Disposition: ACCEPTED -> fixed by `npm link` (`/opt/homebrew/bin/armada` -> lane's `bin/armada.js`); live validation re-ran against the `~/WBG/data-ai-chatbot` clone via the primary `armada reconcile` invocation. Same resume line, same exit 0. Recorded in `docs/validation.md` (2026-08-03 re-run section).
