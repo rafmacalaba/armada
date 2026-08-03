@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
-import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaSupervisionPlugin } from "../src/generator.js"
+import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaFleetCommand, renderArmadaSupervisionPlugin, renderArmadaFleetPlugin } from "../src/generator.js"
 import { parseManifestYaml } from "../src/manifest.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -372,6 +372,14 @@ test("renderArmadaResumeCommand is byte-identical after manifest round-trip", ()
   assert.strictEqual(cmd1, cmd2, "command output must be byte-identical after round-trip")
 })
 
+test("renderArmadaFleetCommand returns frontmatter with orchestrator agent and fleet fallback", () => {
+  const md = renderArmadaFleetCommand()
+  assert.match(md, /^---\n/)
+  assert.match(md, /agent: orchestrator/)
+  assert.match(md, /armada fleet/)
+  assert.match(md, /node src\/cli\.js fleet/)
+})
+
 test("renderArmadaSupervisionPlugin is valid JS with three handlers", async () => {
   const team = buildTeam(baseManifest)
   const src = renderArmadaSupervisionPlugin(team)
@@ -569,4 +577,28 @@ test("buildTeam instructions and prompt default to null", () => {
     assert.strictEqual(a.instructions, null)
     assert.strictEqual(a.prompt, null)
   }
+})
+
+// -- Phase 4: renderArmadaFleetPlugin --
+test("renderArmadaFleetPlugin emits valid JS with fleet handlers", () => {
+  const src = renderArmadaFleetPlugin()
+  assert.match(src, /^\/\/ opencode-armada fleet plugin/)
+  assert.match(src, /export const ArmadaFleet/)
+  assert.match(src, /session\.created/)
+  assert.match(src, /session\.idle/)
+  assert.match(src, /session\.closed/)
+  assert.match(src, /session\.deleted/)
+  assert.match(src, /session\.completed/)
+  assert.match(src, /INTERVAL_MS/)
+  assert.match(src, /30_000/)
+  assert.match(src, /startHeartbeat/)
+  assert.match(src, /tickHeartbeat/)
+  assert.match(src, /listRuns/)
+  assert.match(src, /getStoreDir/)
+  assert.match(src, /\.\.\/\.\.\/\.\.\/src\/heartbeat\.js/)
+  assert.match(src, /\.\.\/\.\.\/\.\.\/src\/fleet-tracker\.js/)
+  assert.match(src, /process\.env\.ARMADA_RUNS_DIR/)
+  assert.match(src, /homedir\(\)/)
+  assert.match(src, /level: "warn"/)
+  assert.match(src, /service: "armada-fleet"/)
 })

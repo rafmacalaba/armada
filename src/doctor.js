@@ -66,5 +66,15 @@ export async function runDoctor(opts = {}) {
         : "supervision.plugin is true but .opencode/plugins/armada-supervision.js missing — re-run armada init",
     })
   }
+  if (opts.project?.supervision?.fleet) {
+    const pluginPath = join(opts.targetDir ?? ".", ".opencode/plugins/armada-fleet.js")
+    checks.push({
+      name: "fleet tracker plugin",
+      status: existsSync(pluginPath) ? "pass" : "fail",
+      detail: existsSync(pluginPath)
+        ? ".opencode/plugins/armada-fleet.js present"
+        : "supervision.fleet is true but .opencode/plugins/armada-fleet.js missing — re-run armada init",
+    })
+  }
   return checks
 }

@@ -73,6 +73,20 @@ opencode
 `git worktree list` shows all sandboxes. Cleanup when done:
 `git worktree remove sandbox/<name>` (merge first for features).
 
+### Fleet dashboard for parallel lanes
+
+When two or more lanes run in parallel, `armada fleet` is the single view across all of them:
+one row per active lane, session, phase, and status. The run store lives **outside** the repo
+(`~/.armada/runs/`), so it never pollutes the live tree or any worktree:
+
+```
+armada fleet            # every active lane, one row each
+```
+
+Entries go STALLED after 2 minutes without a heartbeat — the session likely died. The opt-in
+fleet plugin (`armada init --fleet-tracker`, or `project.supervision.fleet: true` in
+`armada.yaml`) keeps the entries fresh automatically.
+
 ## Lane A — Recurring audit
 
 The audit is read-only: the team reviews the code, the orchestrator writes findings. No code

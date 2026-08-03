@@ -112,6 +112,9 @@ export function parseManifestYaml(text, target) {
   if (p.supervision?.plugin !== undefined && typeof p.supervision.plugin !== "boolean") {
     throw new Error("armada.yaml: schema violation: project.supervision.plugin must be a boolean")
   }
+  if (p.supervision?.fleet !== undefined && typeof p.supervision.fleet !== "boolean") {
+    throw new Error("armada.yaml: schema violation: project.supervision.fleet must be a boolean")
+  }
   const stack = p.stack ?? {}
   const seenRoles = new Set()
   const team = raw.team.map((t) => {
@@ -147,6 +150,7 @@ export function parseManifestYaml(text, target) {
       requirementsFile: p.requirementsFile ?? "armada/REQUIREMENTS.md",
       supervision: {
         plugin: p.supervision?.plugin ?? false,
+        fleet: p.supervision?.fleet ?? false,
       },
       stack: {
         frontend: stack.frontend ?? null,

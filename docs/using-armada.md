@@ -522,6 +522,28 @@ hard reset:
 node /path/to/opencode-armada/src/cli.js uninstall --all
 ```
 
+## Fleet dashboard
+
+Every `armada drive` lane writes a small JSON progress file under
+`~/.armada/runs/<session>.json` (or `$ARMADA_RUNS_DIR` if set). `armada fleet` turns those
+files into one table of every active lane:
+
+```
+armada fleet            # one row per active lane: session, lane, phase, status, age, cost
+armada fleet --json     # machine-readable, for scripts
+armada fleet <session>  # one lane's full detail (state + last pane tail)
+```
+
+A heartbeat keeps an entry fresh. Three ways to drive it:
+
+- `armada drive --heartbeat` — for one-off runs.
+- `armada init --fleet-tracker` — opt-in plugin (`.opencode/plugins/armada-fleet.js`) that hooks
+  opencode's session lifecycle, so entries stay fresh without extra flags.
+- `armada.yaml`: `project.supervision.fleet: true` — same as the flag, set at scaffold time.
+
+A lane shows STALLED when no heartbeat has arrived in the last 2 minutes — the session likely
+died. Re-attach with `tmux attach -t <name>` or restart it with `armada drive <lane>`.
+
 ## Audit an existing repo
 
 Same scaffold, different intent: the team reviews the codebase and files findings — no code

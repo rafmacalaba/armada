@@ -3,6 +3,7 @@ import assert from "node:assert"
 import { existsSync, readFileSync, mkdtempSync, chmodSync, mkdirSync, symlinkSync, unlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { execFile } from "node:child_process"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { buildTeam, renderManifestYaml } from "../src/generator.js"
 import { runCli, makeTempRepo, makeBin, parseFrontmatter } from "./helpers.js"
@@ -470,4 +471,45 @@ test("drive auto-open succeeds when terminal is available", async () => {
   assert.match(r.stdout, /session/)
   assert.match(r.stdout, /auto-attached in/)
   assert.doesNotMatch(r.stdout, /auto-attach skipped/)
+})
+
+// --heartbeat opt-in: starts heartbeat on first boot; kills child to avoid hang
+test("drive --heartbeat starts a heartbeat for the session", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-hb-"))
+  const runsDir = mkdtempSync(join(tmpdir(), "armada-runs-"))
+  const CLI = join(process.cwd(), "src/cli.js")
+
+  let stdoutAll = ""
+  const child = execFile(process.execPath, [CLI, "drive", "--heartbeat", "--no-open", lanePath], {
+    env: { ...process.env, PATH: binDir, ARMADA_RUNS_DIR: runsDir },
+  })
+
+  let hbStarted = false
+  let driveDone = false
+  await new Promise((resolve) => {
+    child.stdout.on("data", (data) => {
+      stdoutAll += data.toString()
+      if (stdoutAll.includes("started heartbeat")) hbStarted = true
+      if (stdoutAll.includes("armada drive: session")) driveDone = true
+      if (hbStarted && driveDone) resolve()
+    })
+    child.on("close", resolve)
+    setTimeout(resolve, 10_000)
+  })
+
+  assert.ok(driveDone, "drive should report session ready")
+  assert.ok(hbStarted, "heartbeat should have started")
+  assert.match(stdoutAll, /started heartbeat/, "heartbeat logged in output")
+
+  // Kill the child to confirm SIGINT handler stops the interval cleanly
+  child.kill("SIGINT")
+
+  await new Promise((resolve) => {
+    child.on("close", resolve)
+    setTimeout(resolve, 5_000)
+  })
 })
