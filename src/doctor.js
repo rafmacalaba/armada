@@ -1,7 +1,4 @@
 import { execFile } from "node:child_process"
-import { readFileSync, existsSync } from "node:fs"
-import { homedir } from "node:os"
-import { join } from "node:path"
 
 function run(bin, args, env) {
   return new Promise((resolve) => {
@@ -17,7 +14,6 @@ function firstLine(out, fallback) {
 
 export async function runDoctor(opts = {}) {
   const env = opts.env ?? process.env
-  const configPath = opts.configPath ?? join(homedir(), ".config/opencode/opencode.json")
   const checks = []
 
   const v = await run("opencode", ["--version"], env)
@@ -34,28 +30,13 @@ export async function runDoctor(opts = {}) {
     detail: firstLine(auth.out, auth.ok ? "exit 0" : "command failed"),
   })
 
-  let plugin = "missing"
-  if (existsSync(configPath)) {
-    try {
-      const raw = readFileSync(configPath, "utf8")
-        .replace(/^\s*\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "")
-      const cfg = JSON.parse(raw)
-      const plugins = cfg.plugin || []
-      plugin = plugins.some((p) => String(p).includes("oh-my-opencode-slim")) ? "present" : "missing"
-    } catch {
-      plugin = "unparseable"
-    }
-  }
-  checks.push({ name: "omo-slim plugin", status: plugin === "present" ? "pass" : "fail", detail: `plugin[] ${plugin}` })
-
-  const bg = env.OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS
-  const bgEnabled = plugin === "present" && bg === "true"
+  const bg = env.OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS === "true"
   checks.push({
     name: "background dispatch",
-    status: plugin === "present" ? "pass" : "fail",
-    detail: plugin === "present"
-      ? `omo-slim handles background jobs (OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=${bg ?? ""})`
-      : "omo-slim plugin missing; background dispatch unavailable",
+    status: "pass",
+    detail: bg
+      ? "OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true (native parallel background subagents)"
+      : "OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS not set — parallel background dispatch disabled (inline fallback)",
   })
 
   checks.push({ name: "node", status: "pass", detail: process.version })
