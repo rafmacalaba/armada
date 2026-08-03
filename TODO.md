@@ -424,6 +424,14 @@ Open questions to ideate before building:
 
 Refactor scope (draft):
 
+- [ ] **Live TUI board (`armada fleet --watch`)** — a persistent dashboard that redraws every
+  N seconds from the `~/.armada/runs/` store, so the "board" is a thing you look at, not a
+  command you re-run. A dedicated terminal tab (wezterm-first auto-open) runs it and shows all
+  active lanes live: phase, status, age, cost, STALLED blink. Trade-off: needs a terminal
+  renderer dependency (e.g. `blessed`) + a redraw loop; the plain-table `armada fleet` stays the
+  zero-dep default. Keys: redraw interval (e.g. 2s), stall blink threshold, `q` to quit.
+  When tackled: the contract's "Optional polish: `armada fleet --open`" becomes
+  `armada fleet --watch` (live) instead of a one-shot table.
 - [ ] **Store module.** `src/fleet-tracker.js` (pure: schema, diff, staleness calc) + I/O in
   scaffold style; tests for schema + staleness.
 - [ ] **Plugin (opt-in).** One `.opencode/plugins/armada-fleet.js` file rendered by the generator
