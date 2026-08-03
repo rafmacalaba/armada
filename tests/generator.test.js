@@ -180,6 +180,38 @@ test("renderOpenCodeJson uses orchestrator model + deny external_directory", () 
   assert.strictEqual(cfg.permission.bash, undefined)
 })
 
+test("renderOpenCodeJson registers openrouter models with failover", () => {
+  const team = buildTeam(baseManifest)
+  const cfg = renderOpenCodeJson(baseManifest, team)
+  const or = cfg.provider?.openrouter?.models
+  assert.ok(or, "provider.openrouter.models must be emitted")
+  assert.ok(Object.keys(or).length > 0, "at least one openrouter model registered")
+  for (const [slug, opts] of Object.entries(or)) {
+    assert.match(slug, /^[a-z0-9][a-z0-9._\/~-]*$/, `openrouter model slug: ${slug}`)
+    assert.ok(opts.options?.provider?.allow_fallbacks === true, `${slug} must set allow_fallbacks: true`)
+  }
+})
+
+test("renderOpenCodeJson openrouter block covers power budget models", () => {
+  const m = structuredClone(baseManifest)
+  m.project.budget = "power"
+  const cfg = renderOpenCodeJson(m, buildTeam(m))
+  const slugs = Object.keys(cfg.provider?.openrouter?.models ?? {})
+  const powerModels = Object.values(CATALOG)
+    .map((e) => e.power)
+    .filter((id) => id.startsWith("openrouter/"))
+  for (const id of powerModels) {
+    const slug = id.slice("openrouter/".length)
+    assert.ok(slugs.includes(slug), `power model ${slug} must be registered`)
+  }
+})
+
+test("renderOpenCodeJson has no plugin block by default", () => {
+  const team = buildTeam(baseManifest)
+  const cfg = renderOpenCodeJson(baseManifest, team)
+  assert.strictEqual(cfg.plugin, undefined, "default init must not emit a plugin block")
+})
+
 test("AGENTS.md playbook mentions ledger and roles", () => {
   const team = buildTeam(baseManifest)
   const md = renderAgentsMd(baseManifest, team)

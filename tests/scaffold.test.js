@@ -251,6 +251,29 @@ test("orchestrator full prompt renders existing instruction files", () => {
   assert.ok(!/\{instructions\}/.test(filled), "no dangling instructions placeholder")
 })
 
+test("orchestrator prompt forbids ending turn with background work outstanding", () => {
+  const manifest = makeManifest(".")
+  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
+  assert.match(filled, /never end your turn|never end the turn/i, "no-blind-stop rule must be explicit")
+  assert.match(filled, /still running|outstanding/i, "must reference outstanding background work")
+  assert.match(filled, /wait|hold/i, "must say to wait or hold")
+})
+
+test("orchestrator prompt routes writes through subagents", () => {
+  const manifest = makeManifest(".")
+  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
+  assert.match(filled, /dispatch/i)
+  assert.match(filled, /write|edit/i)
+  assert.match(filled, /never write or edit code/, "orchestrator must not write/edit code directly")
+})
+
+test("orchestrator prompt reads fleet status on session start", () => {
+  const manifest = makeManifest(".")
+  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
+  assert.match(filled, /fleet-status|fleet status/i)
+  assert.match(filled, /session start|session begins|on start/i)
+})
+
 test("scaffold rejects path traversal requirementsFile", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-traverse-"))
   const manifest = makeManifest(dir)

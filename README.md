@@ -117,6 +117,20 @@ option** on step 1. There is no armada at runtime.
   OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode
   ```
 
+### OpenRouter
+
+Armada uses OpenRouter as the cross-provider model layer. The `balanced` preset uses it for
+fallbacks; the `power` preset is OpenRouter-only. A scaffolded `opencode.json` registers every
+OpenRouter model armada references (with provider failover), so they work even if opencode's
+preloaded OpenRouter list lags.
+
+- One-time: `opencode` → `/connect` → **OpenRouter** → paste your key (or set
+  `OPENROUTER_API_KEY`).
+- Verify: `armada doctor` — an `openrouter auth` check reports the credential.
+- Override a role's model: `armada/armada.yaml` → `agents.<role>.model:
+  "openrouter/<slug>"` (e.g. `openrouter/~anthropic/claude-sonnet-latest`).
+- Budgets: `armada init --budget free|balanced|power`.
+
 ---
 
 ## Quick start

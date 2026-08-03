@@ -6,7 +6,7 @@ import { join } from "node:path"
 import { runDoctor } from "../src/doctor.js"
 import { makeBin } from "./helpers.js"
 
-const SH = "#!/bin/sh\ncase \"$1\" in\n  --version) echo 1.18.11 ;;\n  *) echo ok ;;\nesac\n"
+const SH = "#!/bin/sh\ncase \"$1\" in\n  --version) echo 1.18.11 ;;\n  auth) echo openrouter ;;\n  *) echo ok ;;\nesac\n"
 
 function envWith(binDir, extra = {}) {
   return { ...process.env, PATH: `${binDir}:${process.env.PATH}`, ...extra }
@@ -17,7 +17,7 @@ test("all checks pass on healthy env", async () => {
   const checks = await runDoctor({
     env: envWith(binDir, { OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS: "true" }),
   })
-  assert.deepStrictEqual(checks.map((c) => c.status), ["pass", "pass", "pass", "pass"])
+  assert.deepStrictEqual(checks.map((c) => c.status), ["pass", "pass", "pass", "pass", "pass"])
 })
 
 test("background dispatch reports the native flag when enabled", async () => {
@@ -44,8 +44,25 @@ test("fails when opencode missing", async () => {
     [
       { name: "opencode CLI", status: "fail" },
       { name: "providers auth", status: "fail" },
+      { name: "openrouter auth", status: "fail" },
       { name: "background dispatch", status: "pass" },
       { name: "node", status: "pass" },
     ]
   )
+})
+
+test("openrouter auth passes when credential present", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const checks = await runDoctor({ env: envWith(binDir) })
+  const or = checks.find((c) => c.name === "openrouter auth")
+  assert.strictEqual(or.status, "pass")
+  assert.match(or.detail, /openrouter/i)
+})
+
+test("openrouter auth fails when missing with remediation", async () => {
+  const binDir = makeBin({ opencode: "#!/bin/sh\necho nope\n" })
+  const checks = await runDoctor({ env: envWith(binDir) })
+  const or = checks.find((c) => c.name === "openrouter auth")
+  assert.strictEqual(or.status, "fail")
+  assert.match(or.detail, /openrouter|OPENROUTER_API_KEY/i)
 })
