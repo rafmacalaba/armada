@@ -1,5 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert"
+import YAML from "yaml"
 import { parseManifestYaml } from "../src/manifest.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { buildTeam, renderManifestYaml } from "../src/generator.js"
@@ -112,4 +113,149 @@ test("rejects empty model string", () => {
 test("strictly parses enabled: 0 and no as invalid", () => {
   assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: 0"), /schema/)
   assert.throws(() => parseManifestYaml("project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: no"), /schema/)
+})
+
+// -- Phase 1: new optional fields --
+
+test("parses permissions, instructions, prompt via YAML round-trip", () => {
+  const manifest = {
+    project: { name: "t", budget: "balanced", stack: {} },
+    team: [{
+      role: "backend-dev",
+      model: "test/model",
+      fallback: null,
+      enabled: true,
+      permissions: { edit: { "*": "allow", "e2e/*": "deny" }, bash: { "*": "ask" } },
+      instructions: "extra prompt for backend",
+      prompt: "templates/custom.md",
+    }],
+  }
+  const yaml = YAML.stringify(manifest)
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.team.length, 1)
+  const t = parsed.team[0]
+  assert.strictEqual(t.role, "backend-dev")
+  assert.strictEqual(t.instructions, "extra prompt for backend")
+  assert.strictEqual(t.prompt, "templates/custom.md")
+  assert.deepStrictEqual(t.permissions, { edit: { "*": "allow", "e2e/*": "deny" }, bash: { "*": "ask" } })
+})
+
+test("rejects invalid permission leaf value", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    permissions:\n      edit:\n        '*': maybe"
+    ),
+    /armada\.yaml: schema violation: backend-dev permissions\.edit\.\* must be "allow", "deny", or "ask"/
+  )
+})
+
+test("rejects instructions: empty string", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    instructions: ''"
+    ),
+    /armada\.yaml: schema violation: backend-dev instructions must be a non-empty string/
+  )
+})
+
+test("rejects instructions: non-string", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    instructions: 42"
+    ),
+    /armada\.yaml: schema violation: backend-dev instructions must be a non-empty string/
+  )
+})
+
+test("rejects prompt: '../escape'", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: '../escape'"
+    ),
+    /armada\.yaml: schema violation: backend-dev prompt must not contain '\.\.'/
+  )
+})
+
+test("rejects prompt: '/abs'", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: '/abs'"
+    ),
+    /armada\.yaml: schema violation: backend-dev prompt must be a relative path/
+  )
+})
+
+test("rejects prompt: empty string", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: ''"
+    ),
+    /armada\.yaml: schema violation: backend-dev prompt must be a non-empty string/
+  )
+})
+
+test("rejects prompt: escapes target directory", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: '../../etc/passwd'",
+      "/tmp/role-config-test"
+    ),
+    /armada\.yaml: schema violation: backend-dev prompt must not contain '\.\.'/
+  )
+})
+
+test("no overrides still parses to same shape (nulls for new fields)", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: free",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+    "",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.team.length, 1)
+  assert.strictEqual(parsed.team[0].permissions, null)
+  assert.strictEqual(parsed.team[0].instructions, null)
+  assert.strictEqual(parsed.team[0].prompt, null)
+  assert.strictEqual(parsed.team[0].role, "qa")
+  assert.strictEqual(parsed.team[0].model, "x")
+  assert.strictEqual(parsed.team[0].enabled, true)
+})
+
+// -- Phase 2: round-trip identity with overrides --
+
+test("round-trips through renderManifestYaml with overrides preserving new fields", () => {
+  const m = makeManifest()
+  // Override the backend-dev entry with the three new fields
+  m.team = m.team.map((t) =>
+    t.role === "backend-dev"
+      ? { ...t, permissions: { edit: { "*": "allow", "e2e/*": "deny" }, bash: { "*": "ask" } },
+          instructions: "extra prompt for backend",
+          prompt: "templates/custom.md" }
+      : t
+  )
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  const parsed = parseManifestYaml(yaml)
+  const t = parsed.team.find((r) => r.role === "backend-dev")
+  assert.strictEqual(t.instructions, "extra prompt for backend")
+  assert.strictEqual(t.prompt, "templates/custom.md")
+  assert.deepStrictEqual(t.permissions, { edit: { "*": "allow", "e2e/*": "deny" }, bash: { "*": "ask" } })
+  // Other roles are untouched
+  const qa = parsed.team.find((r) => r.role === "qa")
+  assert.strictEqual(qa.permissions, null)
+  assert.strictEqual(qa.instructions, null)
+  assert.strictEqual(qa.prompt, null)
+})
+
+test("renderManifestYaml omits new fields when null for byte-identical default output", () => {
+  const m = makeManifest()
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  // Team entries must not have any of the three new fields when null.
+  // Use quoted-string pattern to avoid matching stack-level arrays.
+  assert.doesNotMatch(yaml, /    permissions:\n/)
+  assert.doesNotMatch(yaml, /    instructions: "/)
+  assert.doesNotMatch(yaml, /    prompt: "/)
 })

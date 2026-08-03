@@ -120,6 +120,19 @@ mentions skills, no role sets `permission.skill`. All agents (incl. subagents) a
 `skill` tool by default and can load skills on demand via `skill({name})`, so this is latent
 capability waiting for wiring.
 
+**Live evidence (2026-08-03, lane-drive):** a qa subagent in the sandbox (which ships zero
+skills — `.opencode/skills/` does not exist) independently loaded the globally-installed
+`verification-before-completion` skill from `~/.config/opencode/skills/`. The plumbing already
+works for free: agents self-select the right skill the moment one exists. The gap is purely that
+armada ships no armada-specific skills and never steers roles toward them.
+
+- [ ] **Targeted implementation built on that evidence.** Because the `skill` tool + global
+  skill discovery already work with zero armada wiring, the minimal high-value move is: ship the
+  starter set and let the orchestrator steer — no need to invent discovery. The
+  `verification-before-completion`-style self-selection is the proof: an agent loads a skill
+  whose `description` matches its task. So armada's job is (a) make its own skills available,
+  (b) mention them in prompts so they get picked, (c) pin `permission.skill` only where we want
+  to deny. Everything else is already opencode's default.
 - [ ] **Starter skill set.** `src/skills/` ships 2–3 armada-specific SKILL.md files (each with
   valid `name` + `description` frontmatter), e.g. `armada-contract` (co-write / iterate a
   requirements contract one question at a time) and `armada-gate` (evidence-gate checklist:
@@ -137,6 +150,8 @@ capability waiting for wiring.
 - [ ] **Tests.** Renderer emits valid SKILL.md (name matches `^[a-z0-9]+(-[a-z0-9]+)*$`,
   description present, no dangling placeholders); round-trip preserves `skills:`; generated
   agent frontmatter carries `permission.skill` where set; dogfood no-clobber still holds.
+- [ ] **Acceptance evidence.** A generated-repo run where a worker self-loads an armada skill
+  (mirror the observed lane-drive behavior) — captured in `docs/validation.md`.
 
 ### Per-role configurability (HIGH)
 
