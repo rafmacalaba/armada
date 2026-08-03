@@ -75,7 +75,9 @@ There are two ways to install armada:
 
 - **`armada new <name>`** — fresh project, cookiecutter-style. Picks a curated starter template
   for your category, scaffolds the directory, then runs `armada init` inside so the team is
-  ready the first time you open opencode.
+  ready the first time you open opencode. Templates ship agentic-repo best practices out of the
+  box: `AGENTS.md`, `LICENSE`, `CONTRIBUTING.md`, CI workflow, `.env.example`, and a TDD test
+  bootstrap.
 - **`armada init`** — add the team to an existing repo. Detects your stack from
   `package.json` / `pyproject.toml` / `requirements.txt` / `Dockerfile` and scaffolds around it.
 

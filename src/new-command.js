@@ -193,6 +193,7 @@ export async function runNew(opts = {}) {
     project_name: name,
     project_name_slug: projectNameSlug,
     project_description: description,
+    project_year: String(new Date().getFullYear()),
   })
 
   let postInstall = null

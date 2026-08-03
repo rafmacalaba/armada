@@ -1,4 +1,9 @@
 category: web-app
 stack: nextjs
 description: "Next.js + Tailwind CSS + TypeScript — full-stack React with file-based routing."
+variables:
+  project_name: string
+  project_name_slug: string
+  project_description: string
+  project_year: string
 postInstall: "npm install"

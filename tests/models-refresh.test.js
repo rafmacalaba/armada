@@ -1,9 +1,9 @@
 import { test } from "node:test"
 import assert from "node:assert"
 import { mkdtempSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { tmpdir, homedir } from "node:os"
 import { join } from "node:path"
-import { refreshModels, loadModelsCache, renderCatalog, modelFor, fallbackFor } from "../src/model-catalog.js"
+import { refreshModels, loadModelsCache, renderCatalog, modelFor, fallbackFor, validateCachePath } from "../src/model-catalog.js"
 import { makeBin } from "./helpers.js"
 
 const MODELS_SH = "#!/bin/sh\necho \"opencode/big-pickle\nopencode/mimo-v2.5-free\nopencode-go/kimi-k2.7-code\"\n"
@@ -12,10 +12,17 @@ function envWith(binDir) { return { ...process.env, PATH: `${binDir}:${process.e
 
 test("refreshModels parses output and caches", async () => {
   const binDir = makeBin({ opencode: MODELS_SH })
-  const cache = join(mkdtempSync(join(tmpdir(), "armada-cache-")), "models.cache.json")
-  const available = await refreshModels({ cachePath: cache, env: envWith(binDir) })
-  assert.ok(available.has("opencode/big-pickle"))
-  assert.ok(loadModelsCache(cache).has("opencode/mimo-v2.5-free"))
+  const base = mkdtempSync(join(tmpdir(), "armada-cache-"))
+  const prevCwd = process.cwd()
+  process.chdir(base)
+  try {
+    // relative cache filename resolves under cwd (validated path)
+    const available = await refreshModels({ cachePath: "models.cache.json", env: envWith(binDir) })
+    assert.ok(available.has("opencode/big-pickle"))
+    assert.ok(loadModelsCache("models.cache.json").has("opencode/mimo-v2.5-free"))
+  } finally {
+    process.chdir(prevCwd)
+  }
 })
 
 test("renderCatalog marks availability", () => {
@@ -60,4 +67,15 @@ test("loadModelsCache warns and returns null on corrupt cache", () => {
     console.warn = origWarn
   }
   assert.ok(warns.some((w) => /corrupt/.test(w)))
+})
+
+test("validateCachePath rejects traversal and arbitrary writes", () => {
+  assert.throws(() => validateCachePath("/etc/passwd"), /cache path/)
+  assert.throws(() => validateCachePath("../../etc/shadow"), /cache path/)
+  assert.throws(() => validateCachePath("~/.bashrc"), /cache path/)
+  // absolute path under ~/.armada is fine
+  const ok = join(homedir(), ".armada", "models.cache.json")
+  assert.doesNotThrow(() => validateCachePath(ok))
+  // relative filename resolves under cwd — allowed
+  assert.doesNotThrow(() => validateCachePath("models.cache.json"))
 })

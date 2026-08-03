@@ -1,4 +1,9 @@
 category: ml-training
 stack: pytorch
-description: "Python + PyTorch — model training pipeline with uv."
+description: "Python + PyTorch + uv — training pipeline with pytest + ruff."
+variables:
+  project_name: string
+  project_name_slug: string
+  project_description: string
+  project_year: string
 postInstall: "uv sync"

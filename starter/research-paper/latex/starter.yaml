@@ -1,4 +1,9 @@
 category: research-paper
 stack: latex
-description: "LaTeX research paper — compile with make."
+description: "LaTeX + Makefile + BibTeX — paper writing with reproducible build."
+variables:
+  project_name: string
+  project_name_slug: string
+  project_description: string
+  project_year: string
 postInstall: null

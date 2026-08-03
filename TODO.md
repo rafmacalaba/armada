@@ -46,21 +46,37 @@ The fleet model was hardened on opencode: **subagents + orchestrator, runnable i
 - [x] **Live OpenRouter smoke layer.** `tests/smoke/` (`npm run test:smoke`) — cheapest-model ping + catalog slug resolution; skipped cleanly without a credential.
 - [x] **PR sequencing delivered:** PR 1 = T1 + T4, PR 2 = T2, PR 3 = T3 (each small, CI-gated, merged to master).
 
-## Next — armada new: best-practice repo generator (experience-aware)
+## Parallel phases + autonomous mode — done
 
-- [ ] `armada new [name]` command: category picker + experience gate
-- [ ] Beginner path: curated state-of-the-art stack per category (`src/recommendations.js`) →
-  generates an optimal repo scaffold (structure, manifests, CI, Dockerfile, devcontainer,
-  README, LICENSE, test bootstrap)
-- [ ] Experienced path: drill-down questions (per-layer stack, monorepo, auth, deploy target,
-  CI) → customize
-- [ ] `starter/<category>/` templates (reuse `{placeholder}` fill); then hand off to the
-  existing `init` team flow
-- [ ] Non-interactive: `armada new --type web-app --beginner|--yes`
-- [ ] Tests: catalog integrity, template render, CLI e2e (new repo → detectStack → team scaffolds)
-- [ ] Reconcile with the "no cookiecutter" gap — this is the built-in opinionated version of it
+- [x] **Orchestrator prompt: "Unlock parallelism — assign disjoint files."** Prefer per-phase file
+  isolation (`src/<feature>.js` + its test) so independent phases run in parallel; when a file
+  must be shared, serialize writers on a reused subagent session and say so.
+- [x] **`armada init --yolo` autonomous mode.** `opencode.json` gets `permission: { "*": "allow" }`
+  (no `--auto` flag needed); orchestrator + qa `bash` become allow; role `edit` boundaries kept
+  (SDK resolves most-specific-first). Verified live: headless run with zero permission prompts.
+- [x] **Live validation: 5-phase dependency graph** ran end-to-end (dependency gating, collision-aware
+  serialization, parallel qa∥adversary gate work, 5/5 tests). Recorded in `docs/validation.md`.
 
----
+## Next — `armada new`: cookiecutter-inspired repo generator
+
+Replace the stub `armada new` with a real cookiecutter-style generator, built from agentic-repo
+best practices (the repo armada itself would want to scaffold). Cookiecutter is the reference for
+template shape; we stay zero-dep (no cookiecutter dependency — the generator is native Node).
+
+- [ ] **Agentic-repo template set** (`starter/<category>/`): each ships what a modern agent-driven
+  repo needs — `AGENTS.md`, `README.md`, `LICENSE`, `.gitignore`, CI workflow, test bootstrap,
+  `package.json`/`pyproject.toml`/etc, `devcontainer` (optional), and a `starter.yaml` metadata
+  file (name, category, stack, defaults).
+- [ ] **`armada new <name>` command**: category picker (web-app / cli-tool / api-service / ml-training /
+  research-paper / library) + template selection, `{placeholder}` variable fill (project name,
+  description, package manager, license, language).
+- [ ] **Beginner vs experienced path**: beginner = curated defaults per category; experienced =
+  drill-down questions (package manager, monorepo, auth, deploy target, CI).
+- [ ] **Non-interactive**: `armada new my-app --type web-app --beginner|--yes`.
+- [ ] **Post-scaffold handoff**: run `armada init` team flow into the fresh repo (the generated
+  repo gets the armada team immediately).
+- [ ] **Tests**: template render (no dangling placeholders), catalog integrity, CLI e2e
+  (new repo → detectStack → team scaffolds).
 
 ## Next — validate in a real repo
 
@@ -76,102 +92,20 @@ The fleet model was hardened on opencode: **subagents + orchestrator, runnable i
   - [ ] Verify `/armada` command shows the team
 - [ ] File the results as a validation report in `docs/`
 
-## Known gaps
+## Security & robustness
 
-- [x] **`armada models --refresh` is a stub.** Now shells out to `opencode models` and merges
-  live availability over the curated catalog, with a `--cache <path>` and ✓/✗ markers.
-  Validation found catalog drift: `opencode/deepseek-v4-pro` unavailable, live equivalent is
-  `opencode-go/deepseek-v4-pro`.
-- [x] **`armada doctor` is a stub.** Now spawns real checks: `opencode --version`, the
-  plugin[] entry in `~/.config/opencode/opencode.json`, `opencode providers list`, and
-  `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS`; sets exit code on failure.
-- [x] **Manifest parser is regex-based.** `parseManifest` in cli.js only understands the
-  exact `renderManifestYaml` output. Replaced with a real YAML parser (`yaml` package, see
-  `src/manifest.js`) with schema validation before users hand-edit manifests.
-- [ ] **Ponytail compression integration** is a design note only (SPEC §2.5, README). If
-  caveman-terse prompts prove insufficient, add a ponytail-based compression layer to prompt
-  templates.
-- [x] **No `uninstall` command.** Now removes armada-generated artifacts cleanly
-  (`armada uninstall`, `--all` for generated user-facing files, `--dry-run`).
-- [x] **Headless orchestration stalls on `ask` permissions.** Fixed via `armada init --headless`
-  (`project.headless`): orchestrator bash becomes `allow` so non-interactive `opencode run`
-  works. Validated end-to-end (orchestrator ran bash, dispatched architect inline, wrote
-  findings). Note: **background**-job reconciliation still needs the live TUI; one-shot runs
-  use inline subagent dispatch.
-- [ ] **Per-role model overrides silently dropped.** `buildTeam` recomputes every role's model
-  from `budget` and ignores `manifest.team[].model`, so questionnaire/`pickModel` overrides are
-  lost on re-scaffold. Fix: honor manifest overrides, fall back to `modelFor` only when absent.
-  (Found by armada's own architect during headless self-dogfood.)
-- [ ] **`uninstall` requires an existing manifest.** If `armada.yaml` was deleted, `uninstall`
-  errors instead of cleaning artifacts by their known paths. (Architect finding.)
-- [ ] **`main()` returns `undefined`.** Programmatic callers can't distinguish success/error;
-  return an exit-code int and let `isMain` set `process.exitCode`. (Architect finding.)
-- [x] **Adversary catalog primary drift.** `opencode/deepseek-v4-pro` is unavailable on live
-  providers; the working equivalent is `opencode-go/deepseek-v4-pro`. Swapped in CATALOG + balanced preset.
-- [ ] **Path traversal via `requirementsFile`.** `src/scaffold.js:115-118` + `src/cli.js:182-185`
-  + `src/manifest.js:34`. Untrusted manifest / `--requirements` value passes raw into
-  `out(rel) = join(target, rel)`; `..` segments not sanitized. Supply-chain vector for cloned
-  manifests. Fix: `resolve` + assert `abs.startsWith(resolve(target) + sep)`. (Security
-  finding #1, AUDIT.md.)
-- [ ] **Empty model `""` produces broken runtime config.** `src/manifest.js:19-24` accepts
-  `team[].model: ""`; generator interpolates it. Provider lookup fails at runtime in a session
-  the user can't easily diagnose. Reject empty / coerce to budget default. (Adversary ADV-002.)
-- [ ] **`uninstall` orphans the custom contract file.** `src/scaffold.js:169-204`. Custom
-  `requirementsFile` (from `--requirements`) is never removed on uninstall. Read manifest
-  field, add to cleanup set. (Architect #2.)
-- [ ] **No schema enforcement in `parseManifestYaml`.** `src/manifest.js:8-48`. `MANIFEST_SCHEMA`
-  is a comment; accepts `name: 42`, `role: 123`, `budget: "ultra"`, unknown roles, etc.
-  Enables BUGs #11, #12, #15, #16, #25. (Security #4 + architect improvement #1.)
-- [ ] **`uninstall` deletes user-owned `.devcontainer/`.** `src/scaffold.js:196-199`.
-  Unconditional recursive `rmSync` of `.devcontainer/`. Only remove armada-written files or
-  require ownership marker. (Security #2.)
-- [ ] **Generated `opencode.json` emits unscoped `bash: "allow"` + `edit: "allow"`.**
-  `src/generator.js:168-176`. Grants the session agent unrestricted shell + edit whenever
-  `opencode.json` is absent. Drop the top-level allows; rely on per-role roster + slim default.
-  (Security #3.)
-- [ ] **Filesystem errors leak full stack traces to users.** `src/cli.js:140-143,198,287`. Wrap
-  I/O call sites; print `err.message` + one-line hint; reserve stack for `DEBUG=1`. (Architect
-  #3 + adversary ADV-005.)
-- [ ] **Duplicate role names in `team[]` silently dropped.** `src/manifest.js:19-24` +
-  `buildTeam`. Detect duplicates at parse, reject or warn. (Adversary ADV-003.)
-- [ ] **Raw string interpolation into generated JSONC/YAML.** `src/generator.js:148,151,353-359`.
-  `project.name` / `requirementsFile` unquoted; `name` with `"` or newline corrupts generated
-  `armada.yaml`, breaks round-trip. Quote YAML scalars; validate types. (Security #7.)
-- [ ] **Stack instructions detected then dropped.** `src/stack-detect.js:169` collects
-  `stack.instructions`; never rendered. Wire into orchestrator prompt or drop detection.
-  (Architect improvement #2.)
-- [ ] **`--headless` persists `bash: {"*": "allow"}` into versioned config.**
-  `src/generator.js:102-108`. Scope the allow (`git*`/read) or document the post-CI revert.
-- [ ] **`--cache <path>` arbitrary file write.** `src/cli.js:233-241` + `src/model-catalog.js:127-136`.
-  Validate path stays under `~/.cache/` or target.
-- [ ] **`enabled: 0` / `"no"` treated as true.** Strict boolean parse in `parseManifestYaml`.
-- [ ] **`--from-armada --budget free` parses `budget` as manifest path.** Add `--` guard for
-  value-as-flag. (Adversary ADV-007.)
-- [ ] **`opencode.json` model ignores budget tier.** `src/generator.js`. Derive from
-  `modelFor("orchestrator", budget)`. (Adversary ADV-008.)
-- [ ] **Symlinks followed without warning.** `lstat` target dir; warn / reject on symlink.
-- [ ] **No `--target <dir>` flag.** Target is hardcoded to `process.cwd()`. (Adversary ADV-010.)
-- [ ] **`pickModel` variant choice is dead.** Same root as per-role override — fix together.
-- [ ] **`questionnaire.js` non-injectable stdio.** `src/questionnaire.js:6`. Accept
-  `{ input, output }` opts so tests can drive it inline.
-- [ ] **`renderArmadaCommand` lives in `scaffold.js` (I/O module), not `generator.js` (pure).**
-  Move string builder to generator.
-- [ ] **`fillPrompt` mixes `readFileSync` with substitution.** Split pure `fillTemplate(text,
-  manifest, stack)`.
-- [ ] **`fallback` parsed then recomputed** in `buildTeam`. Honor parsed value (same fix as
-  per-role model override).
-- [ ] **`doctor` background-dispatch check is fake.** `src/doctor.js:51-56` returns
-  `status: "pass"` unconditionally. Probe env + plugin; report real state.
-- [ ] **`loadModelsCache` swallows every error → null.** `src/model-catalog.js:118-125`.
-  Distinguish missing (legit) from corrupt (warn).
-- [ ] **No cookiecutter compatibility.** Deliberate (see SPEC §3), but a thin `cookiecutter
-  hook` adapter could be added later if users want the traditional scaffold UX.
+- [x] **`--cache <path>` arbitrary file write.** `validateCachePath` now rejects traversal,
+  `~` expansion, and absolute paths outside `~/.armada` (relative filenames resolve under cwd).
+  Wired into `refreshModels`; tested.
+- [x] **`opencode.json` no-clobber + never leaks unscoped allows.** Verified: written only when
+  absent; the generated config carries `external_directory: deny` (+ optional `yolo` catch-all),
+  never unscoped `bash: allow`/`edit: allow`.
 
 ## Polish
 
-- [ ] `renderCatalog` column widths — auto-size instead of hardcoded padding
 - [x] Add `--dry-run` to `init` (print files without writing)
 - [x] Add `--yes` / non-interactive defaults so `init` works without a TTY
+- [ ] `renderCatalog` column widths — auto-size instead of hardcoded padding
 - [ ] Better `questionnaire.js` — arrow-key selection instead of numbered prompts
 - [ ] Add a `presets/` CLI command to apply a preset to the manifest (`armada preset power`)
 - [ ] Emit a summary at end of init: models chosen, cost hint per tier, next steps
@@ -195,12 +129,8 @@ The fleet model was hardened on opencode: **subagents + orchestrator, runnable i
   `architect` earning their slot, or should they be opt-in-only?
 - [ ] Revisit whether `security` should own a findings ledger (like DEFECTS.md /
   ADVERSARIAL_REVIEW.md) instead of inline reports.
-- [ ] Explore integrating `superpowers` SDD for non-orchestrated tasks (armada should stay
-  lean; decide if it's worth bundling).
-- [ ] Evaluate multiplexer integration (watch background agents live) as an optional opt-in.
-- [x] Native frontmatter `permission` semantics verified at runtime (`opencode agent list`, trivial task) — no plugin schema to drift.
 
 ## Deferred
 
 - [ ] **Multi-harness support** (codex, claude code). Parked. When we tackle it, the generator grows per-harness renderers (`renderOpencodeAgent`, `renderCodexAgent`, `renderClaudeCodeAgent`) + an `--harness <name>` flag. Reference (OpenRouter cookbook): `codex-cli`, `opencode-integration`, `claude-code-integration`. The robust-opencode tiers make opencode the reference implementation; multi-harness layers on top without weakening it.
-- [ ] **Worktree-per-task isolation** (firstmate's strongest idea — `git worktree` per parallel crewmate so edits can't collide). Aspirational. The prompt-contract "no blind stop" + fleet-status file are the lightweight substitutes. Revisit after Tier 3 ships.
+- [ ] **Worktree-per-task isolation** (firstmate's strongest idea — `git worktree` per parallel crewmate so edits can't collide). Aspirational. The prompt-contract "no blind stop" + fleet-status file are the lightweight substitutes. Revisit after the parallel-phase work settles.
