@@ -170,10 +170,17 @@ yours.
 # from sandbox: tests must be green
 node --test 'tests/*.test.js'
 
-# from the live repo (merge + clean)
-git merge feat/<name>
+# from the live repo (PR, never merge locally)
+git push origin feat/<name>
+gh pr create --base master --head feat/<name> --title "..." --body "..."
+
+# ask the user to merge; after merge, clean up
 git worktree remove sandbox/<name>
+git branch -d feat/<name>
 ```
+
+Rule: a lane is done when its PR is merged by the user — never `git merge` locally, never push
+master directly. Every armada feature lands as a reviewed PR.
 
 ### Self-modification rule (learned in the first Lane B run)
 
