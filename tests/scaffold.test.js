@@ -68,12 +68,10 @@ test("scaffold writes all expected files", () => {
   const files = scaffold(manifest, manifest.project.stack)
 
   const expected = [
-    ".opencode/oh-my-opencode-slim.jsonc",
     "armada/armada.yaml",
     "armada/REQUIREMENTS.md",
     ".opencode/commands/armada.md",
-    ".opencode/oh-my-opencode-slim/orchestrator_append.md",
-    ...ROLES.filter((r) => r !== "orchestrator").map((r) => `.opencode/oh-my-opencode-slim/${r}.md`),
+    ...ROLES.map((r) => `.opencode/agent/${r}.md`),
   ]
   for (const f of expected) {
     assert.ok(files.includes(f), `missing in list: ${f}`)
@@ -84,11 +82,10 @@ test("scaffold writes all expected files", () => {
   assert.ok(existsSync(join(dir, ".devcontainer/devcontainer.json")))
   assert.ok(existsSync(join(dir, ".devcontainer/setup.sh")))
 
-  // jsonc parses as JSON after stripping full-line comments (the orchestrator
-  // strings contain literal newlines, so only strip `//` when it starts a line)
-  const jsonc = readFileSync(join(dir, ".opencode/oh-my-opencode-slim.jsonc"), "utf8")
-  const stripped = jsonc.replace(/^\s*\/\/.*$/gm, "").trim()
-  assert.doesNotThrow(() => JSON.parse(stripped))
+  // agent file is native markdown with YAML frontmatter
+  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  assert.match(orch, /^---\n/m)
+  assert.match(orch, /mode: primary/)
 
   rmSync(dir, { recursive: true, force: true })
 })
@@ -133,7 +130,7 @@ test("scaffold dryRun writes nothing but lists files", () => {
   const manifest = makeManifest(dir)
   const files = scaffold(manifest, manifest.project.stack, { dryRun: true })
   assert.ok(files.includes("armada/armada.yaml"))
-  assert.ok(files.includes(".opencode/oh-my-opencode-slim.jsonc"))
+  assert.ok(files.includes(".opencode/agent/orchestrator.md"))
   assert.ok(!existsSync(join(dir, "armada/armada.yaml")))
   assert.ok(!existsSync(join(dir, "armada")))
   assert.ok(!existsSync(join(dir, ".opencode")))
@@ -184,14 +181,24 @@ test("uninstall keeps user files under .opencode/ and warns", () => {
     console.warn = origWarn
   }
 
-  assert.ok(!existsSync(join(dir, ".opencode/oh-my-opencode-slim.jsonc")))
-  assert.ok(!existsSync(join(dir, ".opencode/oh-my-opencode-slim")))
-  assert.ok(!existsSync(join(dir, ".opencode/commands")))
+  assert.ok(!existsSync(join(dir, ".opencode/agent/backend-dev.md")), "armada role file removed")
+  assert.ok(!existsSync(join(dir, ".opencode/oh-my-opencode-slim")), "stale omo dir pruned")
   assert.ok(existsSync(custom), "user file kept")
   assert.ok(existsSync(join(dir, ".opencode")), ".opencode dir kept")
   assert.ok(!removed.includes(".opencode"))
   assert.ok(warns.some((w) => /non-armada/.test(w)), "warning emitted")
 
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("scaffold prunes stale omo-slim artifacts on re-scaffold", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-prune-"))
+  mkdirSync(join(dir, ".opencode"), { recursive: true })
+  writeFileSync(join(dir, ".opencode/oh-my-opencode-slim.jsonc"), "{}")
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  assert.ok(!existsSync(join(dir, ".opencode/oh-my-opencode-slim.jsonc")))
+  assert.ok(existsSync(join(dir, ".opencode/agent/orchestrator.md")))
   rmSync(dir, { recursive: true, force: true })
 })
 

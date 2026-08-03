@@ -6,15 +6,15 @@ import { join, resolve } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { buildTeam } from "./generator.js"
+import { buildTeam, renderAgentFile } from "./generator.js"
 import {
-  renderSlimJsonc,
   renderOpenCodeJson,
   renderAgentsMd,
   renderRequirementsMd,
   renderManifestYaml,
   renderArmadaCommand,
 } from "./generator.js"
+import { ROLES } from "./model-catalog.js"
 import { formatStack } from "./stack-detect.js"
 import { validateRequirementsFile } from "./manifest.js"
 
@@ -89,20 +89,20 @@ export function scaffold(manifest, stack, opts = {}) {
     files.push(rel)
   }
 
-  // 1. .opencode/oh-my-opencode-slim.jsonc
-  write(".opencode/oh-my-opencode-slim.jsonc", renderSlimJsonc(manifest, team))
-
-  // 2. Per-agent prompt files (stack-filled) in the prompt override dir.
-  //    The orchestrator is the omo-slim primary: its prompt is *appended*
-  //    (orchestrator_append.md) so the superpowers base prompt is preserved.
-  //    Every other role is a full-replacement subagent prompt (<role>.md).
+  // 1. Native agent files: one .opencode/agent/<role>.md per enabled role.
+  //    Frontmatter carries mode/model/permission; body is the filled prompt.
   for (const a of team) {
     if (!a.enabled) continue
     const src = join(ROOT, PROMPT_SOURCE[a.role])
-    const content = fillPrompt(src, manifest, stack)
-    const filename = a.role === "orchestrator" ? "orchestrator_append.md" : `${a.role}.md`
-    write(`.opencode/oh-my-opencode-slim/${filename}`, content)
+    const content = renderAgentFile(a, fillPrompt(src, manifest, stack))
+    write(`.opencode/agent/${a.role}.md`, content)
   }
+
+  // 1b. Prune stale omo-slim artifacts from the old layout (armada-owned).
+  const staleJsonc = out(".opencode/oh-my-opencode-slim.jsonc")
+  if (!opts.dryRun && existsSync(staleJsonc)) rmSync(staleJsonc, { force: true })
+  const staleDir = join(target, ".opencode/oh-my-opencode-slim")
+  if (!opts.dryRun && existsSync(staleDir)) rmSync(staleDir, { recursive: true, force: true })
 
   // 3. opencode.json — only write if absent (never clobber project config).
   if (!existsSync(out("opencode.json"))) {
@@ -195,15 +195,24 @@ export function uninstall(manifest, opts = {}) {
   const requirementsFile = manifest?.project?.requirementsFile ?? "armada/REQUIREMENTS.md"
   removeFile(requirementsFile)
   removeEmptyDir("armada")
-  removeFile(".opencode/oh-my-opencode-slim.jsonc")
   removeFile(".opencode/commands/armada.md")
-  const promptDir = join(target, ".opencode/oh-my-opencode-slim")
-  if (existsSync(promptDir)) {
-    for (const f of readdirSync(promptDir)) {
-      if (f.endsWith(".md")) removeFile(`.opencode/oh-my-opencode-slim/${f}`)
+  // Remove armada's native agent files by exact role name; keep any user agent files.
+  const agentDir = join(target, ".opencode/agent")
+  if (existsSync(agentDir)) {
+    for (const role of ROLES) {
+      removeFile(`.opencode/agent/${role}.md`)
     }
   }
-  removeEmptyDir(".opencode/oh-my-opencode-slim")
+  removeEmptyDir(".opencode/agent")
+  // Prune stale omo-slim artifacts (old layout) if present.
+  removeFile(".opencode/oh-my-opencode-slim.jsonc")
+  const stalePromptDir = join(target, ".opencode/oh-my-opencode-slim")
+  if (existsSync(stalePromptDir)) {
+    for (const f of readdirSync(stalePromptDir)) {
+      if (f.endsWith(".md")) removeFile(`.opencode/oh-my-opencode-slim/${f}`)
+    }
+    removeEmptyDir(".opencode/oh-my-opencode-slim")
+  }
   removeEmptyDir(".opencode/commands")
   const opencodeDir = join(target, ".opencode")
   if (existsSync(opencodeDir)) {

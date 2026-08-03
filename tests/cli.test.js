@@ -5,7 +5,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { buildTeam, renderManifestYaml } from "../src/generator.js"
-import { runCli, makeTempRepo, makeBin } from "./helpers.js"
+import { runCli, makeTempRepo, makeBin, parseFrontmatter } from "./helpers.js"
 import { main } from "../src/cli.js"
 
 function manifestYaml() {
@@ -71,7 +71,7 @@ test("init --from-armada scaffolds full team", async () => {
   const r = await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
   assert.strictEqual(r.code, 0)
   for (const f of ["armada/armada.yaml", "opencode.json", "AGENTS.md", "armada/REQUIREMENTS.md",
-    ".opencode/oh-my-opencode-slim.jsonc", ".opencode/commands/armada.md"])
+    ".opencode/agent/orchestrator.md", ".opencode/commands/armada.md"])
     assert.ok(existsSync(join(dir, f)), `missing ${f}`)
 })
 
@@ -214,7 +214,7 @@ test("uninstall CLI keeps user .opencode files and warns", async () => {
   await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
   const r = await runCli(["uninstall"], { cwd: dir })
   assert.strictEqual(r.code, 0)
-  assert.ok(!existsSync(join(dir, ".opencode/oh-my-opencode-slim.jsonc")))
+  assert.ok(!existsSync(join(dir, ".opencode/agent/backend-dev.md")))
   assert.ok(!existsSync(join(dir, ".opencode/commands")))
   assert.strictEqual(readFileSync(join(dir, ".opencode/agent/custom.md"), "utf8"), "# custom\n")
   assert.ok(existsSync(join(dir, ".opencode")))
@@ -226,12 +226,13 @@ test("init --headless sets manifest flag + scoped orchestrator bash allow", asyn
   const r = await runCli(["init", "--yes", "--headless", "--budget", "free", "--no-browser"], { cwd: dir })
   assert.strictEqual(r.code, 0)
   assert.match(readFileSync(join(dir, "armada/armada.yaml"), "utf8"), /headless: true/)
-  const jsonc = readFileSync(join(dir, ".opencode/oh-my-opencode-slim.jsonc"), "utf8")
-  const cfg = JSON.parse(jsonc.replace(/^\s*\/\/.*$/gm, "").trim())
-  assert.strictEqual(cfg.presets.free.orchestrator.permission.bash["*"], "deny")
-  assert.strictEqual(cfg.presets.free.orchestrator.permission.bash["git status*"], "allow")
-  assert.strictEqual(cfg.presets.free.orchestrator.permission.bash["git diff*"], "allow")
-  assert.strictEqual(cfg.presets.free.orchestrator.permission.bash["git log*"], "allow")
+  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  const fm = orch.slice(orch.indexOf("---") + 3, orch.indexOf("---\n", 3))
+  const cfg = parseFrontmatter(fm)
+  assert.strictEqual(cfg.permission.bash["*"], "deny")
+  assert.strictEqual(cfg.permission.bash["git status*"], "allow")
+  assert.strictEqual(cfg.permission.bash["git diff*"], "allow")
+  assert.strictEqual(cfg.permission.bash["git log*"], "allow")
 })
 
 test("init --requirements writes a per-feature contract file", async () => {

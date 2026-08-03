@@ -70,7 +70,7 @@ test("new CLI creates project dir with armada config", async () => {
   assert.ok(existsSync(join(projDir, "package.json")), "package.json missing")
   assert.ok(existsSync(join(projDir, "armada/armada.yaml")), "armada/armada.yaml missing")
   assert.ok(existsSync(join(projDir, "armada/REQUIREMENTS.md")), "armada/REQUIREMENTS.md missing")
-  assert.ok(existsSync(join(projDir, ".opencode/oh-my-opencode-slim.jsonc")), "slim jsonc missing")
+  assert.ok(existsSync(join(projDir, ".opencode/agent/orchestrator.md")), "orchestrator agent file missing")
   assert.ok(existsSync(join(projDir, "src/app/layout.tsx")), "layout.tsx missing")
 })
 
