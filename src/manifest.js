@@ -67,6 +67,7 @@ export function parseManifestYaml(text) {
       role: t.role,
       model: t.model,
       fallback: t.fallback ?? null,
+      variant: t.variant ?? null,
       enabled: parseBoolean(t.enabled, "team.enabled"),
     }
   })

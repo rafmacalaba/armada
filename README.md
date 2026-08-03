@@ -191,6 +191,9 @@ opencode                            # start opencode
 # "ping all agents"                # verify the roster is online
 ```
 
+`armada init` ends with a summary: team size, budget, cost hint, per-role model roster, and next
+steps.
+
 ### Declarative / CI
 
 ```bash
@@ -255,8 +258,10 @@ is also scaffolded.
 | `armada feature list` | list all features from the state index |
 | `armada feature close <name>` | close a feature (evidence-gated — refuses until criteria pass) |
 | `armada feature status [name]` | show a feature's phase graph + evidence |
-| `armada models [budget]` | show curated model catalog |
+| `armada models [budget]` | show curated model catalog (first-choice model tagged `(Recommended)`) |
 | `armada models --refresh --cache <path>` | merge live provider models (cache to path) |
+| `armada models --list-openrouter` | show live model list from the OpenRouter API |
+| `armada preset <name> [--target <dir>]` | apply a budget preset to armada.yaml |
 | `armada doctor` | environment health check |
 | `armada uninstall` | remove armada-generated artifacts |
 | `armada uninstall --all` | also remove generated `AGENTS.md`/`opencode.json`/`REQUIREMENTS.md` |
@@ -286,7 +291,9 @@ is also scaffolded.
 Primary models run on opencode/go-zen (free where available); fallbacks are equivalent
 OpenRouter models. Change models per role by editing `src/model-catalog.js` (armada dev) or
 overriding in `armada/armada.yaml` (`agents.<role>.model: "openrouter/<slug>"`), then re-running
-`armada init --from-armada armada/armada.yaml`.
+`armada init --from-armada armada/armada.yaml`. `armada models [budget]` tags the budget's
+first-choice model with `(Recommended)`; `armada models --list-openrouter` prints the live
+OpenRouter model list for pick-your-own workflows.
 
 | Role | Primary (opencode) | Fallback (openrouter) |
 |---|---|---|

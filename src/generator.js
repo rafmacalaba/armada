@@ -503,7 +503,9 @@ export function renderManifestYaml(manifest, team) {
   const teamLines = team
     .map(
       (a) =>
-        `  - role: ${q(a.role)}\n    model: ${q(a.model)}\n    fallback: ${a.fallback === null ? "null" : q(a.fallback)}\n    enabled: ${a.enabled}`
+        `  - role: ${q(a.role)}\n    model: ${q(a.model)}\n    fallback: ${a.fallback === null ? "null" : q(a.fallback)}\n` +
+        `${a.variant !== null && a.variant !== undefined ? `    variant: ${q(a.variant)}\n` : ""}` +
+        `    enabled: ${a.enabled}`
     )
     .join("\n")
   const s = manifest.project.stack || {}
@@ -529,6 +531,7 @@ project:
     testing: ${str(s.testing)}
     srcDirs: [${(s.srcDirs || []).map((d) => q(d)).join(", ")}]
     languages: [${(s.languages || []).map((l) => q(l)).join(", ")}]
+    instructions: [${(s.instructions || []).map((i) => q(i)).join(", ")}]
 
 team:
 ${teamLines}

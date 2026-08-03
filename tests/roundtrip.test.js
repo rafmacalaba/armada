@@ -30,6 +30,26 @@ function listFiles(dir) {
   return out.sort()
 }
 
+test("variant survives parse -> render -> parse round-trip", () => {
+  const m = {
+    targetDir: "/tmp",
+    project: { name: "rt-variant", budget: "balanced", browserTesting: false,
+      devcontainer: false, useAgentBrowser: false,
+      stack: { frontend: "react", backend: "node-express", database: null, testing: null,
+        srcDirs: ["src"], languages: ["typescript"] } },
+    team: ROLES.map((r) => ({ role: r, model: modelFor(r, "balanced"), fallback: null,
+      variant: r === "backend-dev" ? "thinking" : null, enabled: true })),
+  }
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.team.find((t) => t.role === "backend-dev").variant, "thinking")
+  assert.strictEqual(parsed.team.find((t) => t.role === "qa").variant, null)
+  // second pass is stable: re-render from the parsed manifest keeps the variant
+  const yaml2 = renderManifestYaml(parsed, buildTeam(parsed))
+  const parsed2 = parseManifestYaml(yaml2)
+  assert.strictEqual(parsed2.team.find((t) => t.role === "backend-dev").variant, "thinking")
+})
+
 test("init -> parse -> init produces identical file tree and contents", () => {
   const d1 = mkdtempSync(join(tmpdir(), "armada-rt-"))
   const { m, yaml } = manifest(d1)
