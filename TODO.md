@@ -236,6 +236,21 @@ lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/la
   attach -t <name>`). Fall back per-OS: macOS Terminal.app/iTerm, Linux
   `x-terminal-emulator`/`gnome-terminal`/`konsole`, Windows Terminal. `--no-open` (headless/CI)
   prints the `tmux attach -t <name>` hint instead — never fails the drive.
+- [ ] **Tab in the primary terminal, not a new window.** The current auto-open *spawns a fresh
+  terminal window* (macOS `osascript do script`, Linux `gnome-terminal`/`konsole` launch) — which
+  looks like a rogue process popping a window (the "virus installation vibes"). If the user is
+  already sitting in a terminal (they almost always are — they ran the drive command from one),
+  the right move is to open a **new tab in that primary terminal**, not a second window:
+  - macOS: AppleScript `tell application "Terminal" to do script ... in front window` (tab) when
+    Terminal is already the frontmost app, or iTerm's `--title`/tab handling; fall back to a new
+    window only when no terminal is open.
+  - Linux: `x-terminal-emulator --tab` / `gnome-terminal --tab` / `konsole --new-tab` when the
+    emulator is already running; `wezterm` natively reuses its daemon (`wezterm start` with an
+    existing server spawns a tab in the current wezterm instance).
+  - Windows: `wt new-tab` (already a tab — keep).
+  - Detection rule: if the drive command is running under a terminal we can address (TERM_PROGRAM
+    env: `iTerm.app`, `WezTerm`, `vscode`, etc.), target that; otherwise fall back to current
+    behavior. This keeps it invisible-and-native instead of spawning windows.
 - [ ] **Refactor to wezterm as the baseline** — if the wezterm-first path proves out, make
   wezterm the default terminal recommendation in docs and treat per-OS emulators as fallback
   only (see the fleet-terminology spec below for the naming direction).
