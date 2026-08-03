@@ -69,11 +69,15 @@ Bigger features, well-specified, sequenced after the High items.
 
 Design re-evaluations, model hygiene. Not urgent.
 
-- [ ] **Re-verify model IDs** against current opencode / OpenRouter availability before the next
+- [x] **Re-verify model IDs** against current opencode / OpenRouter availability before the next
   publish. Catalog: `opencode-go/minimax-m3`, `opencode-go/deepseek-v4-pro`,
   `opencode/mimo-v2.5-free`, `opencode/deepseek-v4-flash-free`, `opencode/big-pickle`,
   `opencode-go/hy3`, `opencode-go/deepseek-v4-flash`. OpenRouter fallbacks: `z-ai/glm-5.2`,
   `minimax/minimax-m3`, `xiaomi/mimo-v2.5`, `deepseek/deepseek-v4-pro`, `anthropic/claude-sonnet-4.6`.
+  Shipped 2026-08-03. See `docs/catalog-verification.md`. All 11 catalog IDs verified live; zero NOT FOUND.
+  Generator audit PASS. No catalog edits required. Contract listed `opencode-go/deepseek-v4-flash`;
+  catalog uses `opencode/deepseek-v4-flash-free` (both live; contract text is a snapshot from
+  before the catalog was finalized).
 - [ ] **Re-evaluate the 8-role roster** against real multi-agent sessions — do `docs` and
   `architect` earn their slot, or should they be opt-in-only?
 - [ ] **Security findings ledger** — should `security` own a findings ledger (like DEFECTS.md /
