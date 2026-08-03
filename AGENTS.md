@@ -46,6 +46,13 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
   evidence-gated delivery. The orchestrator never ends its turn with background work
   outstanding, never writes code directly, and reads `.opencode/fleet-status.md` on session
   start (hard rules in `agents/orchestrator/prompt.template.md`).
+- **Parallel phases need disjoint files.** The orchestrator prompt prefers per-phase file
+  isolation (`src/<feature>.js` + its test) so independent phases run in parallel; when a file
+  must be shared it serializes writers on a reused subagent session and says so.
+- **Autonomous mode:** `armada init --yolo` (or `armada.yaml` `project.yolo: true`) emits
+  `permission: { "*": "allow" }` in `opencode.json` + `bash: allow` for orchestrator/qa — no
+  permission prompts. Role `edit` boundaries are kept (SDK resolves the most specific rule
+  first), so the orchestrator still delegates writes and security/architect stay read-only.
 - Opt-in supervision: `armada init --supervision-plugin` (or `armada.yaml`
   `supervision.plugin: true`) emits one `.opencode/plugins/armada-supervision.js` file
   (session.created resume nudge, session.idle no-blind-stop, tool.execute.before shell-redirect

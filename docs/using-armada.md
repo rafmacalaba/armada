@@ -276,6 +276,47 @@ Template:
 - [ ] Every phase success criterion is demonstrably true.
 ```
 
+### Parallel phases — write disjoint files
+
+The orchestrator runs independent phases as parallel background subagents. The one thing that
+forces serialization is **two phases writing the same file** — parallel writers would clobber
+each other. When you write the contract, give each phase its own file(s) and independent phases
+stay parallel:
+
+```
+Phase 1: /about  -> backend-dev writes src/routes/about.js  ∥  frontend-dev writes public/about.html
+Phase 2: /admin  -> backend-dev writes src/routes/admin.js  ∥  frontend-dev writes public/admin.html
+Phase 3 (depends 1): src/routes/about-team.js
+Phase 4 (depends 2): src/routes/admin-settings.js
+```
+
+Phases 1 and 2 run in parallel (disjoint files); 3 waits for 1, 4 waits for 2. If phases *must*
+share a file, the orchestrator serializes the writers on a reused subagent session and gates each
+phase in order — it will say so. The contract names the shape; the orchestrator handles the
+collision either way.
+
+### Autonomous mode (`--yolo`)
+
+By default the fleet asks before running shell commands (the orchestrator and qa use `ask`). For
+a hands-off run, scaffold with `--yolo` — no permission prompts:
+
+```bash
+armada init --yolo
+# or set in armada.yaml:
+#   yolo: true
+```
+
+What it changes:
+- Generated `opencode.json` gets `permission: { "*": "allow" }` (auto-approve everything not
+  explicitly denied) — so `opencode run` needs no `--auto` flag.
+- Orchestrator and qa `bash` become `allow` — the fleet never stalls on a prompt.
+- **Boundaries are kept.** The orchestrator still cannot edit code (its `edit: { "*": "deny" }`
+  stays — it delegates writes), and security/architect stay read-only. The SDK checks the most
+  specific rule first, so the role boundaries survive the catch-all allow.
+
+Run it: `opencode run --agent orchestrator "run armada/REQUIREMENTS.md"` — or launch the TUI and
+work hands-on while the fleet dispatches in the background.
+
 ### 5. Drive the team
 
 Interactive:

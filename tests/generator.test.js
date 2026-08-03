@@ -266,6 +266,45 @@ test("supervision.plugin round-trips through manifest", () => {
   assert.strictEqual(dflt.project.supervision.plugin, false)
 })
 
+test("yolo round-trips through manifest, default false", () => {
+  const m = structuredClone(baseManifest)
+  m.project.yolo = true
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  assert.match(yaml, /yolo: true/)
+  const reparsed = parseManifestYaml(yaml)
+  assert.strictEqual(reparsed.project.yolo, true)
+  const dflt = parseManifestYaml(renderManifestYaml(baseManifest, buildTeam(baseManifest)))
+  assert.strictEqual(dflt.project.yolo, false)
+})
+
+test("buildTeam yolo flips ask bash to allow, keeps edit boundaries", () => {
+  const m = structuredClone(baseManifest)
+  m.project.yolo = true
+  const team = buildTeam(m)
+  const orch = team.find((a) => a.role === "orchestrator")
+  assert.strictEqual(orch.permissions.bash["*"], "allow", "orchestrator bash allow in yolo")
+  assert.strictEqual(orch.permissions.edit["*"], "deny", "orchestrator edit stays deny (delegates)")
+  const qa = team.find((a) => a.role === "qa")
+  assert.strictEqual(qa.permissions.bash["*"], "allow", "qa bash allow in yolo")
+  assert.strictEqual(qa.permissions.edit["*"], "deny", "qa edit stays deny (writes only e2e/*)")
+  const sec = team.find((a) => a.role === "security")
+  assert.strictEqual(sec.permissions.edit["*"], "deny", "security stays read-only")
+  // non-yolo keeps ask
+  const base = buildTeam(baseManifest)
+  assert.strictEqual(base.find((a) => a.role === "orchestrator").permissions.bash["*"], "ask")
+})
+
+test("renderOpenCodeJson yolo permits autonomous run", () => {
+  const m = structuredClone(baseManifest)
+  m.project.yolo = true
+  const cfg = renderOpenCodeJson(m, buildTeam(m))
+  assert.strictEqual(cfg.permission["*"], "allow", "config-level allow in yolo")
+  assert.strictEqual(cfg.permission.external_directory, "deny", "external dir still denied")
+  // non-yolo has no catch-all allow
+  const base = renderOpenCodeJson(baseManifest, buildTeam(baseManifest))
+  assert.strictEqual(base.permission["*"], undefined)
+})
+
 test("renderRequirementsMd invites co-writing the contract", () => {
   const md = renderRequirementsMd(baseManifest)
   assert.match(md, /Co-write this with the orchestrator/)

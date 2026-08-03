@@ -130,6 +130,9 @@ preloaded OpenRouter list lags.
 - Override a role's model: `armada/armada.yaml` → `agents.<role>.model:
   "openrouter/<slug>"` (e.g. `openrouter/~anthropic/claude-sonnet-latest`).
 - Budgets: `armada init --budget free|balanced|power`.
+- Autonomous: `armada init --yolo` — no permission prompts (bash allow; role edit boundaries
+  kept). Then `opencode run --agent orchestrator "run armada/REQUIREMENTS.md"` runs the fleet
+  hands-off, phases in parallel.
 
 ---
 
