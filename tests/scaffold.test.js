@@ -202,6 +202,22 @@ test("scaffold prunes stale omo-slim artifacts on re-scaffold", () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
+test("generated artifacts contain zero omo-slim references", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-native-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  const files = [
+    "opencode.json", "AGENTS.md", "armada/armada.yaml", "armada/REQUIREMENTS.md",
+    ".opencode/commands/armada.md",
+    ...ROLES.map((r) => `.opencode/agent/${r}.md`),
+  ]
+  for (const f of files) {
+    const content = readFileSync(join(dir, f), "utf8")
+    assert.doesNotMatch(content, /oh-my-opencode-slim|omo-slim/i, `${f} must not reference omo-slim`)
+  }
+  rmSync(dir, { recursive: true, force: true })
+})
+
 test("scaffold writes custom requirements file, no-clobber", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-req-"))
   const manifest = makeManifest(dir)

@@ -102,6 +102,26 @@ test("init --yes --budget free --no-browser works without TTY", async () => {
   assert.match(yaml, /browserTesting: false/)
 })
 
+test("init --budget free selects free-tier models for agents", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  assert.match(orch, new RegExp(`model: ${modelFor("orchestrator", "free")}`))
+  const qa = readFileSync(join(dir, ".opencode/agent/qa.md"), "utf8")
+  assert.match(qa, new RegExp(`model: ${modelFor("qa", "free")}`))
+  const yaml = readFileSync(join(dir, "armada/armada.yaml"), "utf8")
+  assert.match(yaml, new RegExp(`model: "${modelFor("orchestrator", "free")}"`))
+})
+
+test("init --budget power selects power-tier models for agents", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--budget", "power", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  assert.match(orch, new RegExp(`model: ${modelFor("orchestrator", "power")}`))
+})
+
 test("init --yes --stack overlays hint onto detected stack", async () => {
   const dir = makeTempRepo({})
   const r = await runCli(["init", "--yes", "--stack", "nextjs-fastapi", "--no-browser"], { cwd: dir })

@@ -209,7 +209,12 @@ async function init(args) {
 
   const budgetIdx = args.indexOf("--budget")
   if (budgetIdx !== -1 && BUDGETS.includes(args[budgetIdx + 1])) {
-    manifest.project.budget = args[budgetIdx + 1]
+    const budget = args[budgetIdx + 1]
+    manifest.project.budget = budget
+    // Budget tier selects per-role models (free/balanced/power). Without this,
+    // default manifests bake balanced models and the flag only changes the
+    // project model, leaving agent frontmatter on the wrong tier.
+    manifest.team = manifest.team.map((t) => ({ ...t, model: modelFor(t.role, budget) }))
   }
   const noBrowser = args.includes("--no-browser")
   if (noBrowser) {
