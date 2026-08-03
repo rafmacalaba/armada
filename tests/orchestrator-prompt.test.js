@@ -66,6 +66,25 @@ test("orchestrator prompt: feature work runs through docks, never the live tree 
     "rule #5 must propose the dock when the user asks to build without setup")
 })
 
+test("orchestrator prompt: PR-first hard rule (rule 6)", () => {
+  const prompt = orchestratorPrompt().toLowerCase()
+
+  assert.match(prompt, /no done without a pr url/i,
+    "rule #6 must say 'No done without a PR URL'")
+  assert.match(prompt, /pr blocked/i,
+    "rule #6 must allow 'PR blocked: <reason>' escape hatch")
+  assert.match(prompt, /gh pr create/,
+    "rule #6 must include 'gh pr create'")
+  assert.match(prompt, /git merge/,
+    "rule #6 must mention 'git merge' in the PR-first context")
+  assert.doesNotMatch(prompt, /merge locally/,
+    "rule #6 must not say 'merge locally' in a positive sense")
+  assert.match(prompt, /rules?[\s\S]{0,3000}pr[- ]first/i,
+    "PR-first rule must live under the Hard rules section")
+  assert.match(prompt, /gh pr create[\s\S]{0,200}base master/i,
+    "PR must target master base")
+})
+
 test("armada-status / armada-resume command renderers reference correct sources", () => {
   // armada-status reads the state index directly.
   const status = renderArmadaStatusCommand()

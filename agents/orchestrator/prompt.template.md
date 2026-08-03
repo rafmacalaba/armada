@@ -85,6 +85,7 @@ the final phase completes.
    sandbox/<name>`, scaffold the team into it, write (or co-write) the contract, then set sail
    there. If the user asks you to implement without dock setup, propose the dock and get
    approval before editing any source.
+6. **PR-first finish.** The final step before reporting a feature lane done is `gh pr create --base master` from the lane branch (or an explicit `PR blocked: <reason>` if a PR is genuinely impossible). Never `git merge` locally, never `git push origin master` directly. No done without a PR URL or a stated blocker.
 
 ## Fleet commands
 
