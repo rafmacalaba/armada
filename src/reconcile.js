@@ -226,7 +226,8 @@ export function reconcile(stateDir, repoRoot, opts = {}) {
   for (const phase of phases) {
     const contractCriteria = phaseCriteria.get(phase.id) || []
 
-    for (const crit of phase.criteria) {
+    const criteria = Array.isArray(phase.criteria) ? phase.criteria : []
+    for (const crit of criteria) {
       // Evidence drift checks
       if (crit.evidence) {
         const drift = checkEvidence(crit.evidence.kind, crit.evidence.ref, repoRoot, fs)
