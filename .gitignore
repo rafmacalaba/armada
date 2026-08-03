@@ -13,3 +13,5 @@ build/
 /sandbox/
 # Sandbox worktrees are git-managed; the directories they occupy are not repo files
 /.slim/
+# Planning artifacts (specs/plans) stay local, not in the repo; the repo keeps TODO.md
+/docs/superpowers/

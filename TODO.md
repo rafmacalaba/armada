@@ -37,7 +37,7 @@ link them to an issue/PR when relevant.
 
 ## Next — robust opencode harness (tiered)
 
-Make armada robust on opencode while keeping the core fleet model: **subagents + orchestrator, runnable in parallel** (armada's current model; firstmate's pattern for parallel crewmates). Multi-harness (codex, claude code) is deferred — see "Deferred" at the bottom. Full plan: `docs/superpowers/plans/2026-08-02-robust-opencode.md`.
+Make armada robust on opencode while keeping the core fleet model: **subagents + orchestrator, runnable in parallel** (armada's current model; firstmate's pattern for parallel crewmates). Multi-harness (codex, claude code) is deferred — see "Deferred" at the bottom. Working plan lives locally, not in the repo (see `docs/superpowers/` — gitignored).
 
 Key concepts preserved (do not regress): subagents own their slice; orchestrator delegates writes; parallel execution by default; evidence-gated delivery; SDK-enforced boundaries.
 
