@@ -269,9 +269,9 @@ What the graph encodes:
 
 ## The self-improvement loop
 
-armada uses itself. `docs/armada-improves-armada.md` documents the two-lane workflow:
-- **Lane A — Audit:** the fleet reviews armada's own code, files findings.
-- **Lane B — Feature:** the fleet implements armada's next feature (in a `sandbox/<name>/`
+armada uses itself. `docs/armada-improves-armada.md` documents the two-mode workflow:
+- **Patrol — Audit:** the fleet reviews armada's own code, files findings.
+- **Voyage — Feature:** the fleet implements armada's next feature (in a `sandbox/<name>/`
   worktree so the live repo stays clean).
 
 It has proven itself: the fleet built armada's own session-based state system (~26 minutes,
@@ -313,3 +313,5 @@ million-dollar property: a system that can improve the system.**
 See [SPEC.md](./SPEC.md) for design decisions and [TODO.md](../TODO.md) for the roadmap.
 The rest of this file's module map and data-flow diagrams live above; for the mechanical
 rendering pipeline, see [src/](src/) and the tests in [tests/](tests/).
+
+<!-- Old terminology: Lane A = patrol, Lane B = voyage. See README.md for the canonical glossary. -->

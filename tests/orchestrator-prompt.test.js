@@ -53,17 +53,17 @@ test("orchestrator prompt: writes state on every transition (rule 4)", () => {
     "rule #4 must write armada/state/active.json")
 })
 
-test("orchestrator prompt: feature work runs through lanes, never the live tree (rule 5)", () => {
+test("orchestrator prompt: feature work runs through docks, never the live tree (rule 5)", () => {
   const prompt = orchestratorPrompt().toLowerCase()
 
   assert.match(prompt, /feature worktree|worktree add/,
     "rule #5 must require a feature worktree before building")
   assert.match(prompt, /scaffold/,
-    "rule #5 must mention scaffolding the lane")
+    "rule #5 must mention scaffolding the dock")
   assert.match(prompt, /live tree/,
     "rule #5 must forbid implementing features in the live tree")
-  assert.match(prompt, /propose the lane/,
-    "rule #5 must propose the lane when the user asks to build without setup")
+  assert.match(prompt, /propose the dock/,
+    "rule #5 must propose the dock when the user asks to build without setup")
 })
 
 test("armada-status / armada-resume command renderers reference correct sources", () => {

@@ -126,6 +126,34 @@ phase transition) and **in-session commands** (`/armada`, `/armada-status`, `/ar
 
 ---
 
+## Glossary: armada terminology
+
+Fleet terms are user-facing; plumbing (branch names, `armada feature`, worktree mechanics, the
+literal `sandbox/` directory path, manifest keys, file names) is unchanged.
+
+| Fleet term | Meaning | Role key |
+|---|---|---|
+| **Admiral** | the human operator (the contract's signing party) | (no role key) |
+| **Commodore** | orchestrator — plans, delegates, reviews, gates phases | `orchestrator` |
+| **Galleon** | backend-dev — server, API, storage, seed data, backend unit tests | `backend-dev` |
+| **Clipper** | frontend-dev — UI/UX implementation, visual polish, frontend unit tests | `frontend-dev` |
+| **Corvette** | qa — e2e tests, screenshots, owns DEFECTS.md | `qa` |
+| **Xebec** | adversary — hostile-user testing, breaks the running app | `adversary` |
+| **Frigate** | security — vulnerability audit, auth/authz, dependency risk | `security` |
+| **Caravel** | docs — README, API docs, changelog | `docs` |
+| **Bark** | architect — architecture, refactor risk, review | `architect` |
+| **patrol** | an audit run — the recurring review of armada's own code | (no role key) |
+| **voyage** | a feature implementation run — ships a TODO item or feature as a reviewed PR | (no role key) |
+| **dock** | the `sandbox/<name>/` worktree a patrol or voyage runs in | (no role key) |
+| **ship name** | the tmux session name a dock runs under | (no role key) |
+| **`armada voyage`** | the new user-facing name for booting a dock; `armada drive` stays as a hidden alias | (no role key) |
+
+> **Old terminology:** Lane A (audit run) → patrol, Lane B (feature implementation run) → voyage,
+> sandbox/<name> (lane worktree) → dock, tmux session name → ship name, `armada drive` →
+> `armada voyage` (drive stays a hidden alias).
+
+---
+
 ## Prerequisites
 
 - [opencode](https://opencode.ai) installed
@@ -270,6 +298,8 @@ is also scaffolded.
 | `armada models --refresh --cache <path>` | merge live provider models (cache to path) |
 | `armada models --list-openrouter` | show live model list from the OpenRouter API |
 | `armada preset <name> [--target <dir>]` | apply a budget preset to armada.yaml |
+| `armada voyage <lane-path>` | boot a lane session and send the voyage prompt |
+| `armada drive <lane-path>` | (alias for `armada voyage`) |
 | `armada doctor` | environment health check |
 | `armada uninstall` | remove armada-generated artifacts |
 | `armada uninstall --all` | also remove generated `AGENTS.md`/`opencode.json`/`REQUIREMENTS.md` |
@@ -335,7 +365,7 @@ armada is dogfooded on itself: a team is scaffolded into a `sandbox/<name>/` wor
 **audits** armada's own `src/` (recurring) or **implements** features from TODO.md (landing
 page, `armada new`, bugfixes). Worktrees keep the live repo pristine; the first runs already
 caught bugs. See [docs/armada-improves-armada.md](./docs/armada-improves-armada.md) for the
-two-lane how-to, and [docs/validation.md](./docs/validation.md) for the recorded results.
+patrol/voyage how-to, and [docs/validation.md](./docs/validation.md) for the recorded results.
 
 ---
 

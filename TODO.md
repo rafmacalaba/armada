@@ -341,10 +341,10 @@ lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/la
   marked integration-only if unfakeable.
 - [x] **Docs.** `docs/armada-improves-armada.md` + `docs/sandbox.md` updated to the new drive step.
 
-### Fleet terminology — retire "Lane A" / "Lane B" (IDEATION, HIGH)
+### Fleet terminology (glossary) — retire "Lane A" / "Lane B" (IDEATION, HIGH)
 
-The repo names the two self-improvement modes **Lane A (audit)** and **Lane B (feature)**. The
-metaphor is generic and the naming doesn't echo the armada/fleet identity the tool actually
+Old terminology: the repo names the two self-improvement modes **Lane A (audit)** and **Lane B (feature)**.
+The metaphor is generic and the naming doesn't echo the armada/fleet identity the tool actually
 ships. Ideate a coined set and refactor docs + code to it.
 
 Candidate vocabularies (pick or blend):
@@ -352,8 +352,8 @@ Candidate vocabularies (pick or blend):
 - **Ships / voyages.** A lane → a **ship** (or **vessel**); the worktree it runs in → its
   **harbor/slip** (`sandbox/<name>`); driving it → **casting off**; the run → a **voyage**;
   completing a lane → **docking**; a killed-then-resumed run → **returning to port**; the
-  orchestrator → **captain**; the fleet → **the armada** (already). Lane A → **inspection/
-  patrol voyage**; Lane B → **construction voyage**.
+  orchestrator → **captain**; the fleet → **the armada** (already). Audit runs →
+  **inspection/patrol voyage**; feature runs → **construction voyage**.
 - **Deployments / missions.** A lane → a **mission**; the worktree → the **launchpad**; driving
   → **launching**; the audit → a **patrol**; the feature → a **build mission**.
 - **Regiments / patrols.** A lane → a **patrol**; feature work → **deployment**; audit →
@@ -361,24 +361,24 @@ Candidate vocabularies (pick or blend):
 
 Suggested target (blend of the top candidates):
 
-- `Lane B` → **voyage** (a feature-implementation run)
-- `Lane A` → **patrol** (a recurring audit run)
+- Old terminology: `Lane B` → **voyage** (a feature-implementation run)
+- Old terminology: `Lane A` → **patrol** (a recurring audit run)
 - `sandbox/<name>` → **dock** (docs still say "sandbox"; `dock` is a drop-in)
 - `drive the contract` → **set sail** (or keep "drive" — less jokey)
 - tmux session name → **ship name** (already the feature name)
 
 Refactor scope:
 
-- [ ] **Docs.** `docs/armada-improves-armada.md` (two-lane skeleton, Lane A / Lane B sections),
+- [ ] **Docs.** `docs/armada-improves-armada.md` (two-mode skeleton, patrol / voyage sections),
   `docs/sandbox.md`, `docs/using-armada.md`, `README.md`, `AGENTS.md` — swap the coined terms,
   keep a one-line glossary for the old names.
-- [ ] **Code.** Any user-facing strings ("lane", "Lane B") in `src/` (commands, help text,
+- [ ] **Code.** (Old terminology) Any user-facing strings ("lane", "Lane B") in `src/` (commands, help text,
   scaffold output) and the orchestrator prompt (`agents/orchestrator/prompt.template.md`).
   Keep CLI flags/commands stable (`armada feature`, worktree branches) — renaming the *concept*,
   not the plumbing.
 - [ ] **Decide, don't bikeshed.** Pick the term set in one brainstorming pass, then refactor
   mechanical. If the fleet itself builds this, it's a small docs+strings contract.
-- [ ] **Tests.** Grep-based test that no doc or generated artifact still says "Lane A"/"Lane B"
+- [ ] **Tests.** (Old terminology) Grep-based test that no doc or generated artifact still says "Lane A"/"Lane B"
   after the refactor (or a documented glossary exemption).
 
 ### Team role names — armada terms for the roster (IDEATION, HIGH)
@@ -503,7 +503,7 @@ Shipped in #59 (`feat/fleet-dashboard`): 4 phases, 511/511 tests green.
 
 ### Self-improvement issue posting — armada files issues back to armada (IDEATION, HIGH)
 
-Armada improves itself in-band today (Lane A audit, Lane B feature, `docs/validation.md`), but
+Armada improves itself in-band today (patrol, voyage, `docs/validation.md`), but
 there's no out-of-band channel: when a fleet run on ANY armada-armed repo (e.g.
 `~/WBG/data-ai-chatbot`) hits something it cannot resolve — a template that misled it, a
 generator bug, a prompt that stalled the orchestrator, a missing command — there's no way for
@@ -534,7 +534,7 @@ Design sketch:
   armada.yaml (`project.upstreamRepo` or similar, default `rafmacalaba/opencode-armada`),
   overridable. `gh` must be authed (doctor already checks provider auth); no gh → the draft is
   written to a local file the user can paste.
-- **Relation to audit lane.** This is the *distributed* half of Lane A: audits are armada's own
+- **Relation to audit lane.** This is the *distributed* half of patrol: audits are armada's own
   fleet reviewing itself; issue-posting lets any customer's fleet report back too.
 
 Open questions to ideate before building:
@@ -590,7 +590,7 @@ Design (Approach B — both sides capture, docs digests):
   and files only on approval (`gh issue create` against armada's repo, or a paste-able local
   draft when no `gh`/remote). Never silent, never automatic. If it judges nothing worth filing,
   nothing is filed. Composes with the self-improvement issue-posting spec above.
-- [ ] **Periodic template edits.** A recurring review pass (the existing Lane A audit) reads
+- [ ] **Periodic template edits.** A recurring review pass (the existing patrol audit) reads
   accumulated digests across runs; recurring clusters become template-edit PRs, human-reviewed
   and merged.
 - [ ] **Tests + docs.** Prompt tests assert every subagent carries the findings rule and the
@@ -762,7 +762,7 @@ tracked by the orchestrator across sessions.
 - [ ] Multi-feature via worktrees — open, in Backlog → Medium.
 - [ ] Live validation in a real repo — open, in Backlog → High.
 
-#### Finding from the first Lane B run (2026-08-02)
+#### Finding from the first voyage run (2026-08-02)
 
 The fleet implemented the session-based state feature end-to-end (~26m, $0.18, autonomous
 `--yolo`) — but it edited its sandbox's **generated** `.opencode/agent/*.md` + command copies,
@@ -774,7 +774,7 @@ fixed test portability).
 **Lesson for self-improvement:** when armada improves itself, the contract must require edits to
 the **tracked source templates** (e.g. `agents/**`, `src/**`), and the fleet should verify the
 change survives `armada init --from-armada` (re-scaffold round-trip), not just the live
-`.opencode/` config. Add a "verify via re-scaffold" gate to Lane B contracts that touch armada's
+`.opencode/` config. Add a "verify via re-scaffold" gate to voyage contracts that touch armada's
 own generators/templates.
 
 #### `--yolo` still co-writes
@@ -790,7 +790,7 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 
 - [x] **Self-dogfood: armada on armada** (2026-08-01) — scaffolded the team into a sandbox
   worktree, dispatched security + architect as background subagents, then uninstalled to a
-  pristine repo. Results in `docs/validation.md`. The unified two-lane workflow (audit +
+  pristine repo. Results in `docs/validation.md`. The unified two-mode workflow (audit +
   feature) now lives in `docs/armada-improves-armada.md`.
 
 ### Polish — done
@@ -800,3 +800,5 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 - [x] **Lane drive visible terminal + handshake polish** — the `armada drive` quick win
   (above) covers the TUI-ready handshake and terminal auto-open; backfilled into the
   polish ledger with the rest of the lane-drive feature. Shipped 2026-08-03.
+
+<!-- Old terminology: Lane A = patrol, Lane B = voyage. See README.md for the canonical glossary. -->

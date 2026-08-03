@@ -58,18 +58,18 @@ describe("renderInitSummary", () => {
 
   it("includes enabled roles in roster with model string", () => {
     const out = renderInitSummary(balancedManifest)
-    assert.ok(out.includes("  orchestrator: opencode-go/minimax-m3"), "missing orchestrator")
-    assert.ok(out.includes("  backend-dev: opencode-go/deepseek-v4-pro"), "missing backend-dev")
-    assert.ok(out.includes("  frontend-dev: opencode-go/minimax-m3"), "missing frontend-dev")
-    assert.ok(out.includes("  qa: opencode/mimo-v2.5-free"), "missing qa")
-    assert.ok(out.includes("  adversary: opencode-go/deepseek-v4-pro"), "missing adversary")
-    assert.ok(out.includes("  docs: opencode/deepseek-v4-flash-free"), "missing docs")
+    assert.ok(out.includes("  Commodore: opencode-go/minimax-m3"), "missing Commodore")
+    assert.ok(out.includes("  Galleon: opencode-go/deepseek-v4-pro"), "missing Galleon")
+    assert.ok(out.includes("  Clipper: opencode-go/minimax-m3"), "missing Clipper")
+    assert.ok(out.includes("  Corvette: opencode/mimo-v2.5-free"), "missing Corvette")
+    assert.ok(out.includes("  Xebec: opencode-go/deepseek-v4-pro"), "missing Xebec")
+    assert.ok(out.includes("  Caravel: opencode/deepseek-v4-flash-free"), "missing Caravel")
   })
 
   it("omits disabled roles from roster", () => {
     const out = renderInitSummary(balancedManifest)
-    assert.ok(!out.includes("  security:"), "should omit disabled security role")
-    assert.ok(!out.includes("  architect:"), "should omit disabled architect role")
+    assert.ok(!out.includes("  Frigate:"), "should omit disabled Frigate role")
+    assert.ok(!out.includes("  Bark:"), "should omit disabled Bark role")
   })
 
   it("includes Next steps section with three bullets", () => {
@@ -94,12 +94,12 @@ describe("renderInitSummary", () => {
       "Budget: balanced",
       "Cost:   free workers, paid reviewers/judges",
       "Roster:",
-      "  orchestrator: opencode-go/minimax-m3",
-      "  backend-dev: opencode-go/deepseek-v4-pro",
-      "  frontend-dev: opencode-go/minimax-m3",
-      "  qa: opencode/mimo-v2.5-free",
-      "  adversary: opencode-go/deepseek-v4-pro",
-      "  docs: opencode/deepseek-v4-flash-free",
+      "  Commodore: opencode-go/minimax-m3",
+      "  Galleon: opencode-go/deepseek-v4-pro",
+      "  Clipper: opencode-go/minimax-m3",
+      "  Corvette: opencode/mimo-v2.5-free",
+      "  Xebec: opencode-go/deepseek-v4-pro",
+      "  Caravel: opencode/deepseek-v4-flash-free",
       "Next steps:",
       "  1. opencode",
       "  2. /armada  -> team status",

@@ -2,10 +2,10 @@
 
 The default use case. You have a project — a landing page, a CLI, a service, or an existing
 codebase — and you want a reproducible AI-engineer team to build features in it, or to audit
-it. You run `armada init` to scaffold the team into the project, drive the orchestrator, ship.
+it. You run `armada init` to scaffold the team into the project, steer the orchestrator, ship.
 
 This is the inverse of [docs/armada-improves-armada.md](./armada-improves-armada.md) — that
-doc covers using armada on **armada itself** (sandbox worktrees); this one covers using armada
+doc covers using armada on **armada itself** (dock worktrees); this one covers using armada
 on **anything else**.
 
 ## Why this works
@@ -62,14 +62,14 @@ straight into it. No separate "start armada" step — the protocol is live when 
 The orchestrator dispatches the team in **parallel** as opencode-native background subagents:
 independent phases, and `backend-dev ∥ frontend-dev` within a phase.
 
-## How you drive it (the co-write conversation)
+## How you steer it (the co-write conversation)
 
 You don't write code — you talk to the orchestrator. It is the only agent you address; it
 delegates everything else.
 
 1. **Attach to the orchestrator.** If you launched `opencode` directly, you're already in it.
-   If armada is running in a detached tmux session (e.g. a `sandbox/` worktree), attach with
-   `tmux attach -t <session>`. You'll see `Orchestrator · <model>` at the bottom.
+   If armada is running on a detached ship (a tmux session — e.g. in a `sandbox/` worktree),
+   attach with `tmux attach -t <ship>`. You'll see `Orchestrator · <model>` at the bottom.
 2. **Describe what you want.** Say it in plain language — scope, what "done" means, any
    constraints. You can paste a TODO item, a bug report, or a raw wish.
 3. **Co-write the contract.** The orchestrator reads `armada/REQUIREMENTS.md` (the current
@@ -143,7 +143,7 @@ Every scaffold ships five in-session commands under `.opencode/commands/`:
 | `/armada-status` | Read `.opencode/fleet-status.md` — active phases, last update, next action |
 | `/armada-scout` | Dispatch a read-only investigation (adversary/architect), no writes, no PR |
 | `/armada-resume` | Read `.opencode/fleet-status.md`, summarize pending phases, ask the next action |
-| `/armada-fleet` | Per-lane progress dashboard (same store as the `armada fleet` CLI) |
+| `/armada-fleet` | Per-dock progress dashboard (same store as the `armada fleet` CLI) |
 
 **Fleet status file (`.opencode/fleet-status.md`):** written by the orchestrator so a killed
 session can be resumed. Format: YAML frontmatter (`active_phases`, `last_update`, `next_action`)
@@ -463,7 +463,7 @@ What it changes:
 Run it: `opencode run --agent orchestrator "run armada/REQUIREMENTS.md"` — or launch the TUI and
 work hands-on while the fleet dispatches in the background.
 
-### 5. Drive the team
+### 5. Set sail
 
 Interactive:
 
@@ -474,7 +474,7 @@ OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode
 
 Then either describe the goal in plain language (the orchestrator will read the
 contract, dispatch phases, and reconcile results) or run an explicit
-`/armada <phase>` to drive a specific phase.
+`/armada <phase>` to steer a specific phase.
 
 Headless / CI-safe:
 
@@ -526,25 +526,25 @@ node /path/to/opencode-armada/src/cli.js uninstall --all
 
 ## Fleet dashboard
 
-Every `armada drive` lane writes a small JSON progress file under
+Every dock you boot with `armada voyage` writes a small JSON progress file under
 `~/.armada/runs/<session>.json` (or `$ARMADA_RUNS_DIR` if set). `armada fleet` turns those
-files into one table of every active lane:
+files into one table of every active dock:
 
 ```
-armada fleet            # one row per active lane: session, lane, phase, status, age, cost
+armada fleet            # one row per active dock: ship, dock, phase, status, age, cost
 armada fleet --json     # machine-readable, for scripts
-armada fleet <session>  # one lane's full detail (state + last pane tail)
+armada fleet <session>  # one dock's full detail (state + last pane tail)
 ```
 
-A heartbeat keeps an entry fresh. Three ways to drive it:
+A heartbeat keeps an entry fresh. Three ways to keep it fresh:
 
-- `armada drive --heartbeat` — for one-off runs.
+- `armada voyage --heartbeat` — for one-off runs.
 - `armada init --fleet-tracker` — opt-in plugin (`.opencode/plugins/armada-fleet.js`) that hooks
   opencode's session lifecycle, so entries stay fresh without extra flags.
 - `armada.yaml`: `project.supervision.fleet: true` — same as the flag, set at scaffold time.
 
-A lane shows STALLED when no heartbeat has arrived in the last 2 minutes — the session likely
-died. Re-attach with `tmux attach -t <name>` or restart it with `armada drive <lane>`.
+A dock shows STALLED when no heartbeat has arrived in the last 2 minutes — the ship likely
+died. Re-attach with `tmux attach -t <name>` or restart it with `armada voyage <dock>`.
 
 ## Audit an existing repo
 
@@ -608,7 +608,7 @@ Repeat until the loop feels mechanical.
 
 ## See also
 
-- [docs/armada-improves-armada.md](./armada-improves-armada.md) — using armada on *armada itself* (sandbox worktrees).
+- [docs/armada-improves-armada.md](./armada-improves-armada.md) — using armada on *armada itself* (dock worktrees).
 - [docs/sandbox.md](./sandbox.md) — venue details: worktrees, scaffold, lifecycle, cleanup.
 - [SPEC.md](../../SPEC.md) — manifest schema and contract format.
 - [TODO.md](../../TODO.md) — current roadmap.
