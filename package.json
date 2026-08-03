@@ -14,8 +14,7 @@
     "template",
     "starter",
     "agents",
-    "presets",
-    "commands"
+    "presets"
   ],
   "scripts": {
     "start": "node src/cli.js",
