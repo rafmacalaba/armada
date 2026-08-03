@@ -17,7 +17,9 @@ import {
   renderArmadaStatusCommand,
   renderArmadaScoutCommand,
   renderArmadaResumeCommand,
+  renderArmadaFleetCommand,
   renderArmadaSupervisionPlugin,
+  renderArmadaFleetPlugin,
 } from "./generator.js"
 import { ROLES } from "./model-catalog.js"
 import { formatStack } from "./stack-detect.js"
@@ -324,10 +326,16 @@ export function scaffold(manifest, stack, opts = {}) {
   write(".opencode/commands/armada-status.md", renderArmadaStatusCommand())
   write(".opencode/commands/armada-scout.md", renderArmadaScoutCommand())
   write(".opencode/commands/armada-resume.md", renderArmadaResumeCommand())
+  write(".opencode/commands/armada-fleet.md", renderArmadaFleetCommand())
 
   // 7b. Opt-in thin supervision plugin.
   if (manifest.project.supervision?.plugin) {
     write(".opencode/plugins/armada-supervision.js", renderArmadaSupervisionPlugin(team))
+  }
+
+  // 7c. Opt-in fleet tracker plugin.
+  if (manifest.project.supervision?.fleet) {
+    write(".opencode/plugins/armada-fleet.js", renderArmadaFleetPlugin())
   }
 
   // 8. Optional devcontainer.
@@ -383,11 +391,12 @@ export function uninstall(manifest, opts = {}) {
   const requirementsFile = manifest?.project?.requirementsFile ?? "armada/REQUIREMENTS.md"
   removeFile(requirementsFile)
   removeEmptyDir("armada")
-  for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume"]) {
+  for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume", "armada-fleet"]) {
     removeFile(`.opencode/commands/${cmd}.md`)
   }
   // Opt-in supervision plugin (armada-owned, only removed when present).
   removeFile(".opencode/plugins/armada-supervision.js")
+  removeFile(".opencode/plugins/armada-fleet.js")
   removeEmptyDir(".opencode/plugins")
   // Remove armada's native agent files by exact role name; keep any user agent files.
   const agentDir = join(target, ".opencode/agent")

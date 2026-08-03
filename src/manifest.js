@@ -112,6 +112,9 @@ export function parseManifestYaml(text, target) {
   if (p.supervision?.plugin !== undefined && typeof p.supervision.plugin !== "boolean") {
     throw new Error("armada.yaml: schema violation: project.supervision.plugin must be a boolean")
   }
+  if (p.supervision?.fleet !== undefined && typeof p.supervision.fleet !== "boolean") {
+    throw new Error("armada.yaml: schema violation: project.supervision.fleet must be a boolean")
+  }
   if (p.feature !== undefined) {
     if (typeof p.feature !== "string" || p.feature === "") {
       throw new Error("armada.yaml: schema violation: project.feature must be a non-empty string")
@@ -159,6 +162,7 @@ export function parseManifestYaml(text, target) {
       feature: p.feature ?? null,
       supervision: {
         plugin: p.supervision?.plugin ?? false,
+        fleet: p.supervision?.fleet ?? false,
       },
       stack: {
         frontend: stack.frontend ?? null,

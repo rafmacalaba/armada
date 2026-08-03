@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process"
+import { basename } from "node:path"
+import { defaultRunEntry, writeRun, updateRun } from "./fleet-tracker.js"
 
 export class DriveError extends Error {
   constructor(message, paneTail) {
@@ -27,6 +29,16 @@ function defaultExec(bin, args, opts = {}) {
   })
 }
 
+async function defaultGitBranch(cwd) {
+  try {
+    const { stdout, code } = await defaultExec("git", ["rev-parse", "--abbrev-ref", "HEAD"], { cwd })
+    if (code === 0 && stdout.trim()) return stdout.trim()
+  } catch {
+    // git missing
+  }
+  return ""
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 function defaultLog(msg) {
@@ -46,12 +58,36 @@ export async function bootLane({
   tmuxBin = "tmux",
   exec: givenExec,
   log = defaultLog,
+  track = true,
+  lane = null,
+  branch = null,
+  contractPath = null,
+  cost = 0,
+  gitBranch = defaultGitBranch,
 }) {
   const run = givenExec || defaultExec
+  const laneName = lane ?? basename(cwd)
+  const branchName = branch ?? (await gitBranch(cwd))
+  const contract = contractPath ?? "armada/REQUIREMENTS.md"
 
   const has = await run(tmuxBin, ["has-session", "-t", name])
   if (has.code === 0) {
     log(`[drive] session ${name} exists, reattaching`)
+
+    // Refresh heartbeat on reattach
+    if (track) {
+      try {
+        const { capturePaneTail } = await import("./heartbeat.js")
+        const paneTail = await capturePaneTail({ tmuxBin, session: name, exec: run })
+        await updateRun(name, {
+          lastHeartbeatAt: new Date().toISOString(),
+          tmuxPaneTail: paneTail,
+        })
+      } catch (err) {
+        log(`[drive] tracker warning: updateRun failed for reattach — ${err.message}`)
+      }
+    }
+
     return { name, attached: true }
   }
 
@@ -67,6 +103,22 @@ export async function bootLane({
   ])
   if (create.code !== 0) {
     throw new DriveError(`tmux new-session failed: ${create.stderr}`, "")
+  }
+
+  // Write run entry on first boot
+  if (track) {
+    try {
+      const entry = defaultRunEntry({
+        session: name,
+        cwd: laneName,
+        branch: branchName,
+        contractPath: contract,
+      })
+      entry.cost = cost
+      await writeRun(entry)
+    } catch (err) {
+      log(`[drive] tracker warning: writeRun failed — ${err.message}`)
+    }
   }
 
   const deadline = Date.now() + timeoutMs

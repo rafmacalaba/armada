@@ -141,6 +141,7 @@ describe("bootLane", () => {
       tmuxBin,
       exec: execFn,
       log: (msg) => logs.push(msg),
+      track: false,
     })
     assert.deepStrictEqual(result, { name: "happy-test", attached: false })
     assert.ok(logs.some((m) => m.includes("creating session")))
@@ -159,6 +160,7 @@ describe("bootLane", () => {
       registerTimeoutMs: 200,
       tmuxBin,
       exec: execFn,
+      track: false,
     })
 
     // Second run: should attach, not re-create
@@ -174,6 +176,7 @@ describe("bootLane", () => {
       tmuxBin,
       exec: execFn,
       log: (msg) => logs.push(msg),
+      track: false,
     })
     assert.deepStrictEqual(result, { name: "idem-test", attached: true })
     assert.ok(logs.some((m) => m.includes("reattaching")))
@@ -193,6 +196,7 @@ describe("bootLane", () => {
           registerTimeoutMs: 50,
           tmuxBin,
           exec: execFn,
+          track: false,
         }),
       {
         name: "DriveError",
@@ -215,6 +219,7 @@ describe("bootLane", () => {
       tmuxBin,
       exec: execFn,
       log: (msg) => logs.push(msg),
+      track: false,
     })
     // Should see the resend log message
     assert.ok(logs.some((m) => m.includes("resending prompt")))
@@ -232,6 +237,7 @@ describe("bootLane", () => {
       registerTimeoutMs: 200,
       tmuxBin,
       exec: execFn,
+      track: false,
     })
 
     // Read the sendlog and verify the prompt was passed literally as a single arg
@@ -266,11 +272,143 @@ describe("bootLane", () => {
           registerTimeoutMs: 100,
           tmuxBin,
           exec: execFn,
+          track: false,
         }),
       {
         name: "DriveError",
         message: /did not register/,
       },
     )
+  })
+})
+
+describe("bootLane tracker integration", () => {
+  let stateDir
+  let binDir
+  let tmuxBin
+  let execFn
+  let storeDir
+
+  before(() => {
+    stateDir = mkdtempSync(join(tmpdir(), "drive-track-"))
+    binDir = makeBin({ tmux: FAKE_TMUX })
+    tmuxBin = join(binDir, "tmux")
+    execFn = makeExec(stateDir)
+    storeDir = mkdtempSync(join(tmpdir(), "drv-runs-"))
+    process.env.ARMADA_RUNS_DIR = storeDir
+  })
+
+  after(() => {
+    delete process.env.ARMADA_RUNS_DIR
+    try { rmSync(stateDir, { recursive: true, force: true }) } catch { /* ok */ }
+    try { rmSync(binDir, { recursive: true, force: true }) } catch { /* ok */ }
+    try { rmSync(storeDir, { recursive: true, force: true }) } catch { /* ok */ }
+  })
+
+  it("writes a run entry on first boot", async () => {
+    const result = await bootLane({
+      name: "tracker-test",
+      cwd: "/tmp/some-lane",
+      command: "opencode",
+      prompt: "Drive the contract",
+      timeoutMs: 5000,
+      pollMs: 10,
+      registerTimeoutMs: 200,
+      tmuxBin,
+      exec: execFn,
+      track: true,
+      branch: "feat/fleet-dashboard",
+      gitBranch: async () => "feat/fleet-dashboard",
+    })
+    assert.strictEqual(result.attached, false)
+
+    // Check run file exists
+    const runPath = join(storeDir, "tracker-test.json")
+    let raw
+    try {
+      raw = readFileSync(runPath, "utf8")
+    } catch {
+      assert.fail("run file should exist at " + runPath)
+    }
+    const entry = JSON.parse(raw)
+    assert.strictEqual(entry.session, "tracker-test")
+    assert.strictEqual(entry.status, "ACTIVE")
+    assert.strictEqual(entry.lane, "some-lane")
+    assert.strictEqual(entry.branch, "feat/fleet-dashboard")
+    assert.strictEqual(entry.contract, "armada/REQUIREMENTS.md")
+  })
+
+  it("updates lastHeartbeatAt on reattach", async () => {
+    // First boot writes the entry
+    await bootLane({
+      name: "reattach-track",
+      cwd: "/tmp/reattach-lane",
+      command: "opencode",
+      prompt: "Drive the contract",
+      timeoutMs: 5000,
+      pollMs: 10,
+      registerTimeoutMs: 200,
+      tmuxBin,
+      exec: execFn,
+      track: true,
+      branch: "feat/fleet-dashboard",
+      gitBranch: async () => "feat/fleet-dashboard",
+    })
+
+    // Read the initial entry
+    const runPath = join(storeDir, "reattach-track.json")
+    const initial = JSON.parse(readFileSync(runPath, "utf8"))
+    const initialHb = initial.lastHeartbeatAt
+
+    // Wait a tiny bit so timestamp changes
+    await new Promise((r) => setTimeout(r, 50))
+
+    // Reattach
+    const result = await bootLane({
+      name: "reattach-track",
+      cwd: "/tmp/reattach-lane",
+      command: "opencode",
+      prompt: "Drive the contract",
+      timeoutMs: 5000,
+      pollMs: 10,
+      tmuxBin,
+      exec: execFn,
+      track: true,
+      branch: "feat/fleet-dashboard",
+      gitBranch: async () => "feat/fleet-dashboard",
+    })
+    assert.strictEqual(result.attached, true)
+
+    // Check lastHeartbeatAt advanced
+    const updated = JSON.parse(readFileSync(runPath, "utf8"))
+    assert.ok(
+      new Date(updated.lastHeartbeatAt).getTime() >= new Date(initialHb).getTime(),
+      "lastHeartbeatAt should not go backwards on reattach",
+    )
+  })
+
+  it("does not write run entry when track is false", async () => {
+    await bootLane({
+      name: "no-track-test",
+      cwd: "/tmp/no-track-lane",
+      command: "opencode",
+      prompt: "Drive the contract",
+      timeoutMs: 5000,
+      pollMs: 10,
+      registerTimeoutMs: 200,
+      tmuxBin,
+      exec: execFn,
+      track: false,
+      branch: "feat/fleet-dashboard",
+      gitBranch: async () => "feat/fleet-dashboard",
+    })
+
+    const runPath = join(storeDir, "no-track-test.json")
+    try {
+      readFileSync(runPath, "utf8")
+      assert.fail("run file should NOT exist when track=false")
+    } catch (err) {
+      assert.strictEqual(err.code, "ENOENT", "file should be absent")
+    }
   })
 })

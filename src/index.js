@@ -13,6 +13,7 @@ export {
   renderArmadaStatusCommand,
   renderArmadaScoutCommand,
   renderArmadaResumeCommand,
+  renderArmadaFleetCommand,
   renderArmadaSupervisionPlugin,
 } from "./generator.js"
 export { scaffold, uninstall, fillPrompt, fillTemplate } from "./scaffold.js"

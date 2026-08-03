@@ -3,6 +3,7 @@ import assert from "node:assert"
 
 import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
+import { renderArmadaFleetCommand, renderArmadaFleetPlugin } from "../src/generator.js"
 import { detectStack } from "../src/stack-detect.js"
 import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -74,6 +75,7 @@ test("scaffold writes all expected files", () => {
     ".opencode/commands/armada-status.md",
     ".opencode/commands/armada-scout.md",
     ".opencode/commands/armada-resume.md",
+    ".opencode/commands/armada-fleet.md",
     ...ROLES.map((r) => `.opencode/agent/${r}.md`),
   ]
   for (const f of expected) {
@@ -213,6 +215,7 @@ test("uninstall removes bundled command files", () => {
     ".opencode/commands/armada-status.md",
     ".opencode/commands/armada-scout.md",
     ".opencode/commands/armada-resume.md",
+    ".opencode/commands/armada-fleet.md",
   ]) {
     assert.ok(existsSync(join(dir, f)), `present before uninstall: ${f}`)
   }
@@ -222,6 +225,7 @@ test("uninstall removes bundled command files", () => {
     ".opencode/commands/armada-status.md",
     ".opencode/commands/armada-scout.md",
     ".opencode/commands/armada-resume.md",
+    ".opencode/commands/armada-fleet.md",
   ]) {
     assert.ok(!existsSync(join(dir, f)), `removed after uninstall: ${f}`)
     assert.ok(removed.includes(f), `listed in removed: ${f}`)
@@ -245,6 +249,26 @@ test("supervision plugin written only when enabled, removed on uninstall", () =>
   const removed = uninstall(manifest)
   assert.ok(!existsSync(plugin), "plugin removed on uninstall")
   assert.ok(removed.includes(".opencode/plugins/armada-supervision.js"))
+})
+
+test("scaffold writes armada-fleet.md matching generator output", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-fleet-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+
+  const path = join(dir, ".opencode/commands/armada-fleet.md")
+  assert.ok(existsSync(path), "armada-fleet.md exists")
+
+  const content = readFileSync(path, "utf8")
+  assert.strictEqual(content, renderArmadaFleetCommand(), "content matches generator output")
+  assert.match(content, /armada fleet/)
+  assert.match(content, /node src\/cli\.js fleet/)
+
+  const removed = uninstall(manifest)
+  assert.ok(!existsSync(path), "armada-fleet.md removed on uninstall")
+  assert.ok(removed.includes(".opencode/commands/armada-fleet.md"))
+
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test("scaffold prunes stale omo-slim artifacts on re-scaffold", () => {
@@ -434,6 +458,43 @@ test("scaffold throws when custom prompt template is missing", () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
+// -- Phase 4: fleet tracker plugin scaffold --
+test("fleet plugin not written by default", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-flt-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  assert.ok(!existsSync(join(dir, ".opencode/plugins/armada-fleet.js")), "no fleet plugin by default")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("fleet plugin written when supervision.fleet is true", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-flt2-"))
+  const manifest = makeManifest(dir)
+  manifest.project.supervision = { fleet: true }
+  scaffold(manifest, manifest.project.stack)
+  const plugin = join(dir, ".opencode/plugins/armada-fleet.js")
+  assert.ok(existsSync(plugin), "fleet plugin written when enabled")
+  const src = readFileSync(plugin, "utf8")
+  assert.match(src, /export const ArmadaFleet/)
+  assert.match(src, /session\.created/)
+  assert.match(src, /session\.idle/)
+  assert.match(src, /session\.closed/)
+  assert.strictEqual(src, renderArmadaFleetPlugin(), "content matches generator output")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("fleet plugin removed on uninstall", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-flt3-"))
+  const manifest = makeManifest(dir)
+  manifest.project.supervision = { fleet: true }
+  scaffold(manifest, manifest.project.stack)
+  const plugin = join(dir, ".opencode/plugins/armada-fleet.js")
+  assert.ok(existsSync(plugin), "fleet plugin present before uninstall")
+  const removed = uninstall(manifest)
+  assert.ok(!existsSync(plugin), "fleet plugin removed on uninstall")
+  assert.ok(removed.includes(".opencode/plugins/armada-fleet.js"))
+  rmSync(dir, { recursive: true, force: true })
+})
 // -- Phase 1: managed .gitignore block --
 
 function gitignoreBlock() {

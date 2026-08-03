@@ -28,7 +28,13 @@ import { main as reconcileMain } from "./reconcile-cli.js"
 import { renderInitSummary } from "./init-summary.js"
 import { applyPreset } from "./preset-command.js"
 import { bootLane, DriveError } from "./drive.js"
+import { startHeartbeat } from "./heartbeat.js"
 import { openTerminal } from "./terminal-open.js"
+import { listRuns, readRun } from "./fleet-tracker.js"
+import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cmd.js"
+
+// Track active heartbeat intervals so they can be cleaned up on exit.
+const activeHeartbeats = new Map()
 
 export const VERSION = "0.6.2"
 
@@ -43,6 +49,7 @@ Usage:
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
   armada init --yolo                         autonomous: no permission prompts (bash allow, edit boundaries kept)
   armada init --supervision-plugin           opt-in thin supervision plugin (.opencode/plugins/)
+  armada init --fleet-tracker                opt-in fleet tracker plugin (.opencode/plugins/)
   armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
   armada init --target <dir>                 scaffold into a directory (default cwd)
   armada init --from-armada armada/armada.yaml      regenerate from manifest
@@ -56,9 +63,10 @@ Usage:
   armada feature list                        list open/in-progress/shipped features
   armada feature close <name>                verify evidence + mark shipped
   armada feature status [name]               show active or named feature state
+  armada fleet [session] [--json] [--open]   per-lane progress dashboard (table by default)
   armada reconcile [--json] [--state-dir <p>] [--repo <p>]
-                          check for evidence drifts against contract (exit 2 if drifts)
-  armada drive <lane-path>                boot a lane session and send the drive prompt (TUI-ready handshake)
+                           check for evidence drifts against contract (exit 2 if drifts)
+  armada drive <lane-path> [--heartbeat]  boot a lane session and send the drive prompt (TUI-ready handshake)
   armada ping                                sanity check
   armada help                                this help
 `
@@ -141,6 +149,8 @@ export async function main(argv = process.argv.slice(2)) {
       return featureCmd(rest)
     case "reconcile":
       return reconcileCmd(rest)
+    case "fleet":
+      return fleetCmd(rest)
     case "drive":
       return driveCmd(rest)
     case "preset":
@@ -186,6 +196,25 @@ function logError(err, hint) {
     if (hint) console.error(hint)
   }
 }
+
+// Clean up active heartbeats on exit / interrupt
+function stopAllHeartbeats() {
+  for (const [, hb] of activeHeartbeats) {
+    try { hb.stop() } catch { /* best-effort */ }
+  }
+  activeHeartbeats.clear()
+}
+process.on("SIGINT", () => {
+  stopAllHeartbeats()
+  process.exit(0)
+})
+process.on("SIGTERM", () => {
+  stopAllHeartbeats()
+  process.exit(0)
+})
+process.on("exit", () => {
+  stopAllHeartbeats()
+})
 
 if (isMain) {
   main()
@@ -253,8 +282,12 @@ async function init(args) {
     manifest.project.yolo = true
   }
   if (args.includes("--supervision-plugin")) {
-    manifest.project.supervision = manifest.project.supervision ?? { plugin: false }
+    manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: false }
     manifest.project.supervision.plugin = true
+  }
+  if (args.includes("--fleet-tracker")) {
+    manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: false }
+    manifest.project.supervision.fleet = true
   }
   const reqIdx = args.indexOf("--requirements")
   if (reqIdx !== -1 && args[reqIdx + 1] && !args[reqIdx + 1].startsWith("--")) {
@@ -323,7 +356,7 @@ export function defaultManifest(target = ".") {
       useAgentBrowser: false,
       headless: false,
       yolo: false,
-      supervision: { plugin: false },
+      supervision: { plugin: false, fleet: false },
       requirementsFile: "armada/REQUIREMENTS.md",
       stack: {},
     },
@@ -525,6 +558,9 @@ async function driveCmd(args) {
     return 1
   }
 
+  // --no-track: skip fleet tracker recording
+  const noTrack = args.includes("--no-track")
+
   // --prompt <text>: drive prompt
   const DEFAULT_PROMPT = "Drive the contract in armada/REQUIREMENTS.md. Phase-gate on evidence. Run independent phases in parallel. Don't advance a phase without passing its criteria."
   const rawPrompt = flagValue(args, "--prompt")
@@ -579,8 +615,10 @@ async function driveCmd(args) {
       prompt,
       timeoutMs,
       tmuxBin: "tmux",
+      track: !noTrack,
     })
     let attachSuffix = ""
+
     if (result.attached) {
       if (noOpen) {
         attachSuffix = " (--no-open: skipped auto-attach)"
@@ -594,6 +632,12 @@ async function driveCmd(args) {
       } else {
         attachSuffix = await getAutoOpenSuffix(name)
       }
+      // Start heartbeat on first boot when --heartbeat flag is set and tracking is enabled
+      if (args.includes("--heartbeat") && !noTrack) {
+        const hb = await startHeartbeat({ session: name, intervalMs: 30_000 })
+        activeHeartbeats.set(name, hb)
+        console.log(`started heartbeat for ${name}`)
+      }
       console.log(`armada drive: session "${name}" ready, prompt registered.${attachSuffix}`)
     }
     return 0
@@ -606,6 +650,49 @@ async function driveCmd(args) {
     process.exitCode = 1
     return 1
   }
+}
+
+async function fleetCmd(args) {
+  const json = args.includes("--json")
+  const open = args.includes("--open")
+  const session = args.find((a) => !a.startsWith("--"))
+
+  if (session) {
+    const entry = await readRun(session)
+    if (!entry) {
+      console.error(`error: no run for session "${session}"`)
+      process.exitCode = 1
+      return 1
+    }
+    console.log(renderFleetDetail(entry))
+    return 0
+  }
+
+  const entries = await listRuns()
+
+  if (json) {
+    console.log(renderFleetJson(entries))
+    return 0
+  }
+
+  console.log(renderFleetTable(entries))
+
+  if (open) {
+    try {
+      const result = await openTerminal({
+        name: "armada-fleet",
+        platform: process.platform,
+        env: process.env,
+      })
+      if (!result.opened) {
+        console.error(`hint: unable to open terminal — ${result.hint || "run armada fleet manually"}`)
+      }
+    } catch {
+      console.error("hint: unable to open terminal — run armada fleet manually")
+    }
+  }
+
+  return 0
 }
 
 async function featureCmd(args) {

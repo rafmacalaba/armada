@@ -113,6 +113,7 @@ test("DEF-034: cli-wiring.test.js in tests/", () => {
 
 test("DEF-034: e2e directory has no test files", () => {
   const e2eDir = join(__dirname, "..", "e2e")
+  if (!existsSync(e2eDir)) return
   const entries = readdirSync(e2eDir)
   const testFiles = entries.filter(f => f.endsWith(".test.js"))
   assert.strictEqual(testFiles.length, 0, `e2e/ should have no .test.js files, found: ${testFiles.join(", ")}`)

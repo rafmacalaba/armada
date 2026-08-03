@@ -260,6 +260,58 @@ test("renderManifestYaml omits new fields when null for byte-identical default o
   assert.doesNotMatch(yaml, /    prompt: "/)
 })
 
+// -- Phase 4: supervision.fleet --
+test("parses supervision.fleet: true alongside plugin: false", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "  supervision:",
+    "    plugin: false",
+    "    fleet: true",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.supervision.plugin, false)
+  assert.strictEqual(parsed.project.supervision.fleet, true)
+})
+
+test("rejects supervision.fleet non-boolean", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "  supervision:",
+    "    fleet: \"yes\"",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+  ].join("\n")
+  assert.throws(
+    () => parseManifestYaml(yaml),
+    /supervision\.fleet.*boolean/
+  )
+})
+
+test("parses missing supervision block defaults both to false", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.supervision.plugin, false)
+  assert.strictEqual(parsed.project.supervision.fleet, false)
+})
+
 // -- Phase 2: per-feature ledger paths --
 
 test("DEFAULT_PLAYBOOK defectLedger and adversarialLedger have per-feature paths", async () => {
