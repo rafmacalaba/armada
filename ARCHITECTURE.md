@@ -101,11 +101,19 @@ scaffold(manifest, stack)  — writes all of the above into target repo
 node --test 'tests/*.test.js'
 ```
 
-Three suites:
-- `tests/model-catalog.test.js` (catalog invariants — currently folded into generator tests)
-- `tests/generator.test.js` — catalog coverage, budget logic, jsonc/opencode.json/AGENTS/manifest rendering, stack detection
-- `tests/scaffold.test.js` — prompt filling, file emission, no-clobber behavior
-- `tests/stack-detect.test.js` — stack detection cases
+Suites (all under `tests/`, run by `node --test 'tests/*.test.js'`):
+- `generator.test.js` — catalog coverage, budget logic, opencode.json / agent-file / AGENTS.md /
+  manifest / command / supervision-plugin rendering
+- `scaffold.test.js` — prompt filling, file emission, no-clobber, bundled commands, uninstall,
+  stale-layout pruning
+- `manifest.test.js` — schema validation, round-trip
+- `doctor.test.js` — health checks (opencode, providers, openrouter auth, background dispatch,
+  supervision-plugin presence)
+- `stack-detect.test.js` — stack detection cases
+- `cli.test.js` — CLI e2e (spawns the real CLI)
+- `questionnaire.test.js`, `ui.test.js`, `new-command.test.js`, `recommendations.test.js`,
+  `dogfood.test.js`, `fixtures.test.js`, `models-refresh.test.js`, `roundtrip.test.js`
+- `tests/smoke/` — live OpenRouter smoke (`npm run test:smoke`), skipped without a credential
 
 Run e2e manually:
 

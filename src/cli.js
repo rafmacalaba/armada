@@ -24,7 +24,7 @@ import { parseManifestYaml, validateRequirementsFile } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 import { runNew } from "./new-command.js"
 
-export const VERSION = "0.6.1"
+export const VERSION = "0.6.2"
 
 const HELP = `opencode-armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).

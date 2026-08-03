@@ -253,7 +253,9 @@ is also scaffolded.
 ## Model catalog
 
 Primary models run on opencode/go-zen (free where available); fallbacks are equivalent
-OpenRouter models. Edit `src/model-catalog.js` or use `/preset` in opencode to change them.
+OpenRouter models. Change models per role by editing `src/model-catalog.js` (armada dev) or
+overriding in `armada/armada.yaml` (`agents.<role>.model: "openrouter/<slug>"`), then re-running
+`armada init --from-armada armada/armada.yaml`.
 
 | Role | Primary (opencode) | Fallback (openrouter) |
 |---|---|---|
