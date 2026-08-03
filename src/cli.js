@@ -163,10 +163,14 @@ function logError(err, hint) {
 }
 
 if (isMain) {
-  main().catch((err) => {
-    logError(err, `check permissions on the target directory`)
-    process.exitCode = 1
-  })
+  main()
+    .then((code) => {
+      process.exitCode = code ?? 0
+    })
+    .catch((err) => {
+      logError(err, `check permissions on the target directory`)
+      process.exitCode = 1
+    })
 }
 
 async function init(args) {

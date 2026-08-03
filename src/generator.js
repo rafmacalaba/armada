@@ -74,8 +74,7 @@ const BASE_PERMISSIONS = {
   },
 }
 
-// orchestratorPrompt: injected into the OMO-slim session orchestrator to teach it
-// when to delegate to each armada role. Derived from CATALOG[].reasoning to avoid drift.
+// routingPrompt: delegation hints embedded in each specialist's prompt so the orchestrator knows when to route to them.
 function routingPrompt(role) {
   if (role === "orchestrator") return ""
   const reasoning = CATALOG[role]?.reasoning
