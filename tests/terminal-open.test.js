@@ -323,7 +323,7 @@ test("openTerminal: dryRun returns opened=true without spawning", async () => {
 
 // --- DEF-016: AppleScript injection via session name ---
 
-test("DEF-016: AppleScript escaping — injection chars escaped", async () => {
+test("DEF-016: AppleScript escaping — injection chars escaped (macOS tab path)", async () => {
   const execCalls = []
   const fakeExec = (bin, args) => {
     execCalls.push({ bin, args })
@@ -332,10 +332,11 @@ test("DEF-016: AppleScript escaping — injection chars escaped", async () => {
   const result = await openTerminal({
     name: 'foo"; do shell script "echo PWNED',
     platform: "darwin",
-    env: { PATH: "/usr/bin:/bin" },
+    env: { PATH: "/usr/bin:/bin", TERM_PROGRAM: "Apple_Terminal" },
     exec: fakeExec,
   })
   assert.strictEqual(result.opened, true)
+  assert.strictEqual(result.mode, "tab")
   assert.ok(execCalls.length >= 1, "should have called osascript")
   const argv = execCalls[0].args
   // The AppleScript argument (-e value) should contain escaped quotes
@@ -411,5 +412,179 @@ test("DEF-019: detectITerm finds iTerm from HOME/Applications", () => {
     assert.strictEqual(result, itermPath)
   } finally {
     rmSync(fakeHome, { recursive: true, force: true })
+  }
+})
+
+// --- Phase 2: openTerminal with pickAttachStrategy ---
+
+test("Phase 2: macOS Apple_Terminal tab — AppleScript contains 'in front window'", async () => {
+  const execCalls = []
+  const fakeExec = (bin, args) => {
+    execCalls.push({ bin, args })
+    return Promise.resolve({ stdout: "", stderr: "", code: 0 })
+  }
+  const result = await openTerminal({
+    name: "my-lane",
+    platform: "darwin",
+    env: { PATH: "/usr/bin:/bin", TERM_PROGRAM: "Apple_Terminal" },
+    exec: fakeExec,
+  })
+  assert.strictEqual(result.opened, true)
+  assert.strictEqual(result.kind, "Terminal.app")
+  assert.strictEqual(result.mode, "tab")
+  assert.strictEqual(result.hint, null)
+  assert.ok(execCalls.length >= 1)
+  const scriptLine = execCalls[0].args.join(" ")
+  assert.match(scriptLine, /in front window/, "AppleScript must target front window")
+})
+
+test("Phase 2: macOS iTerm tab — AppleScript contains 'create tab with default profile command'", async () => {
+  const execCalls = []
+  const fakeExec = (bin, args) => {
+    execCalls.push({ bin, args })
+    return Promise.resolve({ stdout: "", stderr: "", code: 0 })
+  }
+  const result = await openTerminal({
+    name: "my-lane",
+    platform: "darwin",
+    env: { PATH: "/usr/bin:/bin", TERM_PROGRAM: "iTerm.app" },
+    exec: fakeExec,
+  })
+  assert.strictEqual(result.opened, true)
+  assert.strictEqual(result.kind, "iTerm")
+  assert.strictEqual(result.mode, "tab")
+  assert.strictEqual(result.hint, null)
+  assert.ok(execCalls.length >= 1)
+  const scriptLine = execCalls[0].args.join(" ")
+  assert.match(scriptLine, /create tab with default profile command/,
+    "iTerm AppleScript must create a tab")
+})
+
+test("Phase 2: Linux with wezterm on PATH — execs wezterm start (window mode from rule 6)", async () => {
+  const binDir = mkdtempSync(join(tmpdir(), "term-wez-"))
+  const weztermBin = join(binDir, "wezterm")
+  writeFileSync(weztermBin, "#!/bin/sh\nexit 0")
+  chmodSync(weztermBin, 0o755)
+  const execCalls = []
+  const fakeExec = (bin, args) => {
+    execCalls.push({ bin, args })
+    return Promise.resolve({ stdout: "", stderr: "", code: 0 })
+  }
+  try {
+    const result = await openTerminal({
+      name: "my-lane",
+      platform: "linux",
+      env: { PATH: binDir, DISPLAY: ":0" },
+      exec: fakeExec,
+    })
+    // Without TERM_PROGRAM, wezterm on PATH enables hasWeztermServer → rule 5 → tab
+    assert.strictEqual(result.opened, true)
+    assert.strictEqual(result.kind, "wezterm")
+    assert.strictEqual(result.mode, "tab")
+    assert.strictEqual(result.hint, null)
+    assert.ok(execCalls.length >= 1)
+    assert.strictEqual(execCalls[0].bin, "wezterm")
+    const joined = execCalls[0].args.join(" ")
+    assert.match(joined, /^start --/)
+    assert.match(joined, /bash -c/)
+    assert.match(joined, /exec bash/)
+  } finally {
+    rmSync(binDir, { recursive: true, force: true })
+  }
+})
+
+test("Phase 2: Linux TERM_PROGRAM=WezTerm — execs wezterm start", async () => {
+  const execCalls = []
+  const fakeExec = (bin, args) => {
+    execCalls.push({ bin, args })
+    return Promise.resolve({ stdout: "", stderr: "", code: 0 })
+  }
+  const result = await openTerminal({
+    name: "my-lane",
+    platform: "linux",
+    env: { PATH: "/usr/bin:/bin", TERM_PROGRAM: "WezTerm", DISPLAY: ":0" },
+    exec: fakeExec,
+  })
+  assert.strictEqual(result.opened, true)
+  assert.strictEqual(result.kind, "wezterm")
+  assert.strictEqual(result.mode, "tab")
+  assert.strictEqual(result.hint, null)
+  assert.ok(execCalls.length >= 1)
+  assert.strictEqual(execCalls[0].bin, "wezterm")
+  const joined = execCalls[0].args.join(" ")
+  assert.match(joined, /^start --/)
+  assert.match(joined, /bash -c/)
+  assert.match(joined, /exec bash/)
+})
+
+test("DEF-025: macOS no-TERM_PROGRAM runs attach command via osascript (macos-window path)", async () => {
+  const execCalls = []
+  const fakeExec = (bin, args) => {
+    execCalls.push({ bin, args })
+    return Promise.resolve({ stdout: "", stderr: "", code: 0 })
+  }
+  const result = await openTerminal({
+    name: "my-lane",
+    platform: "darwin",
+    env: { PATH: "/usr/bin:/bin" },
+    exec: fakeExec,
+  })
+  assert.strictEqual(result.opened, true)
+  assert.strictEqual(result.mode, "window")
+  assert.strictEqual(result.hint, null)
+  assert.strictEqual(result.reason, null)
+  assert.ok(execCalls.length >= 1, "should have called exec")
+  assert.strictEqual(execCalls[0].bin, "osascript")
+  const argvLine = execCalls[0].args.join(" ")
+  assert.match(argvLine, /tmux attach -t 'my-lane'/, "osascript argv must contain the attach command")
+  assert.match(argvLine, /do script/, "osascript must use do script")
+})
+
+// --- DEF-030: vscode/cursor hint path integration test ---
+
+test("DEF-030: openTerminal with TERM_PROGRAM=vscode returns hint (opened=false, mode=hint, hint set)", async () => {
+  const result = await openTerminal({
+    name: "my-lane",
+    platform: "darwin",
+    env: { PATH: "/usr/bin:/bin", TERM_PROGRAM: "vscode" },
+    exec: makeFakeExec("success"),
+  })
+  assert.strictEqual(result.opened, false)
+  assert.strictEqual(result.kind, "none")
+  assert.strictEqual(result.mode, "hint")
+  assert.match(result.hint, /tmux attach -t 'my-lane'/)
+  assert.match(result.reason, /vscode/)
+})
+
+// --- DEF-028: KONSOLE_VERSION openTerminal integration ---
+
+test("DEF-028: openTerminal with KONSOLE_VERSION spawns konsole --new-tab", async () => {
+  const binDir = mkdtempSync(join(tmpdir(), "term-konsole-"))
+  const konsoleBin = join(binDir, "konsole")
+  writeFileSync(konsoleBin, "#!/bin/sh\nexit 0")
+  chmodSync(konsoleBin, 0o755)
+  const execCalls = []
+  const fakeExec = (bin, args) => {
+    execCalls.push({ bin, args })
+    return Promise.resolve({ stdout: "", stderr: "", code: 0 })
+  }
+  try {
+    const result = await openTerminal({
+      name: "my-lane",
+      platform: "linux",
+      env: { PATH: binDir, KONSOLE_VERSION: "24.02.0", DISPLAY: ":0" },
+      exec: fakeExec,
+    })
+    assert.strictEqual(result.opened, true)
+    assert.strictEqual(result.kind, "konsole")
+    assert.strictEqual(result.mode, "tab")
+    assert.ok(execCalls.length >= 1)
+    assert.strictEqual(execCalls[0].bin, "konsole")
+    const joined = execCalls[0].args.join(" ")
+    assert.match(joined, /^--new-tab/)
+    assert.match(joined, /bash -c/)
+    assert.match(joined, /exec bash/)
+  } finally {
+    rmSync(binDir, { recursive: true, force: true })
   }
 })

@@ -53,7 +53,7 @@ export function detectITerm(home) {
   return null
 }
 
-export function pickTerminal({ os, whichResults, hasDisplay }) {
+function _classicPickTerminal({ os, whichResults, hasDisplay }) {
   if (os === "macos") {
     if (whichResults.iTerm) {
       return { kind: "iTerm", argv: ["open", "-a", "iTerm"], attachCmd: "", available: true, reason: null }
@@ -66,6 +66,8 @@ export function pickTerminal({ os, whichResults, hasDisplay }) {
     if (!hasDisplay) {
       return { kind: "none", argv: [], attachCmd: "", available: false, reason: "no display (headless or SSH)" }
     }
+    // gnome-terminal --tab detection deferred: user is in gnome-terminal iff
+    // ps shows parent = gnome-terminal-server, requires platform-specific check.
     if (whichResults.gnomeTerminal) {
       return { kind: "gnome-terminal", argv: ["gnome-terminal", "--", "bash", "-c", "__ATTACH_CMD__; exec bash"], attachCmd: "", available: true, reason: null }
     }
@@ -92,6 +94,63 @@ export function pickTerminal({ os, whichResults, hasDisplay }) {
   }
 
   return { kind: "none", argv: [], attachCmd: "", available: false, reason: `unsupported platform: ${os}` }
+}
+
+export function pickAttachStrategy({ env, os, whichResults, hasDisplay, hasWeztermServer }) {
+  const TERM_PROGRAM = env?.TERM_PROGRAM
+
+  // Rule 1: macOS + Apple_Terminal
+  if (os === "macos" && TERM_PROGRAM === "Apple_Terminal") {
+    return { mode: "tab", kind: "Terminal.app", template: { kind: "macos-tab", app: "Terminal" }, available: true, reason: null, hint: null }
+  }
+
+  // Rule 2: macOS + iTerm.app
+  if (os === "macos" && TERM_PROGRAM === "iTerm.app") {
+    return { mode: "tab", kind: "iTerm", template: { kind: "macos-tab", app: "iTerm" }, available: true, reason: null, hint: null }
+  }
+
+  // Rule 3: WezTerm (any os)
+  if (TERM_PROGRAM === "WezTerm") {
+    return { mode: "tab", kind: "wezterm", template: { kind: "argv-subst", argv: ["wezterm", "start", "--", "bash", "-c", "__ATTACH_CMD__; exec bash"] }, available: true, reason: null, hint: null }
+  }
+
+  // Rule 4: vscode / cursor (takes precedence over rule 5)
+  const isVSCode = TERM_PROGRAM === "vscode" || TERM_PROGRAM === "cursor"
+  const vscodeIpc = env?.VSCODE_IPC_HOOK_CLI
+  if (isVSCode || vscodeIpc) {
+    const term = TERM_PROGRAM || "vscode"
+    return { mode: "hint", kind: "none", template: null, available: false, reason: `${term} integrated terminal cannot be addressed from outside`, hint: null }
+  }
+
+  // Rule 5: wezterm server running (macOS or Linux)
+  if (hasWeztermServer && (os === "macos" || os === "linux")) {
+    return { mode: "tab", kind: "wezterm", template: { kind: "argv-subst", argv: ["wezterm", "start", "--", "bash", "-c", "__ATTACH_CMD__; exec bash"] }, available: true, reason: null, hint: null }
+  }
+
+  // Rule 5b: KONSOLE_VERSION → konsole tab (inside existing konsole window)
+  if (env?.KONSOLE_VERSION) {
+    return { mode: "tab", kind: "konsole", template: { kind: "argv-subst", argv: ["konsole", "--new-tab", "-e", "bash", "-c", "__ATTACH_CMD__; exec bash"] }, available: true, reason: null, hint: null }
+  }
+
+  // Rule 6: delegate to classic pickTerminal
+  const classic = _classicPickTerminal({ os, whichResults, hasDisplay })
+
+  // macOS: open -a Terminal/iTerm has no __ATTACH_CMD__; wrap as macos-window (osascript do script)
+  if (os === "macos" && classic.available && classic.argv[0] === "open" && classic.argv[1] === "-a") {
+    const app = classic.argv[2]
+    return { mode: "window", kind: classic.kind, template: { kind: "macos-window", app }, available: true, reason: null, hint: null }
+  }
+
+  return { mode: "window", kind: classic.kind, template: { kind: "argv-subst", argv: classic.argv }, available: classic.available, reason: classic.reason, hint: null }
+}
+
+export function pickTerminal({ os, whichResults, hasDisplay }) {
+  const s = pickAttachStrategy({ env: {}, os, whichResults, hasDisplay, hasWeztermServer: false })
+  // For backwards compat, strip the new fields and return the original shape
+  if (s.template?.kind === "macos-window") {
+    return { kind: s.kind, argv: ["open", "-a", s.template.app], attachCmd: "", available: s.available, reason: s.reason }
+  }
+  return { kind: s.kind, argv: s.template?.argv ?? [], attachCmd: "", available: s.available, reason: s.reason }
 }
 
 function defaultExec(bin, args, opts = {}) {
@@ -146,38 +205,61 @@ export async function openTerminal({
   }
 
   const hasDisplay = os === "macos" ? true : Boolean(env?.DISPLAY || env?.WAYLAND_DISPLAY)
+  const hasWeztermServer = Boolean(whichResults.wezterm)
 
-  const choice = pickTerminal({ os, whichResults, hasDisplay })
+  const strategy = pickAttachStrategy({ env, os, whichResults, hasDisplay, hasWeztermServer })
 
-  if (!choice.available) {
-    log?.(`[terminal] no terminal available: ${choice.reason}`)
-    return { opened: false, kind: "none", hint: attachCmd }
+  if (!strategy.available) {
+    log?.(`[terminal] no terminal available: ${strategy.reason}`)
+    return { opened: false, kind: "none", mode: "hint", hint: attachCmd, reason: strategy.reason }
   }
 
   if (dryRun) {
-    return { opened: true, kind: choice.kind, hint: null }
+    return { opened: true, kind: strategy.kind, mode: strategy.mode, hint: null, reason: null }
   }
 
-  // macOS: use AppleScript to open the terminal and run attach command
-  if (os === "macos") {
-    const appName = choice.kind === "iTerm" ? "iTerm" : "Terminal"
-    const appleScript = `tell application "${appName}" to do script "${escapeAppleScript(attachCmd)}"`
+  // macOS new window: AppleScript do script (no in front window, no create tab)
+  if (strategy.template?.kind === "macos-window") {
+    const app = strategy.template.app
+    const escaped = escapeAppleScript(attachCmd)
+    const script = `tell application "${app}" to do script "${escaped}"`
     try {
-      await run("osascript", ["-e", appleScript], { env })
-      return { opened: true, kind: choice.kind, hint: null }
+      await run("osascript", ["-e", script], { env })
+      return { opened: true, kind: strategy.kind, mode: "window", hint: null, reason: null }
     } catch (err) {
       log?.(`[terminal] launch failed: ${err?.message ?? err}`)
-      return { opened: false, kind: choice.kind, hint: attachCmd }
+      return { opened: false, kind: strategy.kind, mode: "hint", hint: attachCmd, reason: "osascript failed" }
     }
   }
 
-  // Linux / Windows: substitute attachCmd into argv template
-  const argv = choice.argv.map((a) => a.replace(/__ATTACH_CMD__/g, attachCmd))
-  try {
-    await run(argv[0], argv.slice(1), { env })
-    return { opened: true, kind: choice.kind, hint: null }
-  } catch (err) {
-    log?.(`[terminal] launch failed: ${err?.message ?? err}`)
-    return { opened: false, kind: choice.kind, hint: attachCmd }
+  // macOS tab: AppleScript targeting front window (terminal) or new tab (iTerm)
+  if (strategy.template?.kind === "macos-tab") {
+    const app = strategy.template.app
+    const escaped = escapeAppleScript(attachCmd)
+    const script = app === "Terminal"
+      ? `tell application "Terminal" to do script "${escaped}" in front window`
+      : `tell application "iTerm" to create tab with default profile command "${escaped}"`
+    try {
+      await run("osascript", ["-e", script], { env })
+      return { opened: true, kind: strategy.kind, mode: "tab", hint: null, reason: null }
+    } catch (err) {
+      log?.(`[terminal] launch failed: ${err?.message ?? err}`)
+      return { opened: false, kind: strategy.kind, mode: "hint", hint: attachCmd, reason: "osascript failed" }
+    }
   }
+
+  // argv-subst: substitute attachCmd into argv template
+  if (strategy.template?.kind === "argv-subst") {
+    const argv = strategy.template.argv.map((a) => a.replace(/__ATTACH_CMD__/g, attachCmd))
+    try {
+      await run(argv[0], argv.slice(1), { env })
+      return { opened: true, kind: strategy.kind, mode: strategy.mode, hint: null, reason: null }
+    } catch (err) {
+      log?.(`[terminal] launch failed: ${err?.message ?? err}`)
+      return { opened: false, kind: strategy.kind, mode: "hint", hint: attachCmd, reason: "launch failed" }
+    }
+  }
+
+  // No template (hint case)
+  return { opened: false, kind: strategy.kind, mode: "hint", hint: attachCmd, reason: strategy.reason }
 }

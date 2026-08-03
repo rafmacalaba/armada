@@ -153,6 +153,14 @@ installed). wezterm is optional — never required. If no terminal can be opened
 binary, no `DISPLAY`), it prints `tmux attach -t <name>` and continues — the drive never fails.
 Pass `--no-open` to skip the auto-open for CI/headless use.
 
+If you're already running in a terminal (the common case — you ran `armada drive` from one),
+`armada drive` opens a **tab in that terminal** instead of a fresh window. Detection uses
+`TERM_PROGRAM` (Apple_Terminal, iTerm.app, WezTerm) on macOS and `KONSOLE_VERSION` on Linux;
+wezterm's daemon reuses the existing instance. vscode / cursor users get a `tmux attach`
+hint instead (their integrated terminal can't be addressed from outside). The success message
+reflects what happened: `auto-attached in tab of Terminal.app` vs `auto-attached in new window
+of Terminal.app` vs `auto-attach skipped: ... — attach manually: tmux attach -t <name>`.
+
 Phase gates: a phase closes only with evidence — passing test run, screenshot, or file/line
 citation. `DEFECTS.md` and `ADVERSARIAL_REVIEW.md` are append-only; only qa closes a defect.
 

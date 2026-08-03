@@ -257,7 +257,7 @@ lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/la
   attach -t <name>`). Fall back per-OS: macOS Terminal.app/iTerm, Linux
   `x-terminal-emulator`/`gnome-terminal`/`konsole`, Windows Terminal. `--no-open` (headless/CI)
   prints the `tmux attach -t <name>` hint instead — never fails the drive.
-- [ ] **Tab in the primary terminal, not a new window.** The current auto-open *spawns a fresh
+- [x] **Tab in the primary terminal, not a new window.** The current auto-open *spawns a fresh
   terminal window* (macOS `osascript do script`, Linux `gnome-terminal`/`konsole` launch) — which
   looks like a rogue process popping a window (the "virus installation vibes"). If the user is
   already sitting in a terminal (they almost always are — they ran the drive command from one),
@@ -272,6 +272,7 @@ lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/la
   - Detection rule: if the drive command is running under a terminal we can address (TERM_PROGRAM
     env: `iTerm.app`, `WezTerm`, `vscode`, etc.), target that; otherwise fall back to current
     behavior. This keeps it invisible-and-native instead of spawning windows.
+  Shipped 2026-08-03.
 - [ ] **Refactor to wezterm as the baseline** — if the wezterm-first path proves out, make
   wezterm the default terminal recommendation in docs and treat per-OS emulators as fallback
   only (see the fleet-terminology spec below for the naming direction).

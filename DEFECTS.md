@@ -1,4 +1,190 @@
 
+## DEF-030: Integration test for vscode/cursor hint path
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: orchestrator (ADV-047)
+- Phase: 2
+
+Steps to reproduce:
+1. Call openTerminal with TERM_PROGRAM=vscode, platform=darwin.
+2. Observe: no integration test verifies the hint result from openTerminal.
+
+Expected: Test in tests/terminal-open.test.js that calls openTerminal with TERM_PROGRAM=vscode and asserts opened=false, mode=hint, hint contains the attach command.
+Actual: No integration test for vscode/cursor hint path through openTerminal.
+
+History:
+- orchestrator: opened (DEF-030 task, 6-defect batch)
+- qa: closed — DEF-030: openTerminal with TERM_PROGRAM=vscode returns hint (opened=false, mode=hint, hint set); asserts vscode hint path returns opened=false and attach command in hint
+
+## DEF-029: Clean up dead placeholder in pickAttachStrategy hint
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: orchestrator (ADV-046)
+- Phase: 2
+
+Steps to reproduce:
+1. Inspect pickAttachStrategy for vscode rule (Rule 4).
+2. Observe strategy.hint = "tmux attach -t <name>".
+3. Trace usage: openTerminal always builds hint from buildAttachCommand(name), never reads strategy.hint.
+
+Expected: hint field removed from strategy return (openTerminal computes hint from session name).
+Actual: Dead placeholder "tmux attach -t <name>" sits in strategy but is never used.
+
+History:
+- orchestrator: opened (DEF-029 task, 6-defect batch)
+- qa: closed — c5 test (terminal-open-tab.test.js:114) asserts s.hint === null; dead placeholder removed from pickAttachStrategy return
+
+## DEF-028: KONSOLE_VERSION detection for konsole tab
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: orchestrator (ADV-045)
+- Phase: 2
+
+Steps to reproduce:
+1. Set env KONSOLE_VERSION="24.02.0" on Linux.
+2. Call pickAttachStrategy or openTerminal.
+3. Observe: konsole falls through to classic pickTerminal, opens new window.
+
+Expected: KONSOLE_VERSION triggers konsole --new-tab (mode=tab, kind=konsole).
+Actual: No KONSOLE_VERSION detection; konsole always opens new window.
+
+History:
+- orchestrator: opened (DEF-028 task, 6-defect batch)
+- qa: closed — DEF-028a/b (terminal-open-tab.test.js:245/260) + DEF-028 integration (terminal-open.test.js:561) all pass; KONSOLE_VERSION triggers --new-tab, no KONSOLE_VERSION falls through to classic
+
+## DEF-027: Unit test asserts broken argv shape for macOS classic
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: orchestrator (ADV-044)
+- Phase: 2
+
+Steps to reproduce:
+1. Read tests/terminal-open-tab.test.js c5 test.
+2. Observe assertion: s.template.argv equals ["open", "-a", "Terminal"].
+
+Expected: Template is { kind: "macos-window", app: "Terminal" } (new shape).
+Actual: Test asserts the old argv-subst shape that cannot carry the attach command.
+
+History:
+- orchestrator: opened (DEF-027 task, 6-defect batch)
+- qa: closed — c5 test (terminal-open-tab.test.js:114) asserts template.kind === "macos-window" and template.app === "Terminal" (new shape, not old argv)
+
+## DEF-026: openTerminal test should capture exec args
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: orchestrator (ADV-043)
+- Phase: 2
+
+Steps to reproduce:
+1. Read tests/terminal-open.test.js line 520 (Phase 2 macOS no TERM_PROGRAM test).
+2. Observe: uses makeFakeExec("success") which accepts any args without capturing.
+
+Expected: Test captures exec argv and asserts osascript is called with the attach command.
+Actual: Test only checks result.opened/mode/hint, does not verify the attach command reached exec.
+
+History:
+- orchestrator: opened (DEF-026 task, 6-defect batch)
+- qa: closed — DEF-025 test (terminal-open.test.js:520) captures execCalls array, asserts osascript bin and argv contains tmux attach command; covers DEF-026 requirement
+
+## DEF-025: macOS no-TERM_PROGRAM opens Terminal.app but attach command never executed
+
+- Status: CLOSED
+- Severity: HIGH
+- Found by: qa
+- Phase: 2
+
+Steps to reproduce:
+1. Call openTerminal({ name: "my-lane", platform: "darwin", env: { PATH: "/usr/bin:/bin" }, exec: captureExec }) with no TERM_PROGRAM set.
+2. Observe the exec call arguments.
+3. Observe the result.
+
+Expected: The attach command is included in the arguments passed to exec (via osascript do script).
+Actual: _classicPickTerminal returns argv: ["open", "-a", "Terminal"] with no __ATTACH_CMD__. Terminal.app opens but tmux attach never runs.
+
+History:
+- qa: opened
+- orchestrator: reopened as DEF-025 batch; fix introduces macos-window template kind with osascript do script
+- qa: closed — DEF-025 test (terminal-open.test.js:520) passes; osascript exec'd with bin="osascript", argv contains "tmux attach -t 'my-lane'" and "do script"
+
+## DEF-024: env undefined/null not covered by tests
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: adversary (ADV-041)
+- Phase: 1
+
+Steps to reproduce:
+1. Call `pickAttachStrategy` without `env` key at all.
+2. Call `pickAttachStrategy` with `env: null`.
+3. Observe test coverage — no tests for either edge case.
+
+Expected: Both calls should not throw; should fall through to rule 6 (delegate to pickTerminal) and return mode="window".
+Actual: Code is correct (uses `env?.TERM_PROGRAM`, null-safe). Tests do not cover these paths.
+
+History:
+- qa: opened
+- qa: closed — DEF-024a/024b: env undefined falls through to rule 6, env null does not throw; both return mode="window" kind from pickTerminal
+
+## DEF-023: TERM_PROGRAM="" empty string not covered by tests
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: adversary (ADV-040)
+- Phase: 1
+
+Steps to reproduce:
+1. Call `pickAttachStrategy` with `env: { TERM_PROGRAM: "" }`.
+2. Observe test coverage — no test for empty TERM_PROGRAM.
+
+Expected: Empty string does not match Apple_Terminal (rule 1), falls through to rule 6 → pickTerminal → iTerm/gnome-terminal. mode="window".
+Actual: Code is correct (strict equality checks). No test covers this path.
+
+History:
+- qa: opened
+- qa: closed — DEF-023: TERM_PROGRAM="" falls through to rule 6, returns mode="window" kind from pickTerminal
+
+## DEF-022: Rules 1-3 vs rule 5 precedence not covered by tests
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: adversary (ADV-039)
+- Phase: 1
+
+Steps to reproduce:
+1. Call `pickAttachStrategy` with TERM_PROGRAM="Apple_Terminal" AND hasWeztermServer=true.
+2. Call `pickAttachStrategy` with TERM_PROGRAM="iTerm.app" AND hasWeztermServer=true.
+3. Call `pickAttachStrategy` with TERM_PROGRAM="WezTerm" AND hasWeztermServer=true.
+
+Expected: Rules 1-3 fire first, ignoring hasWeztermServer (rule 5). Correct terminal tab strategy returned for each.
+Actual: Code is correct (rules are evaluated top-to-bottom before rule 5). No tests cover rule 5 being skipped when a higher rule matches.
+
+History:
+- qa: opened
+- qa: closed — DEF-022a/b/c: rules 1-3 fire before rule 5; Apple_Terminal+iTerm return tab strategies, WezTerm returns wezterm tab; all 3 sub-tests pass
+
+## DEF-021: Windows + hasWeztermServer=true not covered by tests
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: adversary (ADV-038)
+- Phase: 1
+
+Steps to reproduce:
+1. Call `pickAttachStrategy` with os="windows" and hasWeztermServer=true.
+2. Observe test coverage — no Windows test with hasWeztermServer.
+
+Expected: Rule 5 os guard `(os === "linux" || os === "macos")` excludes Windows. Should fall through to rule 6 → classic pickTerminal. mode="window", kind NOT "wezterm".
+Actual: Code is correct. No test for Windows + hasWeztermServer.
+
+History:
+- qa: opened
+- qa: closed — DEF-021: Windows + hasWeztermServer=true excludes wezterm via os guard, falls through to pickTerminal; mode="window", kind from pickTerminal
+
 ## DEF-020: TODO.md lane-drive entry missing at time of prior verification (race condition)
 
 - Status: CLOSED
@@ -427,3 +613,4 @@ Screenshot: n/a
 History:
 - qa: opened
 - qa: closed — fixed (renderArmadaYaml fork deleted; applyPreset uses the generator as single source of truth); retested 323/323
+

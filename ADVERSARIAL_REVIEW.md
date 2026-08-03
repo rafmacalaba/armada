@@ -725,3 +725,454 @@ Disposition: ACCEPTED -> DEF-019
 | ADV-036 | MEDIUM | terminal-open.js:38-44 | wezterm detected but never selected on macOS |
 | ADV-037 | LOW | terminal-open.js:114 | iTerm only checked in /Applications |
 
+
+---
+
+## Phase 1 Tab — `pickAttachStrategy` review
+
+## ADV-038: `hasWeztermServer=true` on Windows excluded — os guard untested
+
+- Session: phase-1 gate
+- Suggested severity: MEDIUM
+
+What I did: Traced rule 5 line 124: `hasWeztermServer && (os === "macos" || os === "linux")`. No test supplies `hasWeztermServer: true` with `os: "windows"`. The guard correctly excludes Windows per spec c6 ("Linux/macOS"), but the exclusion is invisible to the test suite.
+
+Expected: Test verifies `hasWeztermServer: true` + `os: "windows"` falls through to rule 6 (classic pickTerminal), not rule 5 (wezterm tab).
+
+Actual: No test for this combination. If the `(os === "macos" || os === "linux")` guard were accidentally removed in a future refactor, Windows behavior would silently change and no test would catch it.
+
+Disposition: ACCEPTED -> DEF-021
+
+`src/terminal-open.js:124` — os guard on rule 5 untested for Windows exclusion.
+
+---
+
+## ADV-039: Rule 1-3 TERM_PROGRAM precedence over rule 5 (hasWeztermServer) — untested
+
+- Session: phase-1 gate
+- Suggested severity: MEDIUM
+
+What I did: Verified rule 4 (vscode) precedence over rule 5 is tested (test c6). But no test verifies that rules 1-3 (Apple_Terminal, iTerm.app, WezTerm) also short-circuit BEFORE rule 5 when `hasWeztermServer: true`.
+
+Expected: Tests for these three edge cases:
+- `TERM_PROGRAM: "Apple_Terminal"` + `hasWeztermServer: true` + `os: "macos"` → rule 1 wins (Terminal.app tab), not wezterm tab from rule 5.
+- `TERM_PROGRAM: "iTerm.app"` + `hasWeztermServer: true` + `os: "macos"` → rule 2 wins (iTerm tab), not wezterm tab from rule 5.
+- `TERM_PROGRAM: "WezTerm"` + `hasWeztermServer: true` → rule 3 wins (wezterm tab via TERM_PROGRAM match).
+
+Actual: None of these three precedence combos tested. If rules were reordered, behavior could change silently. Code is correct (rules 1-3 return before rule 5 is reached) but unverified.
+
+Disposition: ACCEPTED -> DEF-022
+
+`src/terminal-open.js:101-113` (rules 1-3) + `src/terminal-open.js:124` (rule 5) — no precedence test for these combinations.
+
+---
+
+## ADV-040: TERM_PROGRAM="" (empty string) untested — falls through correctly
+
+- Session: phase-1 gate
+- Suggested severity: LOW
+
+What I did: `env: { TERM_PROGRAM: "" }` — empty string won't match rules 1-4 (exact string comparison). Falls through to rule 5 (hasWeztermServer) then rule 6 (classic pickTerminal). Behavior is correct — empty string effectively treated as "no TERM_PROGRAM".
+
+Expected: Test covering empty-string TERM_PROGRAM to confirm distinct from missing TERM_PROGRAM key. No rule incorrectly fires on empty string.
+
+Actual: No test for empty string. No test distinguishing `{ TERM_PROGRAM: "" }` (key present, empty value) from `{}` (key absent). `env?.TERM_PROGRAM` returns `""` in first case, `undefined` in second. Both behave identically through rules 1-5, but path differentiation uncovered.
+
+Disposition: ACCEPTED -> DEF-023
+
+`src/terminal-open.js:98` — `env?.TERM_PROGRAM` returns `""` when field exists with empty-string value. `===` comparisons against non-empty strings fail correctly. Rule 4 `isVSCode` is false. Path untested.
+
+---
+
+## ADV-041: `env` parameter undefined/null — untested, handled by optional chaining
+
+- Session: phase-1 gate
+- Suggested severity: LOW
+
+What I did: Called `pickAttachStrategy` with `env: undefined` and `env: null`. `env?.TERM_PROGRAM` at line 98 returns undefined in both cases via optional chaining. `env?.VSCODE_IPC_HOOK_CLI` at line 117 likewise safe. All rules behave correctly — no TERM_PROGRAM match, no vscode IPC hook, fall through to rule 5/6.
+
+Expected: Explicit test for undefined/null env to protect against future regressions where optional chaining might be refactored away (e.g., changed to `env.TERM_PROGRAM` which throws TypeError on undefined).
+
+Actual: No test for these cases. Code handles both correctly, but the safety depends entirely on the `?.` operator replacement-resistant.
+
+Disposition: ACCEPTED -> DEF-024
+
+`src/terminal-open.js:98` — `env?.TERM_PROGRAM` guards against undefined/null. `src/terminal-open.js:117` — `env?.VSCODE_IPC_HOOK_CLI` same. No test.
+
+---
+
+## Phase 1 Tab Summary
+
+| # | Severity | Area | Finding |
+|---|----------|------|---------|
+| ADV-038 | MEDIUM | terminal-open.js:124 | hasWeztermServer+Windows untested os guard |
+| ADV-039 | MEDIUM | terminal-open.js:101-124 | Rules 1-3 precedence over rule 5 untested |
+| ADV-040 | LOW | terminal-open.js:98 | TERM_PROGRAM="" edge case untested |
+| ADV-041 | LOW | terminal-open.js:98,117 | env undefined/null untested |
+
+## ADV-038: hasWeztermServer + Windows — no test proves the os guard
+
+- Session: lane-drive-tab phase-1 gate
+- Suggested severity: MEDIUM
+
+What I did: Reviewed `pickAttachStrategy` for Windows + hasWeztermServer=true.
+Expected: Windows is excluded from rule 5 (wezterm fallback) — falls through to pickTerminal.
+Actual: `terminal-open.js:124` has `os === "linux" || os === "macos"` guard, which excludes Windows. But no test asserts this — if the guard is accidentally relaxed, Windows behavior changes silently.
+
+Disposition: ACCEPTED -> DEF-021 (regression test).
+
+---
+
+## ADV-039: Rules 1-3 vs rule 5 precedence not all tested
+
+- Session: lane-drive-tab phase-1 gate
+- Suggested severity: MEDIUM
+
+What I did: Reviewed precedence between rules 1-3 (Apple_Terminal/iTerm.app/WezTerm) and rule 5 (hasWeztermServer).
+Expected: Rules 1-3 short-circuit before rule 5 (TERMINAL-specific TERM_PROGRAM wins over generic wezterm server detection).
+Actual: Only rule 4 (vscode) precedence over rule 5 is tested (`c6`). Three missing tests:
+- Apple_Terminal + hasWeztermServer=true → Terminal.app tab (rule 1 wins)
+- iTerm.app + hasWeztermServer=true → iTerm tab (rule 2 wins)
+- WezTerm + hasWeztermServer=true → wezterm tab (rule 3 wins; both agree)
+
+Disposition: ACCEPTED -> DEF-022 (regression tests).
+
+---
+
+## ADV-040: TERM_PROGRAM="" (empty string) untested
+
+- Session: lane-drive-tab phase-1 gate
+- Suggested severity: LOW
+
+What I did: Reviewed behavior when `env.TERM_PROGRAM=""` (empty string).
+Expected: Empty string doesn't match any rule, falls through to rule 6 (classic pickTerminal).
+Actual: Code handles this correctly (`=== "Apple_Terminal"` fails for empty string), but no test asserts it. Distinct from missing key.
+
+Disposition: ACCEPTED -> DEF-023 (regression test).
+
+---
+
+## ADV-041: env undefined/null not tested
+
+- Session: lane-drive-tab phase-1 gate
+- Suggested severity: LOW
+
+What I did: Reviewed behavior when env parameter is undefined or null.
+Expected: Optional chaining `env?.TERM_PROGRAM` handles both — falls through to rule 6.
+Actual: Code uses `env?.` correctly, but no test guards against future refactors that remove the `?.` (would throw TypeError on undefined access).
+
+Disposition: ACCEPTED -> DEF-024 (regression tests).
+
+
+---
+
+## Phase 2 Tab — `openTerminal` wiring of `pickAttachStrategy`
+
+## ADV-042: macOS no-TERM_PROGRAM regression — attach command not run after `open -a Terminal`
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: HIGH
+
+What I did: Traced the full code path for macOS with no `TERM_PROGRAM` set through `openTerminal`:
+
+**Old code (pre-Phase 2)** at `openTerminal`:
+```js
+// macOS: use AppleScript to open the terminal and run attach command
+if (os === "macos") {
+    const appName = choice.kind === "iTerm" ? "iTerm" : "Terminal"
+    const appleScript = `tell application "${appName}" to do script "${escapeAppleScript(attachCmd)}"`
+    await run("osascript", ["-e", appleScript], { env })
+    return { opened: true, kind: choice.kind, hint: null }
+}
+```
+ALL macOS paths ran `osascript` with the attach command — regardless of `TERM_PROGRAM`. Terminal.app opened AND `tmux attach` ran inside it.
+
+**New code (Phase 2)** at `src/terminal-open.js:204-218` and `src/terminal-open.js:221-229`:
+1. `pickAttachStrategy` falls through rules 1-5 (no TERM_PROGRAM match) → rule 6
+2. `_classicPickTerminal` returns `{ kind: "Terminal.app", argv: ["open", "-a", "Terminal"], ... }`
+3. Rule 6 wraps it: `{ mode: "window", template: { kind: "argv-subst", argv: ["open", "-a", "Terminal"] } }`
+4. In `openTerminal`, `strategy.template?.kind === "macos-tab"` is FALSE — AppleScript path NOT entered
+5. `strategy.template?.kind === "argv-subst"` is TRUE — enters argv-subst path
+6. `strategy.template.argv.map((a) => a.replace(/__ATTACH_CMD__/g, attachCmd))` — NO `__ATTACH_CMD__` in `["open", "-a", "Terminal"]` → substitution is a no-op
+7. `open -a Terminal` is spawned — Terminal.app opens but `tmux attach` is NEVER run
+
+Expected: Like pre-Phase 2, the attach command is executed in Terminal.app via AppleScript, even when `TERM_PROGRAM` is not set. The new-window case should still run `tmux attach`.
+
+Actual: Terminal.app opens a fresh shell window. No `tmux attach -t <name>` runs. User sees a blank terminal. They must manually type `tmux attach -t <name>` to connect to the lane.
+
+Screenshot: n/a (code-path analysis)
+
+Disposition: ACCEPTED -> DEF-025
+
+`src/terminal-open.js:128-130` — rule 6 produces `{ template: { kind: "argv-subst", argv: ["open", "-a", "Terminal"] } }`. The `argv` has no `__ATTACH_CMD__` placeholder — unlike Linux gnome-terminal argv which correctly includes it (line 70). The old blanket `if (os === "macos")` AppleScript branch was removed and not replaced with an equivalent path for the no-TERM_PROGRAM case.
+
+```
+old: if (os === "macos") → osascript with attachCmd  ← ALWAYS ran
+new: if (template.kind === "macos-tab") → osascript    ← only with TERM_PROGRAM
+     if (template.kind === "argv-subst") → open -a Terminal  ← NO __ATTACH_CMD__
+```
+
+The `argv: ["open", "-a", "Terminal"]` is also verified as the intentional (but broken) template by test `c5` at `terminal-open-tab.test.js:127`: `assert.deepStrictEqual(s.template.argv, ["open", "-a", "Terminal"])`.
+
+---
+
+## ADV-043: Test for macOS no-TERM_PROGRAM path does not verify attach command in spawned argv
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: MEDIUM
+
+What I did: Examined the Phase 2 integration test at `terminal-open.test.js:520-531`:
+
+```js
+test("Phase 2: openTerminal returns mode=window for classic pickTerminal fallback (macOS no TERM_PROGRAM)", async () => {
+  const result = await openTerminal({
+    name: "my-lane",
+    platform: "darwin",
+    env: { PATH: "/usr/bin:/bin" },
+    exec: makeFakeExec("success"),   // ← ignores all bin/args!!!
+  })
+  assert.strictEqual(result.opened, true)
+  assert.strictEqual(result.mode, "window")
+  assert.strictEqual(result.hint, null)
+  assert.strictEqual(result.reason, null)
+})
+```
+
+`makeFakeExec("success")` returns `{ code: 0 }` regardless of what `bin` or `args` are passed. The test never inspects `execCalls` or validates that the spawned command contains `tmux attach -t 'my-lane'`.
+
+Compare with the gnome-terminal test (line 266) and wezterm test (line 463) which DO capture and inspect `execCalls`. The wezterm test at least checks `bash -c` and `exec bash` in the args.
+
+Expected: Test captures exec call args and asserts `tmux attach -t 'my-lane'` is present in the spawned command, or asserts the AppleScript is invoked.
+
+Actual: Test passes even though the attach command is never passed to the spawned process (ADV-042).
+
+Disposition: ACCEPTED -> DEF-026
+
+`tests/terminal-open.test.js:520-531` — `makeFakeExec("success")` ignores arguments. Regression ADV-042 was in the code when the test was written, and the test did not catch it.
+
+---
+
+## ADV-044: pickAttachStrategy test c5 asserts broken macOS argv — baked-in regression
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: MEDIUM
+
+What I did: Examined test `c5` at `terminal-open-tab.test.js:114-128`:
+
+```js
+test("c5: no TERM_PROGRAM, os=macos delegates to pickTerminal — mode=window, kind=Terminal.app", () => {
+  const s = pickAttachStrategy({ env: {}, os: "macos", whichResults: {}, hasDisplay: true, hasWeztermServer: false })
+  assert.deepStrictEqual(s.template.argv, ["open", "-a", "Terminal"])
+})
+```
+
+This test explicitly asserts that the argv is `["open", "-a", "Terminal"]` — which has NO `__ATTACH_CMD__` placeholder. Compare with test c8 at line 228-241 which asserts gnome-terminal's template DOES contain `__ATTACH_CMD__`:
+
+```js
+assert.ok(s.template.argv.some((a) => a.includes("__ATTACH_CMD__")))
+```
+
+Expected: Either the macOS argv should contain `__ATTACH_CMD__` (but `open -a` can't accept a command argument — need AppleScript), or the template should be `macos-tab` for new-window (not `in front window`).
+
+Actual: Test was written to match the broken behavior. If the code is fixed, this test MUST change.
+
+Disposition: ACCEPTED -> DEF-027
+
+`tests/terminal-open-tab.test.js:127` — asserts `["open", "-a", "Terminal"]` without `__ATTACH_CMD__`.
+
+---
+
+## ADV-045: Linux gnome-terminal/konsole tab not implemented — always opens new window
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: MEDIUM
+
+What I did: Checked Phase 2 requirements c4/c5 against implementation:
+
+- c4: "Linux gnome-terminal primary-tab: argv becomes `gnome-terminal --tab -- bash -c ...`"
+- c5: "Linux konsole primary-tab: argv becomes `konsole --new-tab -e bash -c ...`"
+
+Implementation in `_classicPickTerminal` (called via rule 6):
+```js
+// gnome-terminal — no --tab
+{ kind: "gnome-terminal", argv: ["gnome-terminal", "--", "bash", "-c", "__ATTACH_CMD__; exec bash"], ... }
+
+// konsole — no --new-tab
+{ kind: "konsole", argv: ["konsole", "-e", "bash", "-c", "__ATTACH_CMD__; exec bash"], ... }
+```
+
+Additionally, `pickAttachStrategy` has no TERM_PROGRAM rule to detect that the user is running inside gnome-terminal or konsole (there are rules for Apple_Terminal, iTerm.app, WezTerm, vscode/cursor — but none for gnome-terminal's TERM_PROGRAM value or konsole's). Both always fall through to rule 6 which uses `_classicPickTerminal`.
+
+Test c8 at line 228-241 verifies the current (non-tab) behavior:
+```js
+assert.ok(s.template.argv.some((a) => a.includes("__ATTACH_CMD__")))
+```
+This test checks for `__ATTACH_CMD__` presence but does NOT assert that `--tab` or `--new-tab` flags are present.
+
+Expected: When gnome-terminal is the chosen terminal, `--tab` flag is included. When konsole, `--new-tab`. At minimum, the non-tab templates should include `--tab`/`--new-tab` in `_classicPickTerminal` (as a conservative always-tab approach for Linux).
+
+Actual: Neither `--tab` nor `--new-tab` appears anywhere in the argv templates. Both terminals open new windows.
+
+Disposition: ACCEPTED -> DEF-028
+
+`src/terminal-open.js:70` — gnome-terminal argv lacks `--tab`.
+`src/terminal-open.js:73` — konsole argv lacks `--new-tab`.
+`src/terminal-open.js:97-131` — no TERM_PROGRAM rules for gnome-terminal or konsole detection.
+`tests/terminal-open-tab.test.js:228-241` — c8 test checks for `__ATTACH_CMD__` but not `--tab`.
+
+---
+
+## ADV-046: pickAttachStrategy vscode hint is dead placeholder — overwritten by openTerminal
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: LOW
+
+What I did: Traced the hint value through the vscode/cursor path.
+
+`pickAttachStrategy` rule 4 (line 120):
+```js
+return { ..., hint: "tmux attach -t <name>" }
+```
+The hint is a placeholder string — NOT the actual attach command.
+
+`openTerminal` at line 195-197:
+```js
+if (!strategy.available) {
+    log?.("[terminal] no terminal available: ${strategy.reason}")
+    return { opened: false, kind: "none", mode: "hint", hint: attachCmd, reason: strategy.reason }
+}
+```
+The return OVERWRITES `strategy.hint` with `attachCmd` (which is `buildAttachCommand(name)` — the actual command like `tmux attach -t 'my-lane'`). The placeholder in `pickAttachStrategy` is never used by any caller.
+
+Expected: Either `pickAttachStrategy` returns `hint: null` and `openTerminal` fills it in (separation of concerns), or `pickAttachStrategy` returns the actual attach command (but it doesn't have access to `name`).
+
+Actual: `pickAttachStrategy` returns a placeholder string that looks meaningful but is always discarded. Makes the function's contract confusing — callers must read `openTerminal` source to know the hint is a lie.
+
+Disposition: ACCEPTED -> DEF-029
+
+`src/terminal-open.js:120` — placeholder hint in strategy.
+`src/terminal-open.js:197` — actual hint overwrites it.
+`tests/terminal-open-tab.test.js:75` — test asserts the placeholder: `assert.strictEqual(s.hint, "tmux attach -t <name>")`.
+
+---
+
+## ADV-047: openTerminal vscode hint path has no integration test
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: MEDIUM
+
+What I did: Searched `terminal-open.test.js` and `terminal-open-tab.test.js` for tests that exercise the vscode/cursor hint path end-to-end through `openTerminal` (not just through `pickAttachStrategy`).
+
+`terminal-open-tab.test.js` tests `pickAttachStrategy` directly (unit level) — c4/c4b/c4c test the strategy function returns `mode: "hint"`.
+
+`terminal-open.test.js` Phase 2 tests exercise `openTerminal` for:
+- macOS Apple_Terminal tab (line 420)
+- macOS iTerm tab (line 441)
+- Linux wezterm (line 463, 496)
+- macOS no TERM_PROGRAM fallback (line 520)
+
+NO test sets `TERM_PROGRAM: "vscode"` (or `"cursor"`) and calls `openTerminal` to verify the full return shape: `{ opened: false, kind: "none", mode: "hint", hint: attachCmd, reason: /vscode integrated terminal/ }`.
+
+Expected: Integration test for vscode/cursor hint path through `openTerminal` to verify:
+- `opened: false`
+- `mode: "hint"`
+- `hint` is the actual attach command (not the placeholder from ADV-046)
+- `reason` matches the vscode message
+- No `exec` is called
+
+Actual: The vscode path is only tested at the strategy level, not through `openTerminal`. The overwrite behavior (ADV-046) could break silently.
+
+Disposition: ACCEPTED -> DEF-030
+
+`tests/terminal-open.test.js` — no `openTerminal` test with `TERM_PROGRAM: "vscode"` or `TERM_PROGRAM: "cursor"`.
+`tests/terminal-open-tab.test.js:62-110` — tests strategy only.
+
+
+---
+
+## Phase 2 Tab Summary
+
+| # | Severity | Area | Finding |
+|---|----------|------|---------|
+| ADV-042 | HIGH | terminal-open.js:128-130,204-229 | macOS no-TERM_PROGRAM: attach cmd not run after `open -a Terminal` |
+| ADV-043 | MEDIUM | terminal-open.test.js:520-531 | Test doesn't verify attach command in spawned argv |
+| ADV-044 | MEDIUM | terminal-open-tab.test.js:127 | Test asserts broken macOS argv without __ATTACH_CMD__ |
+| ADV-045 | MEDIUM | terminal-open.js:70,73,97-131 | gnome-terminal/konsole tab flags not implemented |
+| ADV-046 | LOW | terminal-open.js:120,197 | vscode hint placeholder overwritten by openTerminal |
+| ADV-047 | MEDIUM | terminal-open.test.js | No integration test for vscode/cursor hint path |
+
+## ADV-042: macOS no-TERM_PROGRAM regression — Terminal opens but attach never runs
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: HIGH
+
+What I did: Trace `openTerminal` on macOS with no TERM_PROGRAM set.
+Expected: `do script` opens Terminal.app and runs `tmux attach -t <name>`.
+Actual: `_classicPickTerminal` returns `argv: ["open", "-a", "Terminal"]` (no `__ATTACH_CMD__` placeholder). New `openTerminal` does `argv-subst` (no-op) and runs `open -a Terminal`. Terminal.app opens but the attach command never executes.
+
+Disposition: ACCEPTED -> DEF-025 (regression test + fix).
+
+---
+
+## ADV-043: openTerminal test doesn't capture exec args
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: MEDIUM
+
+What I did: Reviewed the new Phase 2 tests in `tests/terminal-open.test.js`.
+Expected: Tests capture the exec args and assert the attach command is in the spawned argv.
+Actual: `terminal-open.test.js:520` uses `makeFakeExec("success")` which returns a generic success without capturing args. The regression in DEF-025 went undetected.
+
+Disposition: ACCEPTED -> DEF-026 (regression test).
+
+---
+
+## ADV-044: unit test asserts broken argv shape
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: MEDIUM
+
+What I did: Reviewed `tests/terminal-open-tab.test.js` for the classic fallback test.
+Expected: Test asserts the macOS no-TERM_PROGRAM path uses AppleScript.
+Actual: `terminal-open-tab.test.js:127` asserts `argv: ["open", "-a", "Terminal"]` (the broken shape that doesn't run the attach command).
+
+Disposition: ACCEPTED -> DEF-027 (update test).
+
+---
+
+## ADV-045: gnome-terminal / konsole --tab / --new-tab not implemented
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: MEDIUM
+
+What I did: Reviewed `_classicPickTerminal` for Linux terminals.
+Expected: When user is in gnome-terminal, argv uses `--tab`; when in konsole, uses `--new-tab`.
+Actual: Both always produce new-window argv. No detection of which terminal the user is in.
+
+Disposition: ACCEPTED -> DEF-028 (add KONSOLE_VERSION detection; defer gnome-terminal detection with a comment).
+
+---
+
+## ADV-046: dead placeholder in pickAttachStrategy hint
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: LOW
+
+What I did: Reviewed pickAttachStrategy hint return.
+Expected: The hint template is clean.
+Actual: The strategy's hint is overwritten by `openTerminal` in some paths; in others, a `"tmux attach -t <name>"` placeholder is set but openTerminal uses its own buildAttachCommand output. Confusing.
+
+Disposition: ACCEPTED -> DEF-029 (clean up the dead placeholder).
+
+---
+
+## ADV-047: no integration test for vscode/cursor hint path
+
+- Session: lane-drive-tab phase-2 gate
+- Suggested severity: MEDIUM
+
+What I did: Reviewed openTerminal tests for the vscode/cursor hint case.
+Expected: Test asserts openTerminal returns `{ opened: false, kind: "none", mode: "hint", hint: <attachCmd>, reason: <strategy.reason> }`.
+Actual: No integration test. The unit test on `pickAttachStrategy` covers the strategy but not the openTerminal integration.
+
+Disposition: ACCEPTED -> DEF-030 (regression test).

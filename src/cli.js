@@ -481,7 +481,16 @@ async function getAutoOpenSuffix(name) {
       env: process.env,
     })
     if (result.opened) {
+      if (result.mode === "tab") {
+        return ` (auto-attached in tab of ${result.kind})`
+      }
+      if (result.mode === "window") {
+        return ` (auto-attached in new window of ${result.kind})`
+      }
       return ` (auto-attached in ${result.kind})`
+    }
+    if (result.mode === "hint") {
+      return ` (auto-attach skipped: ${result.reason} — attach manually: ${result.hint})`
     }
     return ` (auto-attach skipped: unable to open terminal — attach manually: ${result.hint})`
   } catch {
