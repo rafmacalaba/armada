@@ -77,7 +77,8 @@ create → work → test → merge → clean
 - **create**: `git worktree add -b feat/<name> sandbox/<name>` (or `cp -R` for plain).
 - **work**: edit, run tests, scaffold the team, drive `/armada`.
 - **test**: `node --test 'tests/*.test.js'` from the sandbox root. Must be green.
-- **merge**: from the main repo, `git merge feat/<name>` (or open a PR).
+- **merge**: **PR-first** — `gh pr create --base master` from the lane branch; never `git merge`
+  locally, never push master directly. Merge via the PR once evidence is verified.
 - **clean**: `git worktree remove sandbox/<name>` (worktree) or `rm -rf sandbox/<name>` (plain).
 
 After the team is scaffolded, use `armada drive <lane-path>` to boot the session and auto-attach
@@ -130,43 +131,6 @@ Use `.slim/worktrees/` when you want the engine to track the lane in its
 manifest and benefit from skill-driven orchestration hooks.
 
 Both are valid; pick one per project and stay consistent.
-
-## Worked example: landing page
-
-A landing page for opencode-armada is being built at `sandbox/landing-page/`:
-
-```
-sandbox/landing-page/
-├── armada/
-│   ├── armada.yaml                # balanced preset manifest
-│   └── REQUIREMENTS.md            # 6-phase contract
-├── .opencode/                     # 8 role prompts + /armada command
-├── opencode.json                  # model + permissions
-├── AGENTS.md                      # team rulebook
-└── README.md                      # seed context
-```
-
-Source material the team mines for claims (read-only, parent repo):
-
-- `../../AGENTS.md`
-- `../../SPEC.md`
-- `../../TODO.md`
-- `../../ARCHITECTURE.md`
-- `../../presets/*.yaml`
-
-Drive it:
-
-```bash
-cd sandbox/landing-page
-armada drive .
-# a terminal auto-opens attached to the session; the orchestrator is running
-# /armada        # (optional) team status
-```
-
-Path note: it lives inside the repo at `sandbox/landing-page/`, not at an
-external sibling. Keeping it inside skips `external_directory` permission
-friction (the `opencode.json` permission for that is `deny` by default) and
-matches the convention in this doc.
 
 ## See also
 

@@ -6,7 +6,7 @@ The recurring loop: armada's own team audits and builds armada itself. Everythin
 - **Lane A — Audit** (recurring): the team reviews armada's code, files findings.
 - **Lane B — Feature** (one-off): the team implements a TODO item or feature.
 
-This doc supersedes the old `docs/self-dogfood.md`. For using armada on **other** repos, see
+This doc is the canonical two-lane workflow. For using armada on **other** repos, see
 [docs/using-armada.md](./using-armada.md).
 
 > **Currency note (2026-08-02):** this flow now targets the **per-feature contract + on-disk
@@ -38,8 +38,9 @@ independent phases, and `backend-dev ∥ frontend-dev` within a phase.
 ## The contract — the end-goal spec
 
 A feature contract **is the end goal of what the user wants to implement**, written before any
-code. It lives at `armada/REQUIREMENTS.md` (today) and will move to `armada/contracts/<feature>.md`
-as per-feature contracts ship (see `TODO.md` — implementation/session-based armada). A contract has:
+code. It lives at the active feature's contract path — `armada/REQUIREMENTS.md` (the default) or
+a per-feature file via `armada init --requirements <file>` / `armada feature new <name>`
+(`armada/contracts/<feature>.md`). A contract has:
 
 - **Goal** — what the user wants, in their words, refined by the orchestrator.
 - **Phases** — each with `Depends on:`, `Goal:`, `Success criteria:` (measurable, evidence-gated).
@@ -71,7 +72,7 @@ opencode
 ```
 
 `git worktree list` shows all sandboxes. Cleanup when done:
-`git worktree remove sandbox/<name>` (merge first for features).
+`git worktree remove sandbox/<name>` (after the feature's PR merges).
 
 ### Fleet dashboard for parallel lanes
 
@@ -150,11 +151,11 @@ Then:
 ```bash
 # 4. drive it — boots into the orchestrator, waits until the TUI is ready,
 #    then sends the drive prompt. Safe to re-run; attaches if the session exists.
-node ../../src/cli.js drive sandbox/lane-drive
+node ../../src/cli.js drive sandbox/<name>
 ```
 
 `armada drive` is a subcommand of the existing `armada` binary, so a global install can just run
-`armada drive sandbox/lane-drive`. It creates the tmux session (idempotent — attaches if present),
+`armada drive sandbox/<name>`. It creates the tmux session (idempotent — attaches if present),
 polls `tmux capture-pane` until the TUI shows its prompt bar, sends the drive prompt, verifies it
 registered (the pane flips to the orchestrator's `thinking` indicator, resending once if not), and
 on timeout prints the captured pane tail and exits non-zero.
@@ -176,7 +177,8 @@ reflects what happened: `auto-attached in tab of Terminal.app` vs `auto-attached
 of Terminal.app` vs `auto-attach skipped: ... — attach manually: tmux attach -t <name>`.
 
 Phase gates: a phase closes only with evidence — passing test run, screenshot, or file/line
-citation. `DEFECTS.md` and `ADVERSARIAL_REVIEW.md` are append-only; only qa closes a defect.
+citation. The per-feature ledgers `armada/ledgers/<feature>/DEFECTS.md` and
+`.../ADVERSARIAL_REVIEW.md` are append-only; only qa closes a defect.
 
 ### Driving it yourself (the co-write interview)
 
@@ -247,9 +249,9 @@ manually (see `8e0fab3`).
 - **`--headless`** (older) scopes orchestrator bash for CI; `--yolo` is the strict superset.
 - **`external_directory: deny`** in generated `opencode.json` blocks writing outside the repo;
   have agents write repo-relative files.
-- **State (landing soon):** the fleet will track features in `armada/state/` (per-feature
-  contracts, phase graph, evidence, next action) so a killed session resumes — see
-  `TODO.md` "implementation/session-based armada".
+- **State:** the fleet tracks features in `armada/state/` (per-feature contracts, phase graph,
+  evidence, next action) so a killed session resumes — `armada reconcile` prints the resume
+  line, `/armada-resume` picks it up. See `TODO.md` "session-based armada".
 
 ## See also
 
