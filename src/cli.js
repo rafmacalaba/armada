@@ -66,29 +66,10 @@ Usage:
   armada fleet [session] [--json] [--open]   per-lane progress dashboard (table by default)
   armada reconcile [--json] [--state-dir <p>] [--repo <p>]
                            check for evidence drifts against contract (exit 2 if drifts)
-  armada drive <lane-path> [--heartbeat]  boot a lane session and send the drive prompt (TUI-ready handshake)
+  armada voyage <lane-path> [--heartbeat]  boot a lane session and send the voyage prompt (TUI-ready handshake)
+  armada drive <lane-path>              (alias for voyage)
   armada ping                                sanity check
   armada help                                this help
-`
-
-const DRIVE_HELP = `opencode-armada drive v${VERSION}
-Boot a lane session and send the drive prompt (TUI-ready handshake).
-
-Usage:
-  armada drive <lane-path> [options]
-
-  Boots a tmux session named after the lane, waits until the opencode TUI
-  prompt bar is visible, sends the drive prompt, and verifies it registered
-  (the pane flips to the orchestrator's thinking indicator; resends once).
-
-Options:
-  --name <session>      tmux session name (default: basename of lane path)
-  --prompt <text>       drive prompt (default: contract-first directive)
-  --timeout <ms>        total ready timeout (default 30000)
-  --no-open             skip auto-opening a visible terminal (CI/headless)
-  --no-track            skip fleet-tracker recording
-  --heartbeat           start a fleet-tracker heartbeat on first boot
-  -h, --help            show this help
 `
 
 // Token -> stack field mappings for `--stack <hint>`. Only applied when the
@@ -171,8 +152,10 @@ export async function main(argv = process.argv.slice(2)) {
       return reconcileCmd(rest)
     case "fleet":
       return fleetCmd(rest)
+    case "voyage":
+      return driveCmd(rest, "voyage")
     case "drive":
-      return driveCmd(rest)
+      return driveCmd(rest, "drive")
     case "preset":
       return preset(rest)
     case "help":
@@ -466,6 +449,7 @@ async function doctor() {
   }
   const checks = await runDoctor({
     project: manifest?.project,
+    team: manifest?.team,
     targetDir: ".",
   })
   let anyFail = false
@@ -564,11 +548,13 @@ async function getAutoOpenSuffix(name) {
   }
 }
 
-async function driveCmd(args) {
-  if (args.includes("--help") || args.includes("-h")) {
-    console.log(DRIVE_HELP)
-    return
+async function driveCmd(args, cmdName = "drive") {
+  // Intercept --help / -h / help before any arg parsing
+  if (args.includes("--help") || args.includes("-h") || args[0] === "help") {
+    console.log(HELP)
+    return 0
   }
+
   // Positional arg: <lane-path>, default "."
   const lanePath = args.find((a) => !a.startsWith("--")) || "."
 
@@ -586,7 +572,7 @@ async function driveCmd(args) {
   const noTrack = args.includes("--no-track")
 
   // --prompt <text>: drive prompt
-  const DEFAULT_PROMPT = "Drive the contract in armada/REQUIREMENTS.md. Phase-gate on evidence. Run independent phases in parallel. Don't advance a phase without passing its criteria."
+  const DEFAULT_PROMPT = "Voyage the contract in armada/REQUIREMENTS.md. Phase-gate on evidence. Run independent phases in parallel. Don't advance a phase without passing its criteria."
   const rawPrompt = flagValue(args, "--prompt")
   const prompt = rawPrompt ?? DEFAULT_PROMPT
 
@@ -640,6 +626,7 @@ async function driveCmd(args) {
       timeoutMs,
       tmuxBin: "tmux",
       track: !noTrack,
+      cmdName,
     })
     let attachSuffix = ""
 
@@ -649,7 +636,7 @@ async function driveCmd(args) {
       } else {
         attachSuffix = await getAutoOpenSuffix(name)
       }
-      console.log(`armada drive: session "${name}" already running (reattached).${attachSuffix}`)
+      console.log(`armada ${cmdName}: session "${name}" already running (reattached).${attachSuffix}`)
     } else {
       if (noOpen) {
         attachSuffix = " (--no-open: skipped auto-attach)"
@@ -662,9 +649,9 @@ async function driveCmd(args) {
         activeHeartbeats.set(name, hb)
         console.log(`started heartbeat for ${name}`)
       }
-      console.log(`armada drive: session "${name}" ready, prompt registered.${attachSuffix}`)
+      console.log(`armada ${cmdName}: session "${name}" ready, prompt registered.${attachSuffix}`)
       if (args.includes("--heartbeat") && !noTrack) {
-        console.log(`heartbeat running for "${name}" every 30s — drive stays resident to keep the lane entry fresh. Ctrl-C to stop.`)
+        console.log(`heartbeat running for "${name}" every 30s — ${cmdName} stays resident to keep the lane entry fresh. Ctrl-C to stop.`)
       }
     }
     return 0

@@ -231,11 +231,11 @@ test("init: prints Project/Team/Budget/Roster/Next steps summary", () => {
   assert.match(result.stdout, /Budget: \w+/, "must print Budget: <budget>")
   assert.match(result.stdout, /Roster:/, "must print Roster: section")
   assert.match(result.stdout, /Next steps:/, "must print Next steps: section")
-  // At least one role line: "  <role>: <model>"
+  // At least one role line: "  <display name>: <model>"
   assert.match(
     result.stdout,
-    /  (orchestrator|backend-dev|frontend-dev|qa|adversary|security|docs|architect): \S+/,
-    "must print at least one role: model line"
+    /  (Commodore|Galleon|Clipper|Corvette|Xebec|Frigate|Caravel|Bark): \S+/,
+    "must print at least one display-name: model line"
   )
 
   // Cleanup

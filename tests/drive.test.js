@@ -148,6 +148,29 @@ describe("bootLane", () => {
     assert.ok(logs.some((m) => m.includes("prompt sent")))
   })
 
+  // DEF-001: bootLane logs use cmdName prefix (default "drive", override "voyage")
+  it("cmdName controls log prefix: [voyage] not [drive]", async () => {
+    const logs = []
+    await bootLane({
+      name: "cmdname-test",
+      cwd: "/tmp",
+      command: "opencode",
+      prompt: "Drive",
+      timeoutMs: 5000,
+      pollMs: 10,
+      registerTimeoutMs: 200,
+      tmuxBin,
+      exec: execFn,
+      log: (msg) => logs.push(msg),
+      track: false,
+      cmdName: "voyage",
+    })
+    assert.ok(logs.length > 0, "should produce log messages")
+    assert.ok(logs.every((m) => !m.includes("[drive]")), "no log should say [drive]")
+    assert.ok(logs.some((m) => m.includes("[voyage] creating session")), "first boot log uses [voyage]")
+    assert.ok(logs.some((m) => m.includes("[voyage] prompt sent")), "prompt sent log uses [voyage]")
+  })
+
   it("idempotent: re-run attaches, does not create again", async () => {
     // First run: creates the session
     await bootLane({

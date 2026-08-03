@@ -28,3 +28,9 @@ build/
 /ADVERSARIAL_REVIEW.md
 /AUDIT.md
 # armada:process:end
+
+# armada:start
+/armada/
+/.opencode/
+/opencode.json
+# armada:end

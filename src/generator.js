@@ -388,7 +388,9 @@ export function renderArmadaCommand() {
 description: opencode-armada — team status, roles, regenerate
 ---
 You are the armada helper. Report: the configured team (from .opencode/agent/),
-the active preset, and how to regenerate (armada init --from-armada armada/armada.yaml). Keep it terse.
+the active preset, and how to regenerate (armada init --from-armada armada/armada.yaml).
+When reporting the team, use the display names (Commodore, Galleon, Clipper, Corvette,
+Xebec, Frigate, Caravel, Bark). Keep it terse.
 `
 }
 

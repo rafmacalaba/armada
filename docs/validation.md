@@ -273,9 +273,9 @@ orchestrator append prompt lean).
   **armada-orchestrator** through a `displayName`; the internal name never changes. This is
   what keeps parallel phase dispatch working — the orchestrator holds the board and dispatches
   backend-dev/frontend-dev/qa directly.
-- **Two-lane "armada improves armada" workflow.** `docs/self-dogfood.md` was folded into
-  `docs/armada-improves-armada.md`: Lane A (recurring audit) + Lane B (feature implementation),
-  both in `sandbox/<name>/` worktrees. `docs/using-armada.md` now covers building **or** auditing
+- **Patrol/voyage "armada improves armada" workflow.** `docs/self-dogfood.md` was folded into
+  `docs/armada-improves-armada.md`: patrol (recurring audit) + voyage (feature implementation),
+  both in `sandbox/<name>/` docks. `docs/using-armada.md` now covers building **or** auditing
   on any other repo.
 
 74/74 tests.
