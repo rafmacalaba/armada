@@ -122,6 +122,20 @@ test("init --budget power selects power-tier models for agents", async () => {
   assert.match(orch, new RegExp(`model: ${modelFor("orchestrator", "power")}`))
 })
 
+test("init --yolo emits autonomous config (bash allow, keep boundaries)", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--yolo", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  const yaml = readFileSync(join(dir, "armada/armada.yaml"), "utf8")
+  assert.match(yaml, /yolo: true/)
+  const cfg = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8"))
+  assert.strictEqual(cfg.permission["*"], "allow", "config catch-all allow")
+  assert.strictEqual(cfg.permission.external_directory, "deny", "external dir stays denied")
+  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  assert.match(orch, /\bbash:\n\s+"\*": allow/, "orchestrator bash allowed in yolo")
+  assert.match(orch, /edit:\n\s+"\*": deny/, "orchestrator edit still denies (delegates)")
+})
+
 test("init --yes --stack overlays hint onto detected stack", async () => {
   const dir = makeTempRepo({})
   const r = await runCli(["init", "--yes", "--stack", "nextjs-fastapi", "--no-browser"], { cwd: dir })

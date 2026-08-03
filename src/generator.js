@@ -85,6 +85,7 @@ function routingPrompt(role) {
 export function buildTeam(manifest) {
   const { budget, browserTesting } = manifest.project ?? {}
   const headless = manifest.project?.headless ?? false
+  const yolo = manifest.project?.yolo ?? false
   const teamByRole = Object.fromEntries((manifest.team || []).map((t) => [t.role, t]))
   return ROLES.map((role) => {
     const override = teamByRole[role]
@@ -109,6 +110,13 @@ export function buildTeam(manifest) {
         "pwd": "allow",
         "echo*": "allow",
       }
+    }
+    if (yolo && ["orchestrator", "qa"].includes(role)) {
+      // Autonomous mode: the orchestrator approves its own inspection commands and
+      // qa approves its test/screenshot commands, so the fleet never stalls on a
+      // permission prompt. Edit boundaries stay (both still delegate/own their
+      // slices); only bash becomes allow.
+      permissions.bash = { "*": "allow" }
     }
     return {
       role,
@@ -158,12 +166,18 @@ export function renderOpenCodeJson(manifest, team) {
       }
     }
   }
+  const yolo = manifest.project?.yolo ?? false
+  const permission = { external_directory: "deny" }
+  if (yolo) {
+    // Autonomous mode: auto-approve everything not explicitly denied. Agent-level
+    // edit boundaries (orchestrator denies code writes, security/architect are
+    // read-only) still hold — the SDK checks the most specific rule first.
+    permission["*"] = "allow"
+  }
   return {
     $schema: "https://opencode.ai/config.json",
     model: modelFor("orchestrator", manifest.project?.budget ?? "balanced"),
-    permission: {
-      external_directory: "deny",
-    },
+    permission,
     default_agent: "orchestrator",
     ...(Object.keys(openrouterModels).length
       ? { provider: { openrouter: { models: openrouterModels } } }
@@ -505,6 +519,7 @@ project:
   devcontainer: ${manifest.project.devcontainer ?? false}
   useAgentBrowser: ${manifest.project.useAgentBrowser ?? false}
   headless: ${manifest.project.headless ?? false}
+  yolo: ${manifest.project.yolo ?? false}
   requirementsFile: ${q(manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md")}
   supervision:
     plugin: ${manifest.project.supervision?.plugin ?? false}

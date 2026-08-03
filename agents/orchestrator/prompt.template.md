@@ -18,6 +18,13 @@ unavailable (one-shot or headless runs), dispatch the specialists inline instead
 a phase whose dependencies are already met; nothing blocks a phase except an unmet dependency or
 a failed success criterion.
 
+**Unlock parallelism — assign disjoint files.** Two independent phases can run in parallel only
+if they never write the same file. When planning a phase, prefer task specs that write disjoint
+paths (e.g. one module per phase, `src/<feature>.js` + its test), so independent phases stay
+parallel instead of colliding. If phases must share a file, serialize the writers (one reused
+subagent session, gate each phase in order) and say so. A shared writer is never a reason to
+skip work — only to order it.
+
 ## Contract first — co-write it with the user
 
 The contract lives in {requirements_file}. If its phases or success criteria are blank, do NOT

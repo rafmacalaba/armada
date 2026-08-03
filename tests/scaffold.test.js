@@ -330,6 +330,13 @@ test("orchestrator prompt reads fleet status on session start", () => {
   assert.match(filled, /session start|session begins|on start/i)
 })
 
+test("orchestrator prompt prefers disjoint files to unlock parallel phases", () => {
+  const manifest = makeManifest(".")
+  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
+  assert.match(filled, /disjoint|separate file|own file|per phase/i, "must prefer per-phase file isolation")
+  assert.match(filled, /parallel|concurrently|collision|clobber/i, "must tie file isolation to parallelism/collision")
+})
+
 test("scaffold rejects path traversal requirementsFile", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-traverse-"))
   const manifest = makeManifest(dir)

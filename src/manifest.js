@@ -43,7 +43,7 @@ export function parseManifestYaml(text) {
   if (typeof p.name !== "string") throw new Error("armada.yaml: schema violation: project.name must be a string")
   if (p.budget !== undefined && !BUDGETS.has(p.budget)) throw new Error("armada.yaml: schema violation: project.budget must be one of free, balanced, power")
   if (p.stack !== undefined && (typeof p.stack !== "object" || Array.isArray(p.stack))) throw new Error("armada.yaml: schema violation: project.stack must be an object")
-  const boolFields = ["browserTesting", "devcontainer", "useAgentBrowser", "headless"]
+  const boolFields = ["browserTesting", "devcontainer", "useAgentBrowser", "headless", "yolo"]
   for (const f of boolFields) {
     if (p[f] !== undefined && typeof p[f] !== "boolean") throw new Error(`armada.yaml: schema violation: project.${f} must be a boolean`)
   }
@@ -80,6 +80,7 @@ export function parseManifestYaml(text) {
       devcontainer: p.devcontainer ?? false,
       useAgentBrowser: p.useAgentBrowser ?? false,
       headless: p.headless ?? false,
+      yolo: p.yolo ?? false,
       requirementsFile: p.requirementsFile ?? "armada/REQUIREMENTS.md",
       supervision: {
         plugin: p.supervision?.plugin ?? false,
@@ -108,6 +109,7 @@ export const MANIFEST_SCHEMA = {
     devcontainer: "boolean",
     useAgentBrowser: "boolean",
     headless: "boolean", // non-interactive mode: orchestrator bash allow (CI-safe)
+    yolo: "boolean", // autonomous mode: no permission prompts (config allow, boundaries kept)
     requirementsFile: "string", // per-feature contract (default armada/REQUIREMENTS.md)
   },
   team: "array<{name, role, model, fallback, variant?, enabled}>",

@@ -35,6 +35,7 @@ Usage:
                           create new project from curated starter template
   armada init --stack <s> --budget <b>       declarative setup
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
+  armada init --yolo                         autonomous: no permission prompts (bash allow, edit boundaries kept)
   armada init --supervision-plugin           opt-in thin supervision plugin (.opencode/plugins/)
   armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
   armada init --target <dir>                 scaffold into a directory (default cwd)
@@ -225,6 +226,9 @@ async function init(args) {
   if (args.includes("--headless")) {
     manifest.project.headless = true
   }
+  if (args.includes("--yolo")) {
+    manifest.project.yolo = true
+  }
   if (args.includes("--supervision-plugin")) {
     manifest.project.supervision = manifest.project.supervision ?? { plugin: false }
     manifest.project.supervision.plugin = true
@@ -278,6 +282,7 @@ export function defaultManifest(target = ".") {
       devcontainer: false,
       useAgentBrowser: false,
       headless: false,
+      yolo: false,
       supervision: { plugin: false },
       requirementsFile: "armada/REQUIREMENTS.md",
       stack: {},

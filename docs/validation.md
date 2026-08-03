@@ -313,3 +313,54 @@ Generated teams are now fully native opencode agents (`.opencode/agent/*.md` + m
 - There is **no `displayName`** in native agents; the orchestrator keeps its internal name and
   uses `color` for TUI distinction. `default_agent: "orchestrator"` in `opencode.json` boots the
   TUI straight into it.
+
+---
+
+## Multi-phase parallel contract + autonomous mode (2026-08-02)
+
+Validated the core promise end-to-end: a 5-phase dependency graph where independent phases
+dispatch their own subagents and only dependent phases wait.
+
+### Scenario (temp repo, `--budget free`, `--stack node-express`)
+
+`armada/REQUIREMENTS.md` with 5 phases over a small Node HTTP server:
+
+- Phase 1 `/about` and Phase 2 `/admin` — **no dependencies** (both candidate for parallel)
+- Phase 3 `/about/team` — depends on 1
+- Phase 4 `/admin/settings` — depends on 2
+- Phase 5 `/` home + full suite — depends on 1-4
+
+### Results (`opencode run --agent orchestrator`)
+
+- **Dependency gating correct.** Ready-set progressed exactly per the graph:
+  `{P2,P3}` after P1, `{P3,P4}` after P2, `{P4}` after P3, then P5 after all four.
+- **All 5 phases passed**, 5/5 tests on the final `src/pages.js`/`src/pages.test.js`.
+- **Collision-aware orchestration (the key finding).** The contract made every phase write the
+  *same* files, so the orchestrator serialized the writers on a reused backend-dev session:
+  *"every phase writes the same two files... Parallel writers would lose updates, so I
+  serialize writers on one reused backend-dev session."* Correct behavior — parallel writers on
+  a shared file would clobber.
+- **True parallel dispatch** for non-colliding work: the final gate work (qa e2e ∥ adversary
+  pass) ran as parallel background subagents — *"non-overlapping write scopes, so parallel."*
+  The adversary produced a real finding (ADV-001: uncaught TypeError on absolute-form request
+  targets in `server.js`).
+- **Autonomy.** Ran with `opencode run` (no `--auto`); only one shell approval was needed in the
+  TUI mode (headless used none). This motivated `armada init --yolo`.
+
+### Action taken from the findings
+
+1. **`--yolo` autonomous mode** (`armada init --yolo` / `armada.yaml` `yolo: true`):
+   - `opencode.json` gets `permission: { "*": "allow" }` (auto-approve; needs no `--auto` flag).
+   - Orchestrator + qa `bash` become `allow` — no prompt stalls.
+   - **Boundaries kept:** orchestrator `edit: { "*": "deny" }` stays (delegates writes);
+     security/architect stay read-only. SDK resolves the most specific rule first.
+   - Verified: headless `opencode run` on a yolo scaffold answered with zero permission prompts.
+2. **Orchestrator prompt** gained an explicit **"Unlock parallelism — assign disjoint files"**
+   rule: prefer per-phase file isolation so independent phases stay parallel; when a file must be
+   shared, serialize writers on a reused session and say so.
+
+### Tests
+
+183 pass (was 178): yolo manifest round-trip, buildTeam yolo bash flip + boundary preservation,
+renderOpenCodeJson yolo config-level allow, CLI `init --yolo` e2e, orchestrator prompt disjoint-files
+rule.
