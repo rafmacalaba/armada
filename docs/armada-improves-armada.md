@@ -150,6 +150,16 @@ git merge feat/<name>
 git worktree remove sandbox/<name>
 ```
 
+### Self-modification rule (learned in the first Lane B run)
+
+When a Lane B feature touches armada's **own** generators or templates (e.g. the orchestrator
+prompt, command renderers, scaffold output), the fleet edits the **tracked source**
+(`agents/**`, `src/**`), not just the sandbox's generated `.opencode/` copies — those are
+gitignored and lost on re-scaffold. Add a gate to such contracts: after the change, run
+`armada init --from-armada armada/armada.yaml` and verify the generated output still reflects
+the change (survives re-scaffold). The first run missed this and the fix had to be ported
+manually (see `8e0fab3`).
+
 ## Shared mechanics
 
 - **Sandbox worktree:** isolated branch + working tree; live repo never scaffolded. See
