@@ -133,16 +133,16 @@ shell commands: if the edit tool would deny a file, do not modify that file any 
 
 ## Repository conventions
 
-- End-to-end tests and their configuration live under `e2e/`. Only qa writes there.
-- Screenshots live under `screenshots/`.
+- End-to-end tests and their configuration live under `armada/e2e/<feature>/`. Only qa writes there.
+- Screenshots live under `armada/screenshots/<feature>/`.
 - No emojis in code, comments, print statements or logging.
 - Keep it simple: small modules, clear names, no defensive programming, no overengineering.
 - Prefer popular, well-supported libraries over custom code.
 
-## DEFECTS.md — the defect ledger
+## armada/ledgers/<feature>/DEFECTS.md — the defect ledger
 
-All defects live in `DEFECTS.md` at the repo root, one entry per defect, newest
-first. Writers: **qa** (create, close, reopen) and **orchestrator** (record developer
+All defects live in `armada/ledgers/<feature>/DEFECTS.md` (per-feature), one entry per defect,
+newest first. Writers: **qa** (create, close, reopen) and **orchestrator** (record developer
 responses, reject). Nobody else edits it, ever.
 
 Format, exactly:
@@ -159,7 +159,7 @@ Format, exactly:
 
     Expected: What should happen.
     Actual: What happens instead.
-    Screenshot: screenshots/def-001.png (optional)
+    Screenshot: armada/screenshots/<feature>/def-001.png (optional)
 
     History:
     - qa: opened
@@ -177,10 +177,10 @@ Statuses and who may set them:
 Every status change appends a History line. A defect is never done because a developer says
 so — it is done when qa closes it.
 
-## ADVERSARIAL_REVIEW.md — the adversary's findings
+## armada/ledgers/<feature>/ADVERSARIAL_REVIEW.md — the adversary's findings
 
-All adversary findings live in `ADVERSARIAL_REVIEW.md`. Writers: **adversary** (create
-entries) and **orchestrator** (fill Disposition). Nobody else.
+All adversary findings live in `armada/ledgers/<feature>/ADVERSARIAL_REVIEW.md`. Writers:
+**adversary** (create entries) and **orchestrator** (fill Disposition). Nobody else.
 
 Format, exactly:
 
@@ -192,12 +192,12 @@ Format, exactly:
     What I did: ...
     Expected: ...
     Actual: ...
-    Screenshot: screenshots/adv-001.png (optional)
+    Screenshot: armada/screenshots/<feature>/adv-001.png (optional)
 
     Disposition: PENDING
 
 The orchestrator replaces PENDING with either `ACCEPTED -> DEF-NNN` or `REJECTED - reason`.
-Accepted findings are reproduced and filed in DEFECTS.md by qa. No entry may remain PENDING
+Accepted findings are reproduced and filed in the feature's DEFECTS.md by qa. No entry may remain PENDING
 when the final phase completes.
 
 ## Phase gates

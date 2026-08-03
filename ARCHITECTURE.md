@@ -183,8 +183,8 @@ structure, not a side effect.
 | **orchestrator** | primary | dispatch, gating, contract, state, the only agent you talk to | **No** — delegates everything |
 | **backend-dev** | subagent | server, API, storage, backend tests | Yes (backend files) |
 | **frontend-dev** | subagent | UI, visual polish, frontend tests | Yes (frontend files) |
-| **qa** | subagent | e2e tests, screenshots, DEFECTS.md, the only one who closes defects | Only e2e/ + screenshots |
-| **adversary** | subagent | hostile review, breaks the running app, ADVERSARIAL_REVIEW.md | **No** — read-only attacker |
+| **qa** | subagent | e2e tests, screenshots, `armada/ledgers/<feature>/DEFECTS.md`, the only one who closes defects | Only `armada/e2e/` + `armada/screenshots/` + `armada/ledgers/` |
+| **adversary** | subagent | hostile review, breaks the running app, `armada/ledgers/<feature>/ADVERSARIAL_REVIEW.md` | **No** — read-only attacker |
 | **security** | subagent | vulnerability/authz audit | **No** — read-only auditor |
 | **docs** | subagent | README, API docs, changelog | Docs only |
 | **architect** | subagent | architecture, refactor risk, cross-cutting review | **No** — read-only reviewer |
@@ -210,14 +210,14 @@ flowchart TD
     FE -->|"evidence: tests + screenshots"| ORC
 
     ORC -->|"2 · e2e + full suites"| QA["qa"]
-    QA -->|"DEFECTS.md · screenshots · e2e/"| ORC
+    QA -->|"ledger entries · screenshots · e2e/"| ORC
 
     ORC -->|"3 · hostile pass on phase features"| ADV["adversary"]
     ADV -->|"ADVERSARIAL_REVIEW.md (PENDING)"| ORC
     ORC -->|"triage: ACCEPTED → qa reproduces"| QA
     ORC -->|"triage: REJECTED - reason"| ADV
 
-    QA -->|"file DEF entry"| DEF["DEFECTS.md"]
+    QA -->|"file DEF entry"| DEF["armada/ledgers/<feature>/DEFECTS.md"]
     ORC -->|"dispatch OPEN defects (severity first)"| BE
     ORC -->|"dispatch OPEN defects"| FE
     BE -->|"FIX READY / CANNOT REPRODUCE / WAI"| ORC
@@ -236,7 +236,8 @@ flowchart TD
 What the graph encodes:
 
 - **Writes route down, evidence flows up.** The orchestrator physically cannot `edit` code
-  (`edit: { "*": "deny" }`); workers own disjoint file slices; qa owns `e2e/` + `DEFECTS.md`.
+  (`edit: { "*": "deny" }`); workers own disjoint file slices; qa owns `armada/e2e/` +
+  `armada/ledgers/` + `armada/screenshots/`.
   Every return arrow is proof, never a report of intent.
 - **The per-phase loop is fixed, not discretionary.** Steps 1-3 (developers → qa → adversary)
   run for *every* phase — the orchestrator only chooses scope, never whether a gate runs.

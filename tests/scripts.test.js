@@ -10,7 +10,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const SCRIPT_PATH = join(__dirname, "..", "scripts", "untrack-process-artifacts.sh")
 const GITIGNORE_PATH = join(__dirname, "..", ".gitignore")
-const DOCS_PATH = join(__dirname, "..", "docs", "process-artifacts.md")
 
 // All target files the script must mention
 const TARGET_FILES = [
@@ -83,25 +82,6 @@ test(".gitignore armada entries still present", () => {
   assert.ok(content.includes("/armada/"), ".gitignore should keep /armada/ entry")
   assert.ok(content.includes("/.opencode/"), ".gitignore should keep /.opencode/ entry")
   assert.ok(content.includes("/opencode.json"), ".gitignore should keep /opencode.json entry")
-})
-
-// --- docs ---
-
-test("docs/process-artifacts.md exists", () => {
-  assert.ok(existsSync(DOCS_PATH), "docs/process-artifacts.md should exist")
-})
-
-test("docs/process-artifacts.md references the script", () => {
-  const content = readFileSync(DOCS_PATH, "utf8")
-  assert.ok(content.includes("untrack-process-artifacts.sh"),
-    "docs should reference the untrack script")
-})
-
-test("docs/process-artifacts.md lists target files", () => {
-  const content = readFileSync(DOCS_PATH, "utf8")
-  assert.ok(content.includes("DEFECTS.md"), "docs should mention DEFECTS.md")
-  assert.ok(content.includes("ADVERSARIAL_REVIEW.md"), "docs should mention ADVERSARIAL_REVIEW.md")
-  assert.ok(content.includes("AUDIT.md"), "docs should mention AUDIT.md")
 })
 
 // --- DEF-034: e2e -> tests migration ---

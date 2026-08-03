@@ -16,7 +16,8 @@ on **anything else**.
   projects: free workers, paid reviewers where they matter.
 - **Contract-driven.** `armada/REQUIREMENTS.md` is the source of truth; phases
   declare dependencies, parallel work runs as background subagents.
-- **Built-in accountability.** `DEFECTS.md` and `ADVERSARIAL_REVIEW.md` keep
+- **Built-in accountability.** The per-feature ledgers
+  (`armada/ledgers/<feature>/DEFECTS.md` and `.../ADVERSARIAL_REVIEW.md`) keep
   QA and the adversary honest. No phase closes without evidence.
 - **Repeatable.** `armada init --from-armada armada/armada.yaml` regenerates
   the exact same config. Tearing down and re-scaffolding is one command.
@@ -134,7 +135,7 @@ list lags.
 
 ### Fleet commands
 
-Every scaffold ships four in-session commands under `.opencode/commands/`:
+Every scaffold ships five in-session commands under `.opencode/commands/`:
 
 | Command | What it does |
 |---|---|
@@ -142,6 +143,7 @@ Every scaffold ships four in-session commands under `.opencode/commands/`:
 | `/armada-status` | Read `.opencode/fleet-status.md` — active phases, last update, next action |
 | `/armada-scout` | Dispatch a read-only investigation (adversary/architect), no writes, no PR |
 | `/armada-resume` | Read `.opencode/fleet-status.md`, summarize pending phases, ask the next action |
+| `/armada-fleet` | Per-lane progress dashboard (same store as the `armada fleet` CLI) |
 
 **Fleet status file (`.opencode/fleet-status.md`):** written by the orchestrator so a killed
 session can be resumed. Format: YAML frontmatter (`active_phases`, `last_update`, `next_action`)
@@ -499,9 +501,9 @@ Each phase closes only when its success criteria have evidence:
 Evidence goes under `evidence/<phase>/` (or wherever the contract specifies).
 The orchestrator won't advance a phase without it.
 
-`DEFECTS.md` and `ADVERSARIAL_REVIEW.md` are append-only ledgers; nothing
-closes without qa retest or orchestrator disposition. See
-[AGENTS.md](../../AGENTS.md) (generated into the project) for the formats.
+`armada/ledgers/<feature>/DEFECTS.md` and `armada/ledgers/<feature>/ADVERSARIAL_REVIEW.md`
+are append-only per-feature ledgers; nothing closes without qa retest or orchestrator
+disposition. See [AGENTS.md](../../AGENTS.md) (generated into the project) for the formats.
 
 ### 7. Ship and clean up
 

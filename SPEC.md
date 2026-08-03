@@ -93,13 +93,13 @@ remote (.well-known/opencode)
 
 | Role | Permissions (edit) | Notes |
 |---|---|---|
-| orchestrator | `*` deny; `*.md` allow; REQUIREMENTS/AGENTS/.opencode deny | plan/delegate/review only |
-| backend-dev | product code; deny DEFECTS, ADVERSARIAL, REQUIREMENTS, AGENTS, .opencode, e2e | server/API/storage |
+| orchestrator | `*` deny; `*.md` allow; REQUIREMENTS/AGENTS/.opencode/armada deny; ledgers allow | plan/delegate/review only |
+| backend-dev | product code; deny armada/ledgers, armada/e2e, armada/screenshots, armada/state, REQUIREMENTS, AGENTS, .opencode, opencode.json, armada | server/API/storage |
 | frontend-dev | product code; deny same set | UI/UX |
-| qa | `*` deny; e2e, DEFECTS.md, screenshots allow | owns defect lifecycle; read-only on product |
-| adversary | `*` deny; ADVERSARIAL_REVIEW.md, screenshots allow | hostile-user testing |
+| qa | `*` deny; armada/e2e, armada/ledgers, armada/screenshots allow | owns defect lifecycle; read-only on product |
+| adversary | `*` deny; armada/ledgers/*/ADVERSARIAL_REVIEW.md, armada/screenshots allow | hostile-user testing |
 | security | `*` deny; webfetch allow | read-only audit |
-| docs | `*` allow; deny .opencode, e2e; bash deny | writer |
+| docs | `*` allow; deny .opencode, armada/ledgers, armada/e2e; bash deny | writer |
 | architect | `*` deny | read-only review |
 
 Permissions are enforced by the opencode SDK (same mechanism the personal-space repo uses).
