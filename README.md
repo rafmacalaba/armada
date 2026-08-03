@@ -33,8 +33,7 @@ opencode                            # launch opencode — the team loads
 
 # opencode-armada
 
-**Evidence-gated AI teams** for [opencode](https://opencode.ai), built on
-[oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim).
+**Evidence-gated AI teams** for [opencode](https://opencode.ai).
 
 armada is the process, not just the prompts. It scaffolds a crew of specialized agents —
 backend-dev, frontend-dev, qa, adversary, security, docs, architect — under an orchestrator that
@@ -68,8 +67,9 @@ Public. Transparent. MIT-licensed. Full spec in [SPEC.md](./SPEC.md).
 ## How you use it
 
 You run armada once; it writes the team into your repo, and from then on you just use `opencode`
-(omo-slim runs the crew at runtime). It's a **one-time generator** — the create-react-app model,
-not a runtime — and what it generates is a process, not just a pile of prompts.
+(opencode runs the crew natively (background subagents)). It's a **one-time generator** — the
+create-react-app model, not a runtime — and what it generates is a process, not just a pile of
+prompts.
 
 There are two ways to install armada:
 
@@ -100,11 +100,8 @@ You don't ask it to; it's how it starts. Then it implements: backend-dev and fro
 nothing blocks a phase except an unmet dependency or a failed success criterion. You approve at
 gates and review the PR.
 
-The orchestrator is the omo-slim primary agent. Armada keeps that slot (it must — omo-slim
-grants `mode: primary` and the background-job board only to the agent named `orchestrator`) and
-**appends** the armada delivery protocol to its prompt (`orchestrator_append.md`), so the
-superpowers orchestration stays intact. The TUI shows it as **armada-orchestrator** via a
-`displayName`; the internal name never changes.
+The orchestrator is armada's primary agent (`mode: primary`) and the repo's `default_agent`, so
+the TUI boots straight into it. Its prompt is self-contained — nothing is appended at runtime.
 
 Everything below this line (`--headless`, `--requirements`, `--budget`, …) is a **setup-time
 option** on step 1. There is no armada at runtime.
@@ -114,14 +111,8 @@ option** on step 1. There is no armada at runtime.
 ## Prerequisites
 
 - [opencode](https://opencode.ai) installed
-- oh-my-opencode-slim installed globally (add to `plugin` in
-  `~/.config/opencode/opencode.json`):
-  ```bash
-  npx oh-my-opencode-slim@latest install --preset=opencode-go   # or: bunx oh-my-opencode-slim@latest install ...
-  ```
 - Provider auth: `opencode auth login` (OpenCode Go for free models, OpenRouter for fallbacks)
-- omo-slim handles background orchestration automatically. Optionally enable opencode-native
-  parallel dispatch with:
+- For parallel background dispatch, launch opencode with:
   ```bash
   OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode
   ```
@@ -184,17 +175,16 @@ armada init --from-armada armada.yaml
 
 ```
 your-repo/
-├── opencode.json                     # project model + permissions (never clobbers existing)
+├── opencode.json                     # model + default_agent (never clobbers existing)
 ├── AGENTS.md                         # playbook: team roles, defect ledger, phase gates (if absent)
 ├── REQUIREMENTS.md                   # contract scaffold: phases + success criteria (if absent)
 ├── armada.yaml                       # manifest — source of truth, re-runnable
 └── .opencode/
-    ├── oh-my-opencode-slim.jsonc     # preset + agent definitions (model, permission, routing)
-    ├── oh-my-opencode-slim/          # stack-aware system prompts per agent
-    │   ├── orchestrator_append.md    # armada delivery protocol (appended to omo-slim orchestrator)
+    ├── agent/                        # native opencode agents: mode/model/permission frontmatter
+    │   ├── orchestrator.md           # primary agent, default_agent, self-contained prompt
     │   ├── backend-dev.md
     │   ├── frontend-dev.md
-    │   ├── qa.md / adversary.md / security.md / docs.md / architect.md
+    │   └── qa.md / adversary.md / security.md / docs.md / architect.md
     └── commands/armada.md            # /armada in-session command
 ```
 

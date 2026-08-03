@@ -1,7 +1,7 @@
 # opencode-armada — Agent Rules
 
-opencode-armada generates reproducible AI-engineer multi-agent teams for opencode, built on
-oh-my-opencode-slim. This file is the rules for agents working ON armada itself. Not a session
+opencode-armada generates reproducible AI-engineer multi-agent teams for opencode, natively —
+no plugin. This file is the rules for agents working ON armada itself. Not a session
 journal — session progress lives in commits and PRs.
 
 ## Commands
@@ -19,9 +19,9 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
 - `src/model-catalog.js` — roles, curated model recommendations, budget tiers, table renderer, models cache
 - `src/stack-detect.js` — stack detection from manifests + instruction files (recurses subdirs for monorepos)
 - `src/questionnaire.js` — interactive setup (node readline, zero deps)
-- `src/generator.js` — pure renderers (team, slim jsonc, opencode.json, AGENTS.md, REQUIREMENTS.md, armada.yaml)
+- `src/generator.js` — pure renderers (team, native agent files, opencode.json, AGENTS.md, REQUIREMENTS.md, armada.yaml)
 - `src/scaffold.js` — file I/O, prompt filling, no-clobber, `uninstall`
-- `src/doctor.js` — environment health checks (spawns opencode, reads plugin config)
+- `src/doctor.js` — environment health checks (spawns opencode, checks providers + background dispatch)
 - `agents/<role>/prompt.template.md` — per-role prompts with `{placeholders}`
 - `presets/*.yaml` — budget presets (free / balanced / power)
 
@@ -35,10 +35,9 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
 - Prompt templates use `{placeholder}` syntax; a test asserts no dangling placeholders.
 - Model IDs are `provider/model` (e.g. `opencode-go/minimax-m3`), never bare names.
 - Agent prompts ship terse/caveman output contracts to reduce token burn.
-- The scaffolded `opencode.json` includes the full `agent:` block (orchestrator + specialists)
-  with per-role `mode` + `permission`. This is intentional: omo-slim 2.2.8's `config` hook is
-  un-called by opencode 1.18.11, so we wire agents directly rather than relying on the plugin
-  to inject them from `.opencode/oh-my-opencode-slim.jsonc` at runtime.
+- Agents are native `.opencode/agent/<role>.md` files (frontmatter carries `mode`/`model`/
+  `permission`); `opencode.json` stays minimal (`model` + `default_agent: "orchestrator"`).
+  No plugin is required.
 
 ## Testing
 
@@ -55,25 +54,9 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
 - TDD: write the failing test first, then implement.
 - Roadmap and open work: [TODO.md](./TODO.md). Design decisions: [SPEC.md](./SPEC.md).
 
-## Environment notes (opencode 1.18.11 + omo-slim 2.2.8)
+## Environment notes
 
-- **omo-slim plugin crashes on load** with `disabledTools.filter is not a function`. Root cause:
-  omo-slim 2.2.6+ exports `minimumExpectedToolCount` and opencode 1.18.11 calls it externally
-  with a non-array. Workaround: local patched copy at
-  `~/.local/share/opencode-patches/oh-my-opencode-slim@2.2.8-patched/`, referenced via
-  `file://` in `~/.config/opencode/opencode.json`. PATCH_NOTES.md in that dir explains.
-  **The patched copy must keep a full `node_modules/`** — a partial copy makes opencode
-  silently skip the plugin (no hooks, no agents, no append injection) with no error.
-- **With the patched plugin loaded, the full runtime layer works:** TUI boots directly into
-  `armada-orchestrator` (default_agent + displayName), the `orchestrator_append.md` delivery
-  protocol is injected into the orchestrator's system prompt, and omo-slim's subagents
-  (explorer/librarian/oracle/designer/fixer/observer) register. Verified in
-  `/tmp/armada-tui/interactive-init/` (`opencode agent list` → 17 agents; `/armada` in TUI
-  renders the full team table).
-- **The sim at `/tmp/armada-tui/interactive-init/`** is a working end-to-end demo: scaffold a fresh
-  project with `armada new`, fill `armada/REQUIREMENTS.md` with a phase, run
-  `opencode run --auto --agent orchestrator "Execute Phase 1..."` to verify the team.
-- All 158 tests pass with the patched plugin.
+- The team is native opencode agents (`.opencode/agent/*.md`); no plugin is required.
 
 ## Superpowers
 

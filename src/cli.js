@@ -7,7 +7,7 @@
 //   armada init --from-armada armada/armada.yaml   re-scaffold from manifest
 //   armada models [budget]      print curated model catalog
 //   armada models --refresh     merge live provider models (requires auth)
-//   armada doctor               check omo-slim + providers + env
+//   armada doctor               check providers + env + background dispatch
 //   armada uninstall [--all]    remove armada-generated artifacts (--all also user-facing)
 //   armada ping                 confirm the CLI works
 //   armada help                 this help
@@ -27,7 +27,7 @@ import { runNew } from "./new-command.js"
 export const VERSION = "0.6.1"
 
 const HELP = `opencode-armada v${VERSION}
-Reproducible AI-engineer multi-agent teams for opencode, on oh-my-opencode-slim.
+Evidence-gated AI-engineer teams for opencode, natively (no plugin).
 
 Usage:
   armada init                                interactive setup

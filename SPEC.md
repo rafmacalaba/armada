@@ -7,16 +7,15 @@ it. If you change behavior, update this file.
 
 ## 1. What it is
 
-`opencode-armada` is a **configuration generator and distribution layer** for building
-reproducible AI-engineer multi-agent teams in [opencode](https://opencode.ai). It generates
-per-project config, prompts, and playbooks that a human (or another agent) uses with
-[oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim).
+`opencode-armada` is a **configuration generator** for building reproducible AI-engineer
+multi-agent teams in [opencode](https://opencode.ai). It generates per-project native opencode
+agents, prompts, and playbooks that a human (or another agent) runs with opencode itself.
 
 ### 1.1 What it is NOT
 
 - **Not a plugin.** It does not hook opencode events, register tools, or run at runtime. It
   writes files. See §3 for why.
-- **Not an orchestration engine.** omo-slim is the engine. armada configures it.
+- **Not an orchestration engine.** opencode is the runtime. armada emits the team.
 - **Not a runtime dependency.** armada runs once at setup; the repo doesn't need it installed
   afterward.
 
@@ -24,8 +23,7 @@ per-project config, prompts, and playbooks that a human (or another agent) uses 
 
 | Dependency | Role | Required |
 |---|---|---|
-| opencode | host | yes |
-| oh-my-opencode-slim | orchestration engine (background subagents, presets, routing) | yes |
+| opencode | host + runtime (agents, permissions, background subagents) | yes |
 | OpenCode Go / Zen auth | free model provider | yes for free tier |
 | OpenRouter auth | fallback / power model provider | optional |
 
@@ -51,20 +49,19 @@ per-project config, prompts, and playbooks that a human (or another agent) uses 
 
 ## 3. Why it is not a plugin
 
-Two distinct roles exist in this ecosystem:
+**armada is a generator; opencode is the runtime. Armada emits native opencode agents and
+commands; no plugin is required.** Two roles, cleanly split:
 
-- **omo-slim is a plugin.** It runs inside opencode at runtime — hooks events, schedules
-  background specialists, injects the job board, provides `cancel_task` / `wait_for_user`
-  tools. It must be a plugin because it needs live behavior.
-- **armada is a generator.** Its entire job is to write config files that omo-slim reads.
-  It runs once at setup, before opencode launches. It never touches opencode's runtime.
+- **opencode is the runtime.** It hosts agents, enforces per-role permissions, and dispatches
+  background subagents. Nothing to install beyond opencode itself.
+- **armada is a generator.** Its entire job is writing native agent files and commands. It runs
+  once at setup, before opencode launches; it never touches opencode's runtime.
 
-If armada were a plugin, it would compete with omo-slim on the same hook surface to do work
-that is plain file-writing. The scaffolder/runtime split (create-react-app vs Next.js) is the
-correct mental model.
+If armada were a plugin, it would hook opencode's runtime to do work that is plain file-writing.
+The scaffolder/runtime split (create-react-app vs Next.js) is the correct mental model.
 
-**Consequence:** armada ships files; omo-slim consumes them. The generated
-`.opencode/oh-my-opencode-slim.jsonc` and prompt files are the contract between the two.
+**Consequence:** the generated `.opencode/agent/*.md` files and `.opencode/commands/*.md` are
+native opencode input — loaded and enforced by opencode with no plugin.
 
 ---
 
@@ -82,19 +79,11 @@ remote (.well-known/opencode)
   → managed (admin, highest)
 ```
 
-omo-slim adds its own chain for its config:
-
-```
-built-in defaults → user config → project config → env preset override
-  → active preset → root agents.*
-```
-
 **What armada guarantees:**
 
-- The global `plugin[]` list persists in every project — a project never re-declares omo-slim.
-- Project custom agents **add** to the built-in roster; no name collisions (unique role names).
+- Project agents live in `.opencode/agent/`; no name collisions (unique role names).
 - Project config overrides global **only on conflicting keys**.
-- Prompt files cascade project-over-global, so each repo controls its team's behavior.
+- Each repo controls its team's behavior via its own agent files and playbook.
 - `armada init` never writes `opencode.json` / `AGENTS.md` / `REQUIREMENTS.md` if they already
   exist (no clobber). It always (re)writes `armada.yaml` and the `.opencode/` artifacts it owns.
 
@@ -140,8 +129,7 @@ See README §Model catalog for the current table.
 
 | File | Owner | Written if... |
 |---|---|---|
-| `.opencode/oh-my-opencode-slim.jsonc` | armada | always (re-written) |
-| `.opencode/oh-my-opencode-slim/<role>.md` | armada | always (re-written) |
+| `.opencode/agent/<role>.md` | armada | always (re-written) |
 | `.opencode/commands/armada.md` | armada | always (re-written) |
 | `armada.yaml` | armada | always (re-written) |
 | `opencode.json` | armada | only if absent |
@@ -169,7 +157,7 @@ opencode-armada/
 
 ## 9. Non-goals (v0)
 
-- Runtime hooks / custom opencode tools (that is omo-slim's job).
+- Runtime hooks / custom opencode tools (armada writes files; opencode owns the runtime).
 - Auto-generating REQUIREMENTS.md content from a PRD (single scaffold only).
 - Training or fine-tuning models.
 - Multi-repo fleet management / scheduling beyond one repo at a time.

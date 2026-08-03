@@ -13,11 +13,11 @@ src/
 ├── model-catalog.js    roles, curated model recommendations, budget tiers, table renderer, models cache
 ├── stack-detect.js     detect tech stack from manifests + instruction files (recurses subdirs for monorepos)
 ├── questionnaire.js    interactive setup prompts (node readline, zero deps)
-├── generator.js        pure renderers: team, slim jsonc, opencode.json, AGENTS.md,
+├── generator.js        pure renderers: team, native agent files, opencode.json, AGENTS.md,
 │                       REQUIREMENTS.md, armada.yaml
 ├── scaffold.js         file I/O: writes generated files into a target repo, fills prompts,
 │                       uninstall
-├── doctor.js           environment health checks (spawns opencode, reads plugin config)
+├── doctor.js           environment health checks (spawns opencode, checks providers + background dispatch)
 └── manifest.js         manifest schema, default playbook, YAML parser (parseManifestYaml)
 
 agents/<role>/prompt.template.md   per-role system prompt with {placeholders}
@@ -41,12 +41,13 @@ user input (questionnaire / flags / armada.yaml)
 buildTeam(manifest)  ──────────────►  team[] (8 roles, model from budget, permissions,
   │                                     orchestratorPrompt routing)
   │
-  ├── renderSlimJsonc(manifest, team)   → .opencode/oh-my-opencode-slim.jsonc
+  ├── renderAgentFile(agent, prompt)    → .opencode/agent/<role>.md
   ├── renderOpenCodeJson(manifest, team)→ opencode.json
   ├── renderAgentsMd(manifest, team)    → AGENTS.md
   ├── renderRequirementsMd(manifest)    → REQUIREMENTS.md
   ├── renderManifestYaml(manifest, team)→ armada.yaml
-  └── fillPrompt(template, manifest, stack) → .opencode/oh-my-opencode-slim/<role>.md
+  ├── renderArmadaCommand()             → .opencode/commands/armada.md
+  └── fillPrompt(template, manifest, stack) → prompt text (rendered into each agent file)
         │
         ▼
 scaffold(manifest, stack)  — writes all of the above into target repo
