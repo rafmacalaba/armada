@@ -193,6 +193,64 @@ The boundaries are **enforced by permissions in the agent frontmatter** — not 
 politeness. The SDK resolves the most specific rule first, so a read-only role physically
 cannot edit, and the orchestrator physically cannot do its own code writes.
 
+### The relationship graph
+
+How the roles actually interact at runtime. Solid arrows are mandatory steps in the orchestrator's
+per-phase loop; dashed arrows are on-demand, read-only dispatches. Every arrow back to the
+orchestrator carries evidence — a test run, a screenshot, or a `path:line` citation.
+
+```mermaid
+flowchart TD
+    YOU["You (one person, one conversation)"] <-->|"co-write contract · approve gates · review evidence"| ORC
+
+    ORC["orchestrator · primary · writes NO code"]
+    ORC -->|"1 · dispatch parallel (API contract fixed first)"| BE["backend-dev"]
+    ORC -->|"1 · dispatch parallel"| FE["frontend-dev"]
+    BE -->|"evidence: backend tests"| ORC
+    FE -->|"evidence: tests + screenshots"| ORC
+
+    ORC -->|"2 · e2e + full suites"| QA["qa"]
+    QA -->|"DEFECTS.md · screenshots · e2e/"| ORC
+
+    ORC -->|"3 · hostile pass on phase features"| ADV["adversary"]
+    ADV -->|"ADVERSARIAL_REVIEW.md (PENDING)"| ORC
+    ORC -->|"triage: ACCEPTED → qa reproduces"| QA
+    ORC -->|"triage: REJECTED - reason"| ADV
+
+    QA -->|"file DEF entry"| DEF["DEFECTS.md"]
+    ORC -->|"dispatch OPEN defects (severity first)"| BE
+    ORC -->|"dispatch OPEN defects"| FE
+    BE -->|"FIX READY / CANNOT REPRODUCE / WAI"| ORC
+    ORC -->|"relay to qa"| QA
+    QA -->|"CLOSED (only qa)"| DEF
+
+    ORC -.->|"read-only audit"| SEC["security"]
+    ORC -.->|"read-only review"| ARC["architect"]
+    ORC -.->|"docs on demand"| DOC["docs"]
+
+    ORC -->|"write state on every transition"| STATE[("armada/state/active.json")]
+    ORC -->|"gate on evidence"| GATE{"phase passes?"}
+    GATE -->|"yes · unblocks dependents"| ORC
+```
+
+What the graph encodes:
+
+- **Writes route down, evidence flows up.** The orchestrator physically cannot `edit` code
+  (`edit: { "*": "deny" }`); workers own disjoint file slices; qa owns `e2e/` + `DEFECTS.md`.
+  Every return arrow is proof, never a report of intent.
+- **The per-phase loop is fixed, not discretionary.** Steps 1-3 (developers → qa → adversary)
+  run for *every* phase — the orchestrator only chooses scope, never whether a gate runs.
+  Security/architect/docs (dashed) are the only optional dispatches, on demand.
+- **The defect loop is closed.** Only qa can set CLOSED; the orchestrator relays developer
+  statuses (FIX READY / CANNOT REPRODUCE / WORKING AS INTENDED) and may only REJECT, with a
+  written reason.
+- **State is the loop's memory.** The orchestrator writes `armada/state/active.json` on every
+  transition (hard rule: never end a turn with unsaved state), which is what makes a killed
+  session resumable.
+- **The graph matches the prompts.** This diagram is a rendering of the steps in
+  `agents/orchestrator/prompt.template.md` (per-phase execution + defects + adversary triage) —
+  not an idealized design. If the code and this graph ever disagree, the prompts are truth.
+
 ---
 
 ## The tools that make the loop observable
