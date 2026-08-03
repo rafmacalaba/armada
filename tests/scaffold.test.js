@@ -1,14 +1,14 @@
 import { test } from "node:test"
 import assert from "node:assert"
 
-import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE } from "../src/scaffold.js"
+import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { detectStack } from "../src/stack-detect.js"
 import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
-import { makeTempRepo } from "./helpers.js"
+import { makeTempRepo, parseFrontmatter } from "./helpers.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -432,4 +432,319 @@ test("scaffold throws when custom prompt template is missing", () => {
     /custom prompt template not found: templates\/nonexistent\.md \(for role backend-dev\)/
   )
   rmSync(dir, { recursive: true, force: true })
+})
+
+// -- Phase 1: managed .gitignore block --
+
+function gitignoreBlock() {
+  return [GITIGNORE_START, "/armada/", "/.opencode/", "/opencode.json", GITIGNORE_END].join("\n")
+}
+
+test("scaffold writes gitignore block to fresh repo", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-gi1-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  const content = readFileSync(join(dir, ".gitignore"), "utf8")
+  assert.match(content, /# armada:start/)
+  assert.match(content, /\/armada\//)
+  assert.match(content, /\/\.opencode\//)
+  assert.match(content, /\/opencode\.json/)
+  assert.match(content, /# armada:end/)
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("scaffold gitignore block is idempotent", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-gi2-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  scaffold(manifest, manifest.project.stack)
+  const content = readFileSync(join(dir, ".gitignore"), "utf8")
+  const count = (content.match(/# armada:start/g) || []).length
+  assert.strictEqual(count, 1, "block must appear exactly once")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("scaffold appends gitignore block, preserves existing lines", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-gi3-"))
+  writeFileSync(join(dir, ".gitignore"), "node_modules/\n.env\n")
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  const content = readFileSync(join(dir, ".gitignore"), "utf8")
+  assert.match(content, /^node_modules\//)
+  assert.match(content, /\.env/)
+  assert.match(content, /# armada:start/)
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("scaffold dryRun reports .gitignore in files, does not write", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-gi4-"))
+  const manifest = makeManifest(dir)
+  const files = scaffold(manifest, manifest.project.stack, { dryRun: true })
+  assert.ok(files.includes(".gitignore"), ".gitignore must be in dryRun files list")
+  assert.ok(!existsSync(join(dir, ".gitignore")), ".gitignore must not be written in dryRun")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("scaffold skips gitignore when opts.gitignore is false", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-gi5-"))
+  const manifest = makeManifest(dir)
+  const files = scaffold(manifest, manifest.project.stack, { gitignore: false })
+  assert.ok(!files.includes(".gitignore"), ".gitignore must not be in files list when skipped")
+  assert.ok(!existsSync(join(dir, ".gitignore")), ".gitignore must not be written when skipped")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("uninstall removes gitignore block, restores user content", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-gi6-"))
+  writeFileSync(join(dir, ".gitignore"), "node_modules/\n.env\n")
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  // Verify block was added
+  let content = readFileSync(join(dir, ".gitignore"), "utf8")
+  assert.match(content, /# armada:start/)
+  assert.match(content, /node_modules/)
+  // Uninstall
+  const removed = uninstall(manifest)
+  assert.ok(removed.includes(".gitignore"), "uninstall must report .gitignore")
+  content = readFileSync(join(dir, ".gitignore"), "utf8")
+  assert.doesNotMatch(content, /# armada:start/)
+  assert.match(content, /node_modules/)
+  assert.match(content, /\.env/)
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("uninstall removes .gitignore entirely if block was only content", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-gi7-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  assert.ok(existsSync(join(dir, ".gitignore")), ".gitignore must exist after scaffold")
+  uninstall(manifest)
+  assert.ok(!existsSync(join(dir, ".gitignore")), ".gitignore must be removed when block was only content")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("uninstall dryRun does not touch .gitignore", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-gi8-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  const before = readFileSync(join(dir, ".gitignore"), "utf8")
+  const removed = uninstall(manifest, { dryRun: true })
+  assert.ok(removed.includes(".gitignore"), "dryRun uninstall must report .gitignore")
+  const after = readFileSync(join(dir, ".gitignore"), "utf8")
+  assert.strictEqual(after, before, ".gitignore must be unchanged in dryRun")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("uninstall is a no-op on .gitignore when block is absent", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-gi9-"))
+  writeFileSync(join(dir, ".gitignore"), "node_modules/\n")
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  // Manually remove the block
+  writeFileSync(join(dir, ".gitignore"), "node_modules/\n")
+  const removed = uninstall(manifest)
+  assert.ok(!removed.includes(".gitignore"), "uninstall must not report .gitignore when block absent")
+  assert.strictEqual(readFileSync(join(dir, ".gitignore"), "utf8"), "node_modules/\n")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+// -- Phase 2: per-feature ledger paths + {ledgers_dir} placeholder --
+
+test("fillTemplate resolves {ledgers_dir} with slugified project name", () => {
+  const manifest = makeManifest(".")
+  manifest.project.name = "My Test Project"
+  const result = fillTemplate("{ledgers_dir}DEFECTS.md", manifest, manifest.project.stack)
+  assert.strictEqual(result, "armada/ledgers/my-test-project/DEFECTS.md")
+})
+
+test("fillTemplate resolves {ledgers_dir} using manifest.project.feature when present", () => {
+  const manifest = makeManifest(".")
+  manifest.project.feature = "admin-dashboard"
+  manifest.project.name = "Some Other Name"
+  const result = fillTemplate("{ledgers_dir}ADVERSARIAL_REVIEW.md", manifest, manifest.project.stack)
+  assert.strictEqual(result, "armada/ledgers/admin-dashboard/ADVERSARIAL_REVIEW.md")
+})
+
+test("fillTemplate resolves {ledgers_dir} to default when name empty", () => {
+  const manifest = makeManifest(".")
+  manifest.project.name = ""
+  const result = fillTemplate("{ledgers_dir}DEFECTS.md", manifest, manifest.project.stack)
+  assert.strictEqual(result, "armada/ledgers/default/DEFECTS.md")
+})
+
+test("fillTemplate resolves {feature} token", () => {
+  const manifest = makeManifest(".")
+  manifest.project.feature = "my-feature"
+  const result = fillTemplate("Feature is {feature}", manifest, manifest.project.stack)
+  assert.strictEqual(result, "Feature is my-feature")
+})
+
+test("fillTemplate resolves {e2e_dir} and {screenshots_dir}", () => {
+  const manifest = makeManifest(".")
+  manifest.project.name = "TestApp"
+  const result = fillTemplate("{e2e_dir}tests and {screenshots_dir}screenshots", manifest, manifest.project.stack)
+  assert.strictEqual(result, "armada/e2e/testapp/tests and armada/screenshots/testapp/screenshots")
+})
+
+test("fillPrompt substitutes {ledgers_dir} in agent template", () => {
+  const manifest = makeManifest(".")
+  manifest.project.name = "demo-app"
+  const stack = manifest.project.stack
+  // Write a temp template with the placeholder
+  const dir = mkdtempSync(join(tmpdir(), "armada-tmpl-"))
+  const templatePath = join(dir, "test-agent.md")
+  writeFileSync(templatePath, "Never edit {ledgers_dir}DEFECTS.md")
+  try {
+    const filled = fillPrompt(templatePath, manifest, stack)
+    assert.strictEqual(filled, "Never edit armada/ledgers/demo-app/DEFECTS.md")
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test("fillPrompt has no dangling {ledgers_dir} in filled output", () => {
+  const manifest = makeManifest(".")
+  manifest.project.name = "demo-app"
+  const stack = manifest.project.stack
+  const dir = mkdtempSync(join(tmpdir(), "armada-tmpl-"))
+  const templatePath = join(dir, "test-agent.md")
+  writeFileSync(templatePath, "Path: {ledgers_dir}DEFECTS.md, nothing else")
+  try {
+    const filled = fillPrompt(templatePath, manifest, stack)
+    assert.ok(!/\{[a-z_]+\}/.test(filled), "no dangling placeholders")
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// -- Phase 3: permission tests --
+
+function frontmatterPerms(agentContent) {
+  const fm = agentContent.slice(agentContent.indexOf("---") + 3, agentContent.indexOf("---\n", 3))
+  const cfg = parseFrontmatter(fm)
+  return cfg.permission?.edit ?? {}
+}
+
+test("rendered qa agent permissions: owns ledgers, e2e, screenshots; denies rest", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-perm-qa-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  const content = readFileSync(join(dir, ".opencode/agent/qa.md"), "utf8")
+  const edit = frontmatterPerms(content)
+
+  assert.strictEqual(edit["*"], "deny", "qa must deny *")
+  assert.strictEqual(edit["armada/ledgers/*"], "allow", "qa must allow armada/ledgers/*")
+  assert.strictEqual(edit["armada/e2e/*"], "allow", "qa must allow armada/e2e/*")
+  assert.strictEqual(edit["armada/screenshots/*"], "allow", "qa must allow armada/screenshots/*")
+  // Defense: root ledgers not explicitly allowed -> denied by *
+  assert.ok(!("DEFECTS.md" in edit) || edit["DEFECTS.md"] === "deny", "qa must deny root DEFECTS.md")
+  assert.ok(!("ADVERSARIAL_REVIEW.md" in edit) || edit["ADVERSARIAL_REVIEW.md"] === "deny", "qa must deny root ADVERSARIAL_REVIEW.md")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("rendered backend-dev agent permissions: denies ledger, e2e, screenshots, state, root ledgers", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-perm-be-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  const content = readFileSync(join(dir, ".opencode/agent/backend-dev.md"), "utf8")
+  const edit = frontmatterPerms(content)
+
+  assert.strictEqual(edit["armada/ledgers/*"], "deny", "backend-dev must deny armada/ledgers/*")
+  assert.strictEqual(edit["armada/e2e/*"], "deny", "backend-dev must deny armada/e2e/*")
+  assert.strictEqual(edit["armada/screenshots/*"], "deny", "backend-dev must deny armada/screenshots/*")
+  assert.strictEqual(edit["armada/state/*"], "deny", "backend-dev must deny armada/state/*")
+  assert.strictEqual(edit["DEFECTS.md"], "deny", "backend-dev must deny root DEFECTS.md")
+  assert.strictEqual(edit["ADVERSARIAL_REVIEW.md"], "deny", "backend-dev must deny root ADVERSARIAL_REVIEW.md")
+  assert.strictEqual(edit["opencode.json"], "deny", "backend-dev must deny opencode.json")
+  assert.strictEqual(edit["armada/*"], "deny", "backend-dev must deny armada/*")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("rendered orchestrator agent permissions: allows specific ledger files, denies agends/req/armada", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-perm-orch-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  const content = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  const edit = frontmatterPerms(content)
+
+  assert.strictEqual(edit["armada/ledgers/*/DEFECTS.md"], "allow", "orchestrator must allow DEFECTS.md in ledgers")
+  assert.strictEqual(edit["armada/ledgers/*/ADVERSARIAL_REVIEW.md"], "allow", "orchestrator must allow ADVERSARIAL_REVIEW.md in ledgers")
+  assert.strictEqual(edit["armada/*"], "deny", "orchestrator must deny armada/*")
+  assert.strictEqual(edit["AGENTS.md"], "deny", "orchestrator must deny AGENTS.md")
+  assert.strictEqual(edit["REQUIREMENTS.md"], "deny", "orchestrator must deny REQUIREMENTS.md")
+  assert.strictEqual(edit[".opencode/*"], "deny", "orchestrator must deny .opencode/*")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("multi-feature: two features produce separate ledger namespaces, no DEF collision", () => {
+  const dirA = mkdtempSync(join(tmpdir(), "armada-mf-a-"))
+  const dirB = mkdtempSync(join(tmpdir(), "armada-mf-b-"))
+
+  const makeMf = (feature) => {
+    const m = makeManifest(feature === "feature-a" ? dirA : dirB)
+    m.project.feature = feature
+    m.project.name = "multi-feature"
+    return m
+  }
+
+  try {
+    scaffold(makeMf("feature-a"), {})
+    const agentsA = readFileSync(join(dirA, "AGENTS.md"), "utf8")
+    assert.match(agentsA, /armada\/ledgers\/feature-a\/DEFECTS\.md/, "feature-a AGENTS.md references feature-a DEFECTS")
+    assert.match(agentsA, /armada\/ledgers\/feature-a\/ADVERSARIAL_REVIEW\.md/, "feature-a AGENTS.md references feature-a ADVERSARIAL")
+    assert.match(agentsA, /armada\/e2e\/feature-a\//, "feature-a AGENTS.md references feature-a e2e")
+    assert.match(agentsA, /armada\/screenshots\/feature-a\//, "feature-a AGENTS.md references feature-a screenshots")
+
+    scaffold(makeMf("feature-b"), {})
+    const agentsB = readFileSync(join(dirB, "AGENTS.md"), "utf8")
+    assert.match(agentsB, /armada\/ledgers\/feature-b\/DEFECTS\.md/, "feature-b AGENTS.md references feature-b DEFECTS")
+    assert.match(agentsB, /armada\/ledgers\/feature-b\/ADVERSARIAL_REVIEW\.md/, "feature-b AGENTS.md references feature-b ADVERSARIAL")
+
+    // Both ledgers start at DEF-001 (per-file numbering, no collision across features)
+    assert.match(agentsA, /DEF-001/, "feature-a ledger references DEF-001")
+    assert.match(agentsB, /DEF-001/, "feature-b ledger references DEF-001")
+  } finally {
+    rmSync(dirA, { recursive: true, force: true })
+    rmSync(dirB, { recursive: true, force: true })
+  }
+})
+
+// --- slugify ---
+
+test("slugify: basic ASCII", () => {
+  assert.strictEqual(slugify("Hello World"), "hello-world")
+  assert.strictEqual(slugify("My-Project"), "my-project")
+  assert.strictEqual(slugify("   trim   "), "trim")
+  assert.strictEqual(slugify(""), "default")
+  assert.strictEqual(slugify(null), "default")
+  assert.strictEqual(slugify(undefined), "default")
+})
+
+test("slugify: non-ASCII transliteration and uniqueness (DEF-032)", () => {
+  const cafe = slugify("Café")
+  const cafePlain = slugify("cafe")
+  assert.notStrictEqual(cafe, cafePlain, "slugify('Café') must differ from slugify('cafe')")
+
+  const jp = slugify("日本語")
+  assert.ok(jp.length > 0, "slugify('日本語') must produce non-empty result")
+  assert.notStrictEqual(jp, "default", "slugify('日本語') must not fall back to default")
+
+  // All three must be pairwise distinct
+  const slugs = new Set([cafe, cafePlain, jp])
+  assert.strictEqual(slugs.size, 3, "all three slugs must be pairwise distinct")
+})
+
+test("slugify: length cap (DEF-033)", () => {
+  const long = slugify("a".repeat(500))
+  assert.ok(long.length <= 100, `slug length ${long.length} must be <= 100`)
+})
+
+test("slugify: special chars handled", () => {
+  // Chars beyond ASCII get warn+hash behavior
+  const r1 = slugify("test-unicode-日本語")
+  assert.ok(r1.length > 0, "slug must be non-empty")
+  // Latin diacritics transliterated
+  const r2 = slugify("Müllerstße")
+  assert.match(r2, /mu/, "transliterated umlaut")
+  assert.match(r2, /ss/, "transliterated eszett")
 })

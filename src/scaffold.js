@@ -2,6 +2,7 @@
 // generation happens in generator.js; this module owns the file I/O.
 
 import { mkdirSync, writeFileSync, existsSync, copyFileSync, readFileSync, rmSync, rmdirSync, readdirSync, lstatSync } from "node:fs"
+import { createHash } from "node:crypto"
 import { join, resolve } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -24,8 +25,90 @@ import { validateRequirementsFile } from "./manifest.js"
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
+export const GITIGNORE_START = "# armada:start"
+export const GITIGNORE_END = "# armada:end"
+
+function buildGitignoreBlock() {
+  return [
+    GITIGNORE_START,
+    "/armada/",
+    "/.opencode/",
+    "/opencode.json",
+    GITIGNORE_END,
+  ].join("\n")
+}
+
+// Append the managed block to .gitignore if not already present.
+// Returns true if the block was added (or would have been added).
+function appendGitignoreBlock(target, dryRun) {
+  const gitignorePath = join(target, ".gitignore")
+  let existing = existsSync(gitignorePath) ? readFileSync(gitignorePath, "utf8") : ""
+
+  if (existing.includes(GITIGNORE_START)) return false
+
+  const block = buildGitignoreBlock()
+  const newContent = existing ? existing + "\n" + block + "\n" : block + "\n"
+
+  if (!dryRun) {
+    writeFileSync(gitignorePath, newContent, "utf8")
+  }
+  return true
+}
+
+// Remove the managed block from .gitignore, restoring user content.
+// If the block was the only content, the file is removed.
+// Returns true if the block was found and removed (or would have been).
+function removeGitignoreBlock(target, dryRun) {
+  const gitignorePath = join(target, ".gitignore")
+  if (!existsSync(gitignorePath)) return false
+
+  const content = readFileSync(gitignorePath, "utf8")
+  const startIdx = content.indexOf(GITIGNORE_START)
+  if (startIdx === -1) return false
+
+  const endIdx = content.indexOf(GITIGNORE_END, startIdx)
+  if (endIdx === -1) return false
+
+  const endMarkerEnd = endIdx + GITIGNORE_END.length
+
+  // Extract before and after the block, trimming whitespace around the join
+  let before = content.substring(0, startIdx)
+  let after = content.substring(endMarkerEnd)
+
+  // Clean up trailing newlines from before-marker and leading newlines from after-end
+  const beforeTrimmed = before.replace(/\n+$/, "")
+  const afterTrimmed = after.replace(/^\n+/, "")
+
+  let restored
+  if (beforeTrimmed && afterTrimmed) {
+    restored = beforeTrimmed + "\n" + afterTrimmed
+    if (!restored.endsWith("\n")) restored += "\n"
+  } else if (beforeTrimmed) {
+    restored = beforeTrimmed
+    if (!restored.endsWith("\n")) restored += "\n"
+  } else if (afterTrimmed) {
+    restored = afterTrimmed
+    if (!restored.endsWith("\n")) restored += "\n"
+  } else {
+    restored = ""
+  }
+
+  if (!dryRun) {
+    if (restored.trim().length === 0) {
+      rmSync(gitignorePath, { force: true })
+    } else {
+      writeFileSync(gitignorePath, restored, "utf8")
+    }
+  }
+  return true
+}
+
 // Pure substitution. The I/O wrapper is fillPrompt.
 export function fillTemplate(text, manifest, stack) {
+  const featureName = resolveFeatureName(manifest)
+  const ledgersDir = `armada/ledgers/${featureName}/`
+  const e2eDir = `armada/e2e/${featureName}/`
+  const screenshotsDir = `armada/screenshots/${featureName}/`
   const browserTool = manifest.project.useAgentBrowser
     ? "\nBrowser tool: agent-browser (snapshot/click/fill/screenshot via MCP or CLI)."
     : ""
@@ -42,8 +125,78 @@ export function fillTemplate(text, manifest, stack) {
     instructions: stack.instructions?.length
       ? "Also read these existing instruction files before planning: " + stack.instructions.join(", ") + "."
       : "",
+    feature: featureName,
+    ledgers_dir: ledgersDir,
+    e2e_dir: e2eDir,
+    screenshots_dir: screenshotsDir,
   }
   return text.replace(/\{(\w+)\}/g, (m, key) => subs[key] ?? m)
+}
+
+// Transliteration table for Latin characters not handled by NFD normalization.
+const LATIN_MAP = {
+  "ß": "ss", "æ": "ae", "Æ": "ae",
+  "ø": "o", "Ø": "o",
+  "ł": "l", "Ł": "l",
+  "đ": "d", "Đ": "d",
+  "þ": "th", "Þ": "th",
+  "ð": "d", "Ð": "d",
+}
+const LATIN_RE = /[ßæÆøØłŁđĐþÞðÐ]/g
+
+// Slugify a project name into a feature directory name.
+// Max 100 chars for the slug portion. Non-ASCII chars trigger
+// transliteration + hash suffix to avoid collisions.
+export function slugify(name) {
+  const MAX_SLUG = 100
+  if (!name || typeof name !== "string") return "default"
+
+  const lower = name.toLowerCase()
+  const originalHasNonAscii = /[^\x00-\x7F]/.test(lower)
+
+  // NFD decompose + strip combining diacritics (à→a, é→e, ñ→n, ü→u, ç→c, etc.)
+  const deaccented = lower.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+
+  // Transliterate Latin characters not decomposed by NFD
+  const transliterated = deaccented.replace(LATIN_RE, (c) => LATIN_MAP[c] || c)
+
+  const stillHasNonAscii = /[^\x00-\x7F]/.test(transliterated)
+
+  let base
+  if (stillHasNonAscii) {
+    // Remove remaining non-ASCII, append hash for uniqueness
+    const asciiOnly = transliterated.replace(/[^\x00-\x7F]+/g, "-")
+    const hash = createHash("sha256").update(name).digest("hex").substring(0, 4)
+    base = asciiOnly.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+    base = base ? base + "-x" + hash : "unicode-x" + hash
+  } else if (originalHasNonAscii) {
+    // Fully transliterated; still append hash to avoid collision (e.g. Cafe vs Cafe)
+    const hash = createHash("sha256").update(name).digest("hex").substring(0, 4)
+    base = transliterated.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+    base = base ? base + "-x" + hash : "default"
+  } else {
+    base = transliterated.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+  }
+
+  // Truncate to MAX_SLUG at word boundary if possible
+  if (base.length > MAX_SLUG) {
+    base = base.substring(0, MAX_SLUG)
+    const lastDash = base.lastIndexOf("-")
+    if (lastDash > MAX_SLUG - 20) {
+      base = base.substring(0, lastDash)
+    }
+  }
+
+  return base || "default"
+}
+
+// Resolve feature name for per-feature directory paths.
+// Precedence: manifest.project.feature > slugified project.name > "default"
+export function resolveFeatureName(manifest) {
+  if (manifest.project.feature && typeof manifest.project.feature === "string" && manifest.project.feature.trim()) {
+    return manifest.project.feature.trim()
+  }
+  return slugify(manifest.project.name)
 }
 
 // Render a prompt template with the manifest's stack context.
@@ -133,7 +286,8 @@ export function scaffold(manifest, stack, opts = {}) {
   // `<!-- armada:start -->` and `<!-- armada:end -->`) is replaced; otherwise
   // the armada section is appended; if absent the file is created fresh.
   const agentsPath = out("AGENTS.md")
-  const agentsContent = renderAgentsMd(manifest, team)
+  const featureName = resolveFeatureName(manifest)
+  const agentsContent = renderAgentsMd(manifest, team, featureName)
   const ARMADA_START = "<!-- armada:start -->"
   const ARMADA_END = "<!-- armada:end -->"
 
@@ -184,6 +338,12 @@ export function scaffold(manifest, stack, opts = {}) {
       copyFileSync(join(ROOT, "template/.devcontainer/setup.sh"), out(".devcontainer/setup.sh"))
     }
     files.push(".devcontainer/devcontainer.json", ".devcontainer/setup.sh")
+  }
+
+  // 9. Managed .gitignore block (append-only, idempotent, marker-based).
+  if (opts.gitignore !== false) {
+    appendGitignoreBlock(target, opts.dryRun)
+    if (!files.includes(".gitignore")) files.push(".gitignore")
   }
 
   return files
@@ -269,6 +429,10 @@ export function uninstall(manifest, opts = {}) {
     removeFile("AGENTS.md")
     removeFile("opencode.json")
     removeFile("REQUIREMENTS.md")
+  }
+  // Remove managed .gitignore block, restoring user content
+  if (removeGitignoreBlock(target, opts.dryRun)) {
+    removed.push(".gitignore")
   }
   for (const w of warnings) console.warn(w)
   return removed

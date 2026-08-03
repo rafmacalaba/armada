@@ -112,6 +112,17 @@ export function parseManifestYaml(text, target) {
   if (p.supervision?.plugin !== undefined && typeof p.supervision.plugin !== "boolean") {
     throw new Error("armada.yaml: schema violation: project.supervision.plugin must be a boolean")
   }
+  if (p.feature !== undefined) {
+    if (typeof p.feature !== "string" || p.feature === "") {
+      throw new Error("armada.yaml: schema violation: project.feature must be a non-empty string")
+    }
+    if (p.feature.split(/[\/\\]/).includes("..")) {
+      throw new Error("armada.yaml: schema violation: project.feature must not contain '..'")
+    }
+    if (/[\/\\]/.test(p.feature)) {
+      throw new Error("armada.yaml: schema violation: project.feature must not contain path separators")
+    }
+  }
   const stack = p.stack ?? {}
   const seenRoles = new Set()
   const team = raw.team.map((t) => {
@@ -145,6 +156,7 @@ export function parseManifestYaml(text, target) {
       headless: p.headless ?? false,
       yolo: p.yolo ?? false,
       requirementsFile: p.requirementsFile ?? "armada/REQUIREMENTS.md",
+      feature: p.feature ?? null,
       supervision: {
         plugin: p.supervision?.plugin ?? false,
       },
@@ -166,6 +178,7 @@ export function parseManifestYaml(text, target) {
 export const MANIFEST_SCHEMA = {
   project: {
     name: "string",
+    feature: "string", // optional: per-feature name for ledger paths
     stack: "object", // from stack-detect
     budget: "free|balanced|power",
     browserTesting: "boolean",
@@ -182,12 +195,14 @@ export const MANIFEST_SCHEMA = {
 
 export const DEFAULT_PLAYBOOK = {
   defectLedger: {
-    file: "DEFECTS.md",
+    file: "armada/ledgers/{feature}/DEFECTS.md",
+    shared: "armada/ledgers/shared/DEFECTS.md",
     owner: "qa",
     statuses: ["OPEN", "FIX-READY", "DISPUTED", "CLOSED", "REJECTED"],
   },
   adversarialLedger: {
-    file: "ADVERSARIAL_REVIEW.md",
+    file: "armada/ledgers/{feature}/ADVERSARIAL_REVIEW.md",
+    shared: "armada/ledgers/shared/ADVERSARIAL_REVIEW.md",
     owner: "adversary",
   },
   phases: {

@@ -496,3 +496,105 @@ History:
 
 - qa: opened (filed by orchestrator from ADV-023)
 - qa: CLOSED — fix confirmed at scaffold.js:106-108 (lstatSync.isDirectory check), unit test passes (scaffold.test.js:408-421), independent repro produces clear error `custom prompt template is a directory, not a file: templates (for role backend-dev)`, full suite green 338/338
+
+## DEF-031: README.md references root-level e2e/DEFECTS/ADVERSARIAL_REVIEW after per-feature migration (stale docs)
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa (ADV-048)
+- Phase: 4
+
+Steps to reproduce:
+1. Read `README.md`.
+2. Search for `e2e/`, `DEFECTS.md`, `ADVERSARIAL_REVIEW.md` (root).
+3. Lines 30, 60, 63, 65, 278, 281, 282 reference root-level paths.
+4. The "What gets generated" tree at lines 213-233 omits `armada/ledgers/`, `armada/e2e/`, `armada/screenshots/`.
+
+Expected: README reflects per-feature paths: `armada/ledgers/<feature>/DEFECTS.md`, `armada/e2e/<feature>/`, `armada/screenshots/<feature>/`. Generated tree shows new directories.
+Actual: README not updated for per-feature layout. User-facing documentation contradicts actual output.
+Screenshot: n/a
+
+History:
+- qa: opened (filed by orchestrator from ADV-048)
+- qa: closed — all README refs now per-feature (armada/e2e/<feature>/, armada/ledgers/<feature>/DEFECTS.md); tree includes new dirs; 0 naked root-level refs
+
+## DEF-032: slugify() drops non-ASCII characters silently, collision risk
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa (ADV-049)
+- Phase: 4
+
+Steps to reproduce:
+1. Call `slugify("unicode-日本語")` in `src/scaffold.js` — returns `"unicode"`.
+2. Call `slugify("Café")` — returns `"caf"`.
+3. Non-ASCII stripped by `[^a-z0-9]+` regex without warning.
+
+Expected: Document the ASCII-only convention. Or transliterate, or warn when chars are dropped. Avoid collision.
+Actual: Characters silently dropped. `"unicode-日本語"` and `"unicode"` produce identical ledger dir — collision risk for per-feature DEF numbering.
+Screenshot: n/a
+
+History:
+- qa: opened (filed by orchestrator from ADV-049)
+- qa: closed — slugify("Café")="cafe-x7347", slugify("cafe")="cafe", slugify("日本語")="unicode-x7771"; three distinct outputs, collision resolved via hash suffix
+
+## DEF-033: slugify() has no length limit, ENAMETOOLONG risk
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa (ADV-050)
+- Phase: 4
+
+Steps to reproduce:
+1. Slugify a 500+ char project name.
+2. Path `armada/ledgers/<500+char-slug>/DEFECTS.md` would fail `mkdir` with ENAMETOOLONG on macOS (255-char limit), ext4, NTFS.
+
+Expected: Slug truncated to safe length (e.g., 100 chars) or mkdir error caught with clear message.
+Actual: No truncation. `scaffold` crashes with cryptic ENAMETOOLONG when writing ledger/e2e/screenshots dirs.
+Screenshot: n/a
+
+History:
+- qa: opened (filed by orchestrator from ADV-050)
+- qa: closed — slugify("a".repeat(500)).length === 100; truncated to safe length
+
+## DEF-034: P4 — 5 fleet e2e tests are product but were untracked instead of moved to tests/
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa (ADV-051)
+- Phase: 4
+
+Steps to reproduce:
+1. Inspect `e2e/*.test.js` (5 files, ~1248 lines): `armada-resume-command.test.js`, `armada-resume-roundtrip.test.js`, `cli-wiring.test.js`, `reconcile.test.js`, `validation.test.js`.
+2. Each tests product CLI behavior (reconcile, resume, scaffold, CLI dispatch, restart-proof).
+3. None are wired into `npm test` (which runs only `tests/*.test.js`).
+4. Per REQUIREMENTS.md Phase 4: "Any fleet-written e2e test that genuinely tests the PRODUCT (i.e. would run in CI) is moved into `tests/` where it belongs and is wired into the suite — it is product, not process."
+
+Expected: Each of the 5 files moved to `tests/` (with relative path fix from `../tests/helpers.js` to `./helpers.js`), wired into `npm test`, and removed from the untrack script's list.
+Actual: All 5 remain in `e2e/`, untracked via `.gitignore` process block. Not moved to `tests/`. Not wired into `npm test`. Product e2e tests siloed from CI.
+Screenshot: n/a
+
+History:
+- qa: opened (filed by orchestrator from ADV-051)
+- qa: closed — git ls-files e2e/ empty; all 5 files in tests/ (cli-wiring, reconcile-cli, validation, armada-resume-command, armada-resume-roundtrip); each passes individually; .gitignore has no /e2e/; 501/501 green
+
+## DEF-035: untrack-process-artifacts.sh fails silently from subdirectory
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa (ADV-052)
+- Phase: 4
+
+Steps to reproduce:
+1. Create a temp git repo with tracked `DEFECTS.md`, etc.
+2. Run `scripts/untrack-process-artifacts.sh` from a subdirectory.
+3. Observe: all 8 files report "Already untracked (skip)". Files remain tracked in index.
+4. Root cause: `git ls-files --error-unmatch` and `git rm --cached` resolve paths relative to cwd, not repo root.
+
+Expected: Script `cd`s to repo root (`git rev-parse --show-toplevel`) or errors clearly when run from a non-root directory.
+Actual: Silent false success. User thinks artifacts untracked but they stay in git index.
+Screenshot: n/a
+
+History:
+- qa: opened (filed by orchestrator from ADV-052)
+- qa: closed — script uses REPO_ROOT via git rev-parse --show-toplevel; test DEF-035 (scripts.test.js:134) runs from deeply/nested/sub/, DEFECTS.md untracked after; 501/501 green

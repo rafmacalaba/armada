@@ -61,7 +61,7 @@ export const CATALOG = {
     fallback: "openrouter/xiaomi/mimo-v2.5",
     free: "opencode/mimo-v2.5-free",
     power: "openrouter/xiaomi/mimo-v2.5",
-    reasoning: "e2e tests, screenshots, DEFECTS.md ownership, retesting",
+    reasoning: "e2e tests, screenshots, armada/ledgers/<feature>/DEFECTS.md ownership, retesting",
   },
   adversary: {
     label: "Adversarial reviewer",
@@ -69,7 +69,7 @@ export const CATALOG = {
     fallback: "openrouter/deepseek/deepseek-v4-pro",
     free: "opencode/deepseek-v4-flash-free",
     power: "openrouter/deepseek/deepseek-v4-pro",
-    reasoning: "hostile user simulation, break the running app, ADVERSARIAL_REVIEW.md",
+    reasoning: "hostile user simulation, break the running app, armada/ledgers/<feature>/ADVERSARIAL_REVIEW.md",
   },
   security: {
     label: "Security auditor",
