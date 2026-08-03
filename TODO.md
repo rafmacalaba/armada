@@ -159,24 +159,49 @@ Vision (loop-engineering outer layer — see the harness-vs-loop discussion):
   parallel; colliding ones serialize (existing prompt rule).
 
 Concrete steps (each its own PR, TDD):
-- [ ] **State schema.** Define `armada/state/` layout: `active.json` (current feature + phase graph
-  + evidence + next action), `features/` index, `history/` log. Extend `.opencode/fleet-status.md`
-  to be a render of `active.json`, or replace it.
-- [ ] **Per-feature contract CLI.** `armada feature new <name>` → creates the contract file +
-  registers in the index; `armada feature list`; `armada feature close <name>` (evidence gate
-  before close). `armada init --requirements <file>` wires the active feature.
-- [ ] **Orchestrator state read/write.** Prompt hard rules: read `armada/state/active.json` on
-  start (replaces the fleet-status rule), write phase transitions + evidence to it, never end a
-  turn with unsaved state. Tests assert the prompt contract + a state round-trip.
+- [x] **State schema.** `armada/state/` layout shipped: `active.json` (feature + phase graph +
+  evidence + next action), `features/` index, `history/` log. `src/state.js` (pure, zero-I/O) +
+  validators. (Built by the fleet — see the Lane B run below.)
+- [x] **Per-feature contract CLI.** `armada feature new/list/close` shipped
+  (`src/feature-commands.js`). `feature close` is evidence-gated (refuses without a passing
+  criterion). `armada init --requirements <file>` wires the active feature.
+- [x] **Orchestrator state read/write.** Prompt hard rules 3+4 read `armada/state/active.json` on
+  session start + write state on every transition (never end a turn with unsaved state). Replaces
+  the old `.opencode/fleet-status.md` rule. Regression tests assert the prompt contract.
 - [ ] **Restart-proof reconcile.** On session start, orchestrator diffs on-disk state vs repo
   reality (what shipped, what changed), reports "resume: feature X phase 2, evidence in,
   next action Y". `/armada-resume` becomes the human-facing wrapper.
 - [ ] **Multi-feature safety.** Contracts + state are per-feature files (disjoint) so feature A
   and B never collide at the state layer; the existing disjoint-files prompt rule covers code.
-  Test: scaffold two features, run both, verify no cross-clobber.
+  Test: scaffold two features, run both, verify no cross-clobber. (Fleet's e2e already covers
+  the disjoint + resume paths — extend to a full two-feature live run.)
 - [ ] **Live validation.** The `data-ai-chatbot` repo becomes the test bed: init the team, open
   feature 1 (implement), close it, kill the session mid-feature-2, reopen, verify resume + no
   state loss. Record in `docs/validation.md`.
+
+### Finding from the first Lane B run (2026-08-02)
+
+The fleet implemented the session-based state feature end-to-end (~26m, $0.18, autonomous
+`--yolo`) — but it edited its sandbox's **generated** `.opencode/agent/*.md` + command copies,
+which are **gitignored**. The **tracked sources** (`agents/orchestrator/prompt.template.md`,
+`src/generator.js` command renderers) kept the old fleet-status references, so the state
+behavior would have been lost on re-scaffold. Fixed in `8e0fab3` (ported rules to sources +
+fixed test portability). 
+
+**Lesson for self-improvement:** when armada improves itself, the contract must require edits to
+the **tracked source templates** (e.g. `agents/**`, `src/**`), and the fleet should verify the
+change survives `armada init --from-armada` (re-scaffold round-trip), not just the live
+`.opencode/` config. Add a "verify via re-scaffold" gate to Lane B contracts that touch armada's
+own generators/templates.
+
+### `--yolo` still co-writes
+
+Autonomous mode auto-approves *permissions* — it does NOT skip the **contract co-write**. The
+orchestrator still: reads the contract, and if phases/criteria are blank, elicits requirements
+one question at a time, drafts, iterates to consensus, and gets explicit approval before
+building. `--yolo` means no permission prompts for *tools*; the *product decision* (what to
+build) is still co-authored with the user. Try it on the next feature: leave the contract blank,
+launch `--yolo`, and let the orchestrator walk you through the requirements before it starts.
 
 ## Deferred
 
