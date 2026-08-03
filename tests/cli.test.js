@@ -354,6 +354,44 @@ test("drive with nonexistent path exits 1", async () => {
   assert.match(r.stderr, /lane path not found/)
 })
 
+test("drive --help prints usage without booting a session", async () => {
+  const r = await runCli(["drive", "--help"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
+  assert.doesNotMatch(r.stdout, /creating session/)
+  const rh = await runCli(["drive", "-h"])
+  assert.strictEqual(rh.code, 0)
+  assert.match(rh.stdout, /Usage:/)
+})
+
+test("drive dismisses boot-time modals (including repeat) before sending the prompt", async () => {
+  const home = mkdtempSync(join(tmpdir(), "drive-home-"))
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: `#!/bin/sh
+STATE="$HOME/.drive-test-captures"
+case "$1" in
+  has-session) exit 1 ;;
+  new-session) exit 0 ;;
+  capture-pane)
+    c=0
+    if [ -f "$STATE" ]; then read c < "$STATE"; fi
+    c=$((c+1))
+    echo "$c" > "$STATE"
+    if [ "$c" -le 3 ]; then printf "What feature do you want to build?\\nesc dismiss\\n"; else printf "tab agents\\nctrl+p\\nthinking\\n"; fi
+    exit 0 ;;
+  send-keys) exit 0 ;;
+  *) exit 1 ;;
+esac
+`,
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-modal-"))
+  const r = await runCli(["drive", lanePath], { env: { PATH: binDir, HOME: home } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /modal detected, dismissing with Escape/)
+  assert.match(r.stdout, /session/)
+})
+
 test("drive --no-open prints skipped message", async () => {
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",

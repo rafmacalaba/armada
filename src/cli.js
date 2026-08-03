@@ -71,6 +71,26 @@ Usage:
   armada help                                this help
 `
 
+const DRIVE_HELP = `opencode-armada drive v${VERSION}
+Boot a lane session and send the drive prompt (TUI-ready handshake).
+
+Usage:
+  armada drive <lane-path> [options]
+
+  Boots a tmux session named after the lane, waits until the opencode TUI
+  prompt bar is visible, sends the drive prompt, and verifies it registered
+  (the pane flips to the orchestrator's thinking indicator; resends once).
+
+Options:
+  --name <session>      tmux session name (default: basename of lane path)
+  --prompt <text>       drive prompt (default: contract-first directive)
+  --timeout <ms>        total ready timeout (default 30000)
+  --no-open             skip auto-opening a visible terminal (CI/headless)
+  --no-track            skip fleet-tracker recording
+  --heartbeat           start a fleet-tracker heartbeat on first boot
+  -h, --help            show this help
+`
+
 // Token -> stack field mappings for `--stack <hint>`. Only applied when the
 // detected stack leaves that field null/empty.
 const STACK_HINT_TOKENS = {
@@ -545,6 +565,10 @@ async function getAutoOpenSuffix(name) {
 }
 
 async function driveCmd(args) {
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(DRIVE_HELP)
+    return
+  }
   // Positional arg: <lane-path>, default "."
   const lanePath = args.find((a) => !a.startsWith("--")) || "."
 
@@ -639,6 +663,9 @@ async function driveCmd(args) {
         console.log(`started heartbeat for ${name}`)
       }
       console.log(`armada drive: session "${name}" ready, prompt registered.${attachSuffix}`)
+      if (args.includes("--heartbeat") && !noTrack) {
+        console.log(`heartbeat running for "${name}" every 30s — drive stays resident to keep the lane entry fresh. Ctrl-C to stop.`)
+      }
     }
     return 0
   } catch (err) {
