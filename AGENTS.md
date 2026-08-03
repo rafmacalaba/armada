@@ -14,7 +14,7 @@ journal — session progress lives in commits and PRs.
 ## Feature work must run through armada (mandatory)
 
 Any feature or implementation request — new command, new module, multi-file change, "ship a TODO
-item" — runs through the armada Lane B flow (`docs/armada-improves-armada.md`). Do not implement
+item" — runs through the armada voyage flow (`docs/armada-improves-armada.md`). Do not implement
 features directly in this working tree.
 
 Mandatory steps:
