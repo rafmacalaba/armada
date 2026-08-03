@@ -82,8 +82,9 @@ create → work → test → merge → clean
 - **clean**: `git worktree remove sandbox/<name>` (worktree) or `rm -rf sandbox/<name>` (plain).
 
 After the team is scaffolded, use `armada voyage <lane-path>` to boot the ship and auto-attach
-a visible terminal. See [docs/armada-improves-armada.md](./armada-improves-armada.md) for the
-full voyage flow.
+a visible terminal — wezterm first, per-OS emulators (Terminal.app/iTerm, x-terminal-emulator,
+Windows Terminal) as fallback. See [docs/armada-improves-armada.md](./armada-improves-armada.md)
+for the full voyage flow.
 
 ## Dock vs. external sibling
 

@@ -68,6 +68,7 @@ Usage:
                            check for evidence drifts against contract (exit 2 if drifts)
   armada voyage <lane-path> [--heartbeat]  boot a lane session and send the voyage prompt (TUI-ready handshake)
   armada drive <lane-path>              (alias for voyage)
+                                          auto-opens in wezterm (preferred) or per-OS emulator as fallback
   armada ping                                sanity check
   armada help                                this help
 `

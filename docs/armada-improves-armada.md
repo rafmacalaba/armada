@@ -162,21 +162,26 @@ polls `tmux capture-pane` until the TUI shows its prompt bar, sends the voyage p
 registered (the pane flips to the orchestrator's `thinking` indicator, resending once if not), and
 on timeout prints the captured pane tail and exits non-zero.
 
-Once the session is up, `armada voyage` auto-opens a visible terminal attached to it: macOS opens
-Terminal.app (or iTerm if installed), Linux opens the default X terminal emulator
-(`gnome-terminal`, `konsole`, or `x-terminal-emulator`; `wezterm start` fallback if installed;
-requires `DISPLAY`), and Windows opens Windows Terminal with a new tab (wezterm fallback if
-installed). wezterm is optional — never required. If no terminal can be opened (headless, missing
-binary, no `DISPLAY`), it prints `tmux attach -t <name>` and continues — the launch never fails.
-Pass `--no-open` to skip the auto-open for CI/headless use.
+Once the session is up, `armada voyage` auto-opens a visible terminal attached to it. wezterm is
+the baseline: running inside WezTerm, or (macOS/Linux) with the wezterm server up, the session
+opens in wezterm; Windows follows the same default — wezterm first, Windows Terminal second
+(classic fallback reordered in phase 2a). Per-OS emulators are fallback only: macOS Terminal.app
+(or iTerm if installed), Linux the default X terminal emulator (`gnome-terminal`, `konsole`, or
+`x-terminal-emulator`; requires `DISPLAY`), Windows Windows Terminal. wezterm is never required —
+if no terminal can be opened (headless, missing binary, no `DISPLAY`), it prints
+`tmux attach -t <name>` and continues — the launch never fails. Pass `--no-open` to skip the
+auto-open for CI/headless use.
 
 If you're already running in a terminal (the common case — you ran `armada voyage` from one),
 `armada voyage` opens a **tab in that terminal** instead of a fresh window. Detection uses
-`TERM_PROGRAM` (Apple_Terminal, iTerm.app, WezTerm) on macOS and `KONSOLE_VERSION` on Linux;
-wezterm's daemon reuses the existing instance. vscode / cursor users get a `tmux attach`
-hint instead (their integrated terminal can't be addressed from outside). The success message
-reflects what happened: `auto-attached in tab of Terminal.app` vs `auto-attached in new window
-of Terminal.app` vs `auto-attach skipped: ... — attach manually: tmux attach -t <name>`.
+`TERM_PROGRAM` (WezTerm, Apple_Terminal, iTerm.app) on macOS and `KONSOLE_VERSION` on Linux —
+WezTerm is checked first on any OS; wezterm's daemon reuses the existing instance. If you run in
+a non-wezterm terminal but wezterm is on PATH (rule 5, macOS/Linux), the attach still goes
+to wezterm. vscode / cursor users get a `tmux attach` hint instead (their integrated terminal
+can't be addressed from outside). The success message reflects what happened:
+`auto-attached in tab of WezTerm` vs `auto-attached in tab of Terminal.app` vs
+`auto-attached in new window of Terminal.app` vs
+`auto-attach skipped: ... — attach manually: tmux attach -t <name>`.
 
 Phase gates: a phase closes only with evidence — passing test run, screenshot, or file/line
 citation. The per-feature ledgers `armada/ledgers/<feature>/DEFECTS.md` and

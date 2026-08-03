@@ -299,7 +299,7 @@ is also scaffolded.
 | `armada models --list-openrouter` | show live model list from the OpenRouter API |
 | `armada preset <name> [--target <dir>]` | apply a budget preset to armada.yaml |
 | `armada voyage <lane-path>` | boot a lane session and send the voyage prompt |
-| `armada drive <lane-path>` | (alias for `armada voyage`) |
+| `armada drive <lane-path>` | (alias for `armada voyage`; auto-opens in wezterm — preferred — else per-OS emulator) |
 | `armada doctor` | environment health check |
 | `armada uninstall` | remove armada-generated artifacts |
 | `armada uninstall --all` | also remove generated `AGENTS.md`/`opencode.json`/`REQUIREMENTS.md` |

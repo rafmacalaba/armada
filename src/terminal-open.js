@@ -84,13 +84,13 @@ function _classicPickTerminal({ os, whichResults, hasDisplay }) {
   }
 
   if (os === "windows") {
-    if (whichResults.wt) {
-      return { kind: "wt", argv: ["wt", "new-tab", "cmd", "/k", "__ATTACH_CMD__"], attachCmd: "", available: true, reason: null }
-    }
     if (whichResults.wezterm) {
       return { kind: "wezterm", argv: ["wezterm", "start", "--", "cmd", "/k", "__ATTACH_CMD__"], attachCmd: "", available: true, reason: null }
     }
-    return { kind: "none", argv: [], attachCmd: "", available: false, reason: "no Windows Terminal or wezterm" }
+    if (whichResults.wt) {
+      return { kind: "wt", argv: ["wt", "new-tab", "cmd", "/k", "__ATTACH_CMD__"], attachCmd: "", available: true, reason: null }
+    }
+    return { kind: "none", argv: [], attachCmd: "", available: false, reason: "no wezterm or Windows Terminal" }
   }
 
   return { kind: "none", argv: [], attachCmd: "", available: false, reason: `unsupported platform: ${os}` }
