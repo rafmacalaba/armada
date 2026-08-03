@@ -86,8 +86,8 @@ separating bugs from improvements. Do not change code.
 
 ## Lane B — Feature implementation
 
-Anything in `TODO.md` or a design spec (`docs/superpowers/specs/*.md`): a new command like
-`armada new`, a landing page, a bugfix.
+Anything in `TODO.md` or a design spec (kept locally under `docs/superpowers/specs/`,
+gitignored): a new command like `armada new`, a landing page, a bugfix.
 
 ### Run it
 

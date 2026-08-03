@@ -35,6 +35,18 @@ link them to an issue/PR when relevant.
   phases run in parallel as background subagents (backend-dev ∥ frontend-dev per phase). Nothing
   blocks a phase except an unmet dependency or a failed success criterion.
 
+## Next — robust opencode harness (tiered)
+
+Make armada robust on opencode while keeping the core fleet model: **subagents + orchestrator, runnable in parallel** (armada's current model; firstmate's pattern for parallel crewmates). Multi-harness (codex, claude code) is deferred — see "Deferred" at the bottom. Working plan lives locally, not in the repo (see `docs/superpowers/` — gitignored).
+
+Key concepts preserved (do not regress): subagents own their slice; orchestrator delegates writes; parallel execution by default; evidence-gated delivery; SDK-enforced boundaries.
+
+- [ ] **Tier 1 — Model/provider robustness.** Generated `opencode.json` emits `provider.openrouter.models` for every openrouter slug the catalog uses (each with `options.provider.allow_fallbacks: true`). `armada doctor` adds an `openrouter auth` check with a remediation hint. Docs: power preset needs `OPENROUTER_API_KEY` / `/connect` openrouter.
+- [ ] **Tier 4 — Prompt contracts + regression tests** (ships in the Tier 1 PR). Orchestrator prompt gains three hard rules: (a) no blind stop, (b) writes route through subagents, (c) read `.opencode/fleet-status.md` on session start. Tests assert the three rules + assert generated `opencode.json` has no `plugin` block by default.
+- [ ] **Tier 2 — Bundled skills (commands).** Add `/armada-status` (read fleet status), `/armada-scout` (read-only investigation dispatch), `/armada-resume` (pick up killed session). Ship the `.opencode/fleet-status.md` schema. Generator renders the three command files; `uninstall` removes them.
+- [ ] **Tier 3 — Thin supervision plugin (opt-in).** Single `.opencode/plugins/armada-supervision.js`, opt-in via `armada init --supervision-plugin` or `armada.yaml` `supervision.plugin: true`. Three handlers: `session.created` → resume nudge from fleet-status, `session.idle` → no-blind-stop guard (with `skipNextIdle` recursion guard), `tool.execute.before` for `bash` → deny shell-redirect writes to files in the orchestrator's `permission.edit` deny set. Default `armada init` does NOT emit a plugin (the "no plugin" promise holds).
+- [ ] **PR sequencing:** PR 1 = T1 + T4 (no new files except opencode.json keys + prompt + new test file). PR 2 = T2 (three new command files + fleet-status schema). PR 3 = T3 (opt-in plugin, needs opencode plugin API verification + real-test against opencode).
+
 ## Next — armada new: best-practice repo generator (experience-aware)
 
 - [ ] `armada new [name]` command: category picker + experience gate
@@ -188,3 +200,8 @@ link them to an issue/PR when relevant.
   lean; decide if it's worth bundling).
 - [ ] Evaluate multiplexer integration (watch background agents live) as an optional opt-in.
 - [x] Native frontmatter `permission` semantics verified at runtime (`opencode agent list`, trivial task) — no plugin schema to drift.
+
+## Deferred
+
+- [ ] **Multi-harness support** (codex, claude code). Parked. When we tackle it, the generator grows per-harness renderers (`renderOpencodeAgent`, `renderCodexAgent`, `renderClaudeCodeAgent`) + an `--harness <name>` flag. Reference (OpenRouter cookbook): `codex-cli`, `opencode-integration`, `claude-code-integration`. The robust-opencode tiers make opencode the reference implementation; multi-harness layers on top without weakening it.
+- [ ] **Worktree-per-task isolation** (firstmate's strongest idea — `git worktree` per parallel crewmate so edits can't collide). Aspirational. The prompt-contract "no blind stop" + fleet-status file are the lightweight substitutes. Revisit after Tier 3 ships.
