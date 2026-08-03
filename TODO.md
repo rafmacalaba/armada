@@ -59,7 +59,7 @@ link them to an issue/PR when relevant.
   feature) now lives in `docs/armada-improves-armada.md`.
 - [ ] Run `armada init` in `~/WBG/data-ai-chatbot` (fastapi backend + nextjs frontend)
   - [ ] Confirm stack detection returns fastapi + nextjs
-  - [ ] Confirm generated `oh-my-opencode-slim.jsonc` loads in opencode (`opencode`, `ping all agents`)
+  - [ ] Confirm generated `.opencode/agent/*.md` native agents load in opencode (`opencode agent list`, TUI roster)
   - [ ] Confirm background orchestration works (`OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true`)
   - [ ] Tune prompts against the real repo conventions (the data-ai-chatbot stack)
   - [ ] Verify `/armada` command shows the team
@@ -187,5 +187,4 @@ link them to an issue/PR when relevant.
 - [ ] Explore integrating `superpowers` SDD for non-orchestrated tasks (armada should stay
   lean; decide if it's worth bundling).
 - [ ] Evaluate multiplexer integration (watch background agents live) as an optional opt-in.
-- [ ] Confirm omo-slim's `permission` key semantics match what armada emits (edit globs,
-  bash patterns) — update generated config if the plugin's schema changed.
+- [x] Native frontmatter `permission` semantics verified at runtime (`opencode agent list`, trivial task) — no plugin schema to drift.

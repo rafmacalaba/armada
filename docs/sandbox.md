@@ -115,7 +115,7 @@ usually a better fit.
 
 ## Engine note: `.slim/worktrees/`
 
-`oh-my-opencode-slim` (the engine that powers this toolchain) has its own
+The superpowers `worktrees` skill has its own
 convention: `.slim/worktrees/<slug>/`, with a `.slim/worktrees.json` manifest
 managed by the `worktrees` skill. It is functionally equivalent to this doc's
 `sandbox/` path — git worktree, isolated lane, ignored — just under a different

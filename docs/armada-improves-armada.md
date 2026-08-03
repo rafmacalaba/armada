@@ -20,14 +20,13 @@ This doc supersedes the old `docs/self-dogfood.md`. For using armada on **other*
 
 ## The trigger
 
-Opening `opencode` inside a scaffolded sandbox **is** the trigger. The orchestrator is the
-omo-slim primary agent with armada's delivery protocol **appended** (`orchestrator_append.md`)
-and shown in the TUI as **armada-orchestrator** via a `displayName`. There is no separate
-"start armada" step — the protocol is live the moment the session opens. `/armada` only reports
-status.
+Opening `opencode` inside a scaffolded sandbox **is** the trigger. The orchestrator is a native
+primary agent (`.opencode/agent/orchestrator.md`) whose prompt is the full self-contained
+delivery protocol; `opencode.json` sets `default_agent: "orchestrator"` so the TUI boots
+straight into it. There is no separate "start armada" step — the protocol is live the moment the
+session opens. `/armada` only reports status.
 
-Because the orchestrator holds the omo-slim **background-job board** (injected only into the
-agent named `orchestrator`), it can dispatch the team in **parallel** as background subagents:
+The orchestrator dispatches the team in **parallel** as opencode-native background subagents:
 independent phases, and `backend-dev ∥ frontend-dev` within a phase.
 
 ## Shared skeleton
@@ -41,7 +40,7 @@ cd sandbox/<name>
 node ../../src/cli.js init --yes --headless --budget balanced
 
 # 3. drive it
-opencode        # armada-orchestrator auto-triggers
+opencode        # boots into the orchestrator (default_agent)
 ```
 
 `git worktree list` shows all sandboxes. Cleanup when done:

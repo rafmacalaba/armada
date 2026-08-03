@@ -52,14 +52,14 @@ Pick a sibling name that scopes your experiments, e.g. `~/WBG/scratch/` or
 
 ## The trigger
 
-Opening `opencode` inside a scaffolded project **is** the trigger. The orchestrator is the
-omo-slim primary agent with armada's delivery protocol **appended** (`orchestrator_append.md`)
-and shown in the TUI as **armada-orchestrator** via a `displayName`. No separate "start armada"
-step — the protocol is live when the session opens. `/armada` only reports status.
+Opening `opencode` inside a scaffolded project **is** the trigger. The orchestrator is a native
+primary agent (`.opencode/agent/orchestrator.md`) whose prompt is the full self-contained
+delivery protocol; `opencode.json` sets `default_agent: "orchestrator"` so the TUI boots
+straight into it. No separate "start armada" step — the protocol is live when the session opens.
+`/armada` only reports status.
 
-Because the orchestrator holds the omo-slim **background-job board**, it dispatches the team in
-**parallel** as background subagents: independent phases, and `backend-dev ∥ frontend-dev`
-within a phase.
+The orchestrator dispatches the team in **parallel** as opencode-native background subagents:
+independent phases, and `backend-dev ∥ frontend-dev` within a phase.
 
 ## Build features in the project
 
@@ -164,10 +164,9 @@ node /path/to/opencode-armada/src/cli.js init --stack <stack> --budget balanced
 What you get:
 
 ```
-.opencode/oh-my-opencode-slim.jsonc
-.opencode/oh-my-opencode-slim/<role>.md   # 8 role prompts
+.opencode/agent/<role>.md                # 8 native agents (mode/model/permission in frontmatter)
 .opencode/commands/armada.md             # /armada slash command
-opencode.json                            # model + permissions
+opencode.json                            # model + default_agent + external_directory deny
 AGENTS.md                                # team rulebook
 armada/armada.yaml                       # source of truth
 armada/REQUIREMENTS.md                   # contract (draft, you co-write)
