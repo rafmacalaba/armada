@@ -12,7 +12,7 @@ Expected: Non-zero exit with error message "unknown budget: ultra_mega"
 Actual: Exit 0, scaffolds with budget "balanced" (default). No warning to user.
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 `src/cli.js:170-173` — the `BUDGETS.includes(args[budgetIdx + 1])` guard silently ignores invalid values. `renderManifestYaml` writes `budget: balanced` which then round-trips as "balanced" on re-scaffold. User thinks they chose a custom budget but gets default.
 
@@ -28,7 +28,7 @@ Expected: Parse error "model must not be empty"
 Actual: Writes `"model": ""` into slim JSONC and armada.yaml. opencode will fail to start with empty model.
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 `src/manifest.js:19-24` — no validation on `t.model`. `src/cli.js:157-162` — catches parse errors but empty-string model is not a parse error. Generated `oh-my-opencode-slim.jsonc` contains `"model": ""` which causes runtime failure.
 
@@ -44,7 +44,7 @@ Expected: Error "duplicate role: qa" or warning
 Actual: Exit 0, only first entry used, second silently discarded. No indication to user.
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 `src/manifest.js:19` — no duplicate check. `src/generator.js:100` — `manifest.team.some((t) => t.role === role ...)` finds the first match, second entry has no effect. `renderManifestYaml` writes both entries back out (src/generator.js:343-347), creating a misleading armada.yaml where only the first duplicate takes effect.
 
@@ -60,7 +60,7 @@ Expected: `enabled: false` (0 is falsy in YAML bool contexts)
 Actual: `enabled: true` — role is enabled
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 `src/manifest.js:23` — only checks `t.enabled === false || t.enabled === "false"`. Number `0` is neither, defaults to `true`. Should use truthy check: `Boolean(t.enabled) !== false` or explicit `t.enabled === 0` handling. Note: YAML spec treats `0` as not-boolean, but user expectation is that `0` means disabled.
 
@@ -76,7 +76,7 @@ Expected: Clean error "Cannot write to .opencode/: permission denied"
 Actual: Full Node.js stack trace with absolute paths (EACCES) dumped to stderr
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 `src/cli.js:140-143` — `main().catch(err => console.error(err))` prints full Error object including stack. `src/scaffold.js:63` — `writeFileSync` throws on permission denied, no try/catch in scaffold. Error propagates to catch handler unformatted. Absolute path `/Users/rafaelmacalaba/...` leaked in stack.
 
@@ -92,7 +92,7 @@ Expected: Uninstall should still clean up generated files, or at least offer `--
 Actual: "Manifest not found: armada/armada.yaml" exit 1. All generated artifacts remain. No way to clean up.
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 `src/cli.js:268-274` — uninstall always requires a manifest. If user deletes `armada/armada.yaml` (e.g., by accident or git clean), there is no path to remove: `.opencode/oh-my-opencode-slim.jsonc`, `.opencode/oh-my-opencode-slim/*.md`, `.opencode/commands/armada.md`. Suggestion: add `--force` flag that removes all known armada artifacts without reading manifest.
 
@@ -108,7 +108,7 @@ Expected: Parse error about missing file argument after `--from-armada`
 Actual: "Manifest not found: --budget" — confusing error, the flag `--budget` is consumed as the file path
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 `src/cli.js:151` — no `file.startsWith("--")` guard on the `--from-armada` value. Compare `src/cli.js:271` where `uninstall` has this guard: `if (!file || file.startsWith("--") || !existsSync(...))`. Missing guard on `init --from-armada` causes confusing error message instead of "missing file argument for --from-armada".
 
@@ -124,7 +124,7 @@ Expected: opencode.json model should match the budget-adjusted model (hy3 for fr
 Actual: opencode.json gets `"model": "opencode-go/minimax-m3"` while slim JSONC gets `"model": "opencode-go/hy3"` — inconsistency
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 `src/generator.js:164` — `renderOpenCodeJson` reads `manifest.team.find(t => t.role === "orchestrator")?.model` from raw manifest, not from `buildTeam` budget-adjusted output. If user sets `budget: free` but leaves a power/balanced model for orchestrator, opencode.json uses the expensive model while armada-orchestrator in slim JSONC uses the free model. Should use `modelFor("orchestrator", manifest.project.budget)` for consistency.
 
@@ -140,7 +140,7 @@ Expected: Warning or error about `.opencode` being a symlink
 Actual: Silently follows symlink, writes all files to symlink target. Could be exploited to write outside expected directory.
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 `src/scaffold.js:60-66` — `write()` uses `mkdirSync` and `writeFileSync` without symlink detection. If `.opencode` is a symlink to another location, armada files are written there. In practice this requires user action (creating the symlink), so severity LOW, but a `realpath` check or warning would be defense-in-depth.
 
@@ -156,7 +156,7 @@ Expected: `--target <dir>` flag to specify output directory
 Actual: `manifest.targetDir = "."` hardcoded at `src/cli.js:187`. No way to scaffold into a different directory.
 Screenshot: n/a
 
-Disposition: PENDING
+Disposition: REJECTED - out of scope for lane-drive; defer to follow-up audit lane.
 
 This is a design limitation, not a bug. Users who want to scaffold into a specific directory must `cd` first. A `--target` flag would improve scripting/CI workflows and match user expectation from other scaffolding tools.
 
@@ -365,7 +365,6 @@ Actual: Both paths rendered unconditionally. Fallback is unreachable in generate
 
 Screenshot: n/a
 
-Disposition: PENDING
 
 Contract says fallback is "in-tree" (`armada/REQUIREMENTS.md:19` — "fall back to the in-tree `node src/cli.js reconcile`"). The command body text is correct per the contract, but the context (generated repo vs source tree) is lost by the time the orchestrator reads it. The orchestrator has no way to know the fallback won't work.
 
@@ -388,8 +387,341 @@ Actual: Doc is honest — it states the global binary is not installed and the f
 
 Screenshot: n/a
 
-Disposition: PENDING
 
 This is a documentation gap, not a code gap. The e2e test proves the primary path works (fake bin → real CLI reconcile → exit 0 + resume line). The live validation proves the fallback works on real state. The contract says "run `armada reconcile` from the generated repo" — this was not done with a real global install. The doc is transparent about the limitation.
 
 Disposition: ACCEPTED -> fixed by `npm link` (`/opt/homebrew/bin/armada` -> lane's `bin/armada.js`); live validation re-ran against the `~/WBG/data-ai-chatbot` clone via the primary `armada reconcile` invocation. Same resume line, same exit 0. Recorded in `docs/validation.md` (2026-08-03 re-run section).
+
+---
+
+## ADV-023: `--name` value starting with single dash (`-`) breaks tmux
+
+- Session: phase-1 gate
+- Suggested severity: HIGH
+
+What I did: `armada drive . --name=-foo` or `armada drive . --name -foo`
+Expected: Session name `-foo` rejected with clear error, or correctly handled.
+Actual: `tmux has-session -t -foo` — tmux interprets `-foo` as a flag, not a session name. Command may fail silently or with a confusing tmux error. The guard at `src/cli.js:467` only checks `.startsWith("--")`, not `.startsWith("-")`. Single-dash session names are valid strings but invalid tmux session-name args when passed directly after `-t`/`-s`.
+Disposition: ACCEPTED -> DEF-011
+
+Disposition: ACCEPTED -> DEF-011
+
+`src/cli.js:467-469` — `!args[nameIdx + 1].startsWith("--")` allows values like `-foo`, `-x`, `-n`. `src/drive.js:53` — the name is passed directly to `tmux has-session -t <name>`. tmux interprets anything starting with `-` after `-t` as flags. Fix: validate that name doesn't start with `-`, or prepend `=` to the flag (e.g., `-t=-foo` works in tmux).
+
+---
+
+## ADV-024: `--timeout` with non-numeric value produces NaN deadline
+
+- Session: phase-1 gate
+- Suggested severity: MEDIUM
+
+What I did: `armada drive . --timeout abc` or `armada drive . --timeout ""`
+Expected: Parse error "timeout must be a positive integer".
+Actual: `parseInt("abc", 10)` returns `NaN`. `driveCmd` passes `timeoutMs: NaN` to `bootLane`. Because the key `timeoutMs` is explicitly in the object, the default `timeoutMs = 30000` in the destructured parameter is NOT triggered. `Date.now() + NaN` = `NaN`. The while-loop condition `Date.now() < NaN` is always `false`, so the poll loop never runs. Error message: `"TUI not ready after NaNms"` — confusing.
+Disposition: ACCEPTED -> DEF-012
+
+Disposition: ACCEPTED -> DEF-012
+
+`src/cli.js:480-481` — `parseInt(args[timeoutIdx + 1], 10)` can return `NaN` (non-numeric string) or `0` (string `"0"`). Neither is validated. `src/drive.js:72` — `Date.now() + timeoutMs` produces `NaN`. Destructured default only triggers when the key is absent, not when the value is `NaN`. Fix: validate `Number.isFinite(timeoutMs) && timeoutMs > 0`, otherwise error.
+
+---
+
+## ADV-025: Newline in `--prompt` sent as literal Enter keystroke
+
+- Session: phase-1 gate
+- Suggested severity: MEDIUM
+
+What I did: Pass a prompt containing `\n` characters, e.g., `--prompt $'line1\nline2'` in bash.
+Expected: Either the newline is escaped/stripped, or the command errors out with "prompt must not contain newlines".
+Screenshot: n/a
+
+Disposition: REJECTED - `send-keys -l` is documented as "send keys literally"; user is responsible for prompt content. Default prompt has no newline. Out of contract scope.
+
+`src/drive.js:95` — `spawn("tmux", ["send-keys", "-t", name, "-l", prompt])`. The `-l` flag sends literal keystrokes; newlines ARE Enter. `src/cli.js:472` — the DEFAULT_PROMPT has no newlines, so the default path is safe. Custom `--prompt` values (scripts, CI pipelines, multi-line strings from files) are vulnerable. Fix: either strip/replace newlines before passing, or fail with a clear error if the prompt contains them.
+
+---
+
+## ADV-026: `bootLane` returns success when register never detected after resend
+
+- Session: phase-1 gate
+- Suggested severity: HIGH
+
+What I did: Create a scenario where the opencode TUI never shows the `thinking` indicator after the prompt is sent (slow model load, broken install, model error).
+Actual: `src/drive.js:117-125` — after `checkRegister()` returns `false`, the prompt is resent, `checkRegister()` is called a second time. If it still returns `false`, `registered` remains `false`, but the function **returns `{ name, attached: false }`** — success. No error is thrown, no warning logged. `src/cli.js:512` prints `"armada drive: session \"<name>\" ready, prompt registered."` — falsely claiming registration succeeded.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-013
+
+`src/drive.js:117-125`:
+```js
+let registered = await checkRegister()
+if (!registered) {
+    log("resending prompt")
+    await sendPrompt()
+    registered = await checkRegister()
+}
+return { name, attached: false }  // registered could still be false!
+```
+The contract (REQUIREMENTS.md:27-28) says: "It verifies the prompt registered ... and resends once if not." After the resend, if register still fails, that's a failed verification — it should throw a DriveError. The current code silently succeeds. The test at `tests/drive.test.js:198-214` (resend-only) covers the case where resend succeeds but never tests the double-failure case. 
+
+---
+
+## ADV-027: CLI prints "prompt registered" when session was reattached (no prompt sent)
+
+- Session: phase-1 gate
+- Suggested severity: MEDIUM
+
+Expected: Message clarifies that the session was reattached, no new prompt was sent.
+Actual: `src/cli.js:512` prints the same success message regardless of `attached` status: `"armada drive: session ... ready, prompt registered."` When `attached: true`, `bootLane` returned at `src/drive.js:54-55` without sending any prompt. The message is misleading — no prompt was registered by this invocation.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-014
+
+`src/cli.js:503-513` — the `catch` block is the only branch. The success path always prints the same message. `bootLane` returns `{ name, attached: true }` for reattach or `{ name, attached: false }` for new boot, but `driveCmd` ignores `attached`. Fix: branch the message on `result.attached` — "session already running, attach with ..." vs "session ready, prompt registered."
+
+---
+
+## ADV-028: `--name` with no value silently falls back to basename default
+
+- Session: phase-1 gate
+- Suggested severity: MEDIUM
+What I did: `armada drive . --name` (flag present but no value) or `armada drive . --name --timeout 5000`
+Expected: Error "`--name` requires a value" or similar.
+Actual: `src/cli.js:467-469` — `args[nameIdx + 1]` is either `undefined` (end of args) or the next flag like `--timeout`. The `&&` short-circuits on the falsy/flag case, and `name` defaults to `basename(resolve(lanePath))`. The user's `--name` flag is silently consumed with no value. No error, no warning.
+Screenshot: n/a
+
+Disposition: REJECTED - use `--name=foo` (equals form) to disambiguate. Standard CLI convention. Names like `--prompt` not realistic.
+
+`src/cli.js:467-469` — same pattern as `--timeout` (line 480) and `--prompt` (line 474). All silently fall back when the next arg is missing or starts with `--`. For `--name` this is particularly confusing because the session gets named after the lane directory, not what the user intended. Fix: validate that the value is present and not flag-like; error if missing.
+
+---
+
+## ADV-029: Session names with spaces produce broken `tmux attach` hint
+
+- Session: phase-1 gate
+
+What I did: `armada drive "my lane"` (lane directory has a space in the name).
+Expected: The attach hint escapes or quotes the session name: `tmux attach -t "my lane"`.
+Actual: `src/cli.js:512` — `tmux attach -t ${name}`. If name is `my lane`, the printed command is `tmux attach -t my lane`. A user copy-pasting this into a shell would get an error — tmux sees `my` as the session name and `lane` as an extra argument, not a session name.
+Screenshot: n/a
+
+Disposition: REJECTED - tmux session names with spaces technically allowed but practically unused; user can quote. Out of scope.
+
+`src/cli.js:512` — no quoting around `${name}`. Fix: wrap in quotes or use `JSON.stringify(name)` for safe shell output.
+
+---
+
+## ADV-030: `--no-open` informational note uses `console.error` (stderr)
+
+- Suggested severity: LOW
+
+What I did: `armada drive . --no-open` with stdout piped, e.g., `armada drive . --no-open 2>/dev/null`
+Expected: The informational `--no-open` note appears on stdout with the rest of the output.
+Actual: `src/cli.js:500` — `console.error(...)` sends it to stderr. Piping stdout discards the note. In a CI pipeline where stderr is monitored for errors, this informational line shows up as noise.
+Screenshot: n/a
+
+Disposition: REJECTED - stderr is conventional channel for informational/diagnostic CLI output. Not a defect.
+
+`src/cli.js:499-501` — `console.error` for a non-error informational message. Other drive output (success, attach hint) goes to `console.log`. Inconsistency. Fix: use `console.log` or pass a `log` callback.
+
+---
+
+## ADV-031: Pane tail in DriveError message may leak secrets from opencode TUI
+- Session: phase-1 gate
+- Suggested severity: MEDIUM
+
+What I did: Trigger a TUI-ready timeout. The pane tail (last 2000 chars of TUI output) is included in the error message and printed to stderr.
+Expected: The pane tail is logged at a debug level, or redacted before being included in the error message. The error message summarizes the failure without raw pane content.
+Actual: `src/drive.js:87-91` — `new DriveError(message, tail)` includes `paneOutput.slice(-2000)` in the error message. If opencode's TUI displays API keys, environment variables, or credential prompts in the pane, those are included in the error output. `src/cli.js:515-516` — `console.error(err.message)` prints the full message including pane tail to stderr.
+Screenshot: n/a
+
+Disposition: REJECTED - contract Phase 1 c4 explicitly requires printing pane tail on timeout. The "leak" is by design — users control TUI content.
+
+`src/drive.js:88-91` — the pane tail is the diagnostic tool, but it's embedded in the user-visible error message. On a CI runner, stderr is often captured in logs. Fix: log the pane tail separately (warn/debug), keep the error message short, or make the pane tail an opt-in detail behind `DEBUG=1`.
+
+---
+
+
+## ADV-032: `--prompt` value starting with `--` silently falls back to default
+- Session: phase-1 gate
+- Suggested severity: LOW
+
+What I did: `armada drive . --prompt "--check"` (custom prompt text that happens to start with `--`).
+Expected: Prompt `--check` is used as-is. The literal `--check` is a reasonable prompt string.
+Actual: `src/cli.js:474` — `!args[promptIdx + 1].startsWith("--")` rejects the value. The prompt silently falls back to DEFAULT_PROMPT. No error or warning. The user's custom prompt is discarded.
+Screenshot: n/a
+
+Disposition: ACCEPTED -> DEF-015
+
+`src/cli.js:473-476` — the anti-flag guard on the value prevents legitimate prompt strings that start with `--`. Same issue exists for `--name` (ADV-023/028) but for `--prompt` it's more likely to hit real use: any prompt starting with `--` (e.g., `--verbose`, `--strict`, or a command-like string) is swallowed. Fix: use `=` syntax (`--prompt=...`) or allow the value unconditionally (the positional arg search already handled by `!a.startsWith("--")` filter; flag values don't need a second filter).
+
+---
+
+## Drive Phase 1 Summary
+
+| # | Severity | Area | Finding |
+|---|----------|------|---------|
+| ADV-023 | HIGH | cli.js:467 | `--name` with single-dash value breaks tmux |
+| ADV-024 | MEDIUM | cli.js:481 | `--timeout` non-numeric produces NaN deadline |
+| ADV-025 | MEDIUM | drive.js:95 | Newline in prompt sent as Enter keystroke |
+| ADV-026 | HIGH | drive.js:117-125 | bootLane succeeds when register never detected |
+| ADV-027 | MEDIUM | cli.js:512 | "prompt registered" message when reattaching |
+| ADV-028 | MEDIUM | cli.js:467 | `--name` with no value silently ignored |
+| ADV-029 | LOW | cli.js:512 | Spaces in session name break attach hint |
+| ADV-030 | LOW | cli.js:500 | `--no-open` note on stderr |
+| ADV-031 | MEDIUM | drive.js:88-91 | Pane tail leaks secrets in error message |
+| ADV-032 | LOW | cli.js:474 | `--prompt` starting with `--` silently ignored |
+---
+
+## Phase 2 — Auto-open visible terminal
+
+## ADV-033: AppleScript injection via `--name` session name on macOS (arbitrary code execution)
+
+- Session: phase-2 gate
+- Suggested severity: HIGH
+
+What I did: Traced the data flow from `driveCmd` through `openTerminal` to the AppleScript template. `buildAttachCommand(name)` at line 30-35 only quotes names containing whitespace. Shell metacharacters (including `"`) pass through unescaped. The AppleScript at line 147 uses template literal:
+```
+`tell application "${appName}" to do script "${attachCmd}"`
+```
+If `attachCmd` contains a `"` character, it breaks out of the AppleScript string literal.
+
+Reproduction on macOS:
+```
+armada drive . --name='foo"; do shell script "touch /tmp/pwned" #'
+```
+The AppleScript becomes:
+Disposition: ACCEPTED -> DEF-016
+tell application "Terminal" to do script "tmux attach -t foo"; do shell script "touch /tmp/pwned" #""
+```
+The `do shell script "touch /tmp/pwned"` runs arbitrary code. Any shell command, file read, or network request is possible.
+
+Expected: Session name is validated/sanitized to prevent AppleScript injection. Characters like `"`, `\`, backticks are rejected or escaped.
+
+Actual: `buildAttachCommand` at `src/terminal-open.js:30-35` only checks `/[\s]/` — ignores all other shell/AppleScript metacharacters. No validation in `driveCmd` either (`src/cli.js:501` only rejects names starting with `-`).
+
+Screenshots: n/a
+
+Disposition: ACCEPTED -> DEF-016
+
+`src/terminal-open.js:147` — AppleScript template literal embeds unsanitized `attachCmd`.
+`src/terminal-open.js:30-35` — `buildAttachCommand` only quotes on whitespace, never escapes `"`.
+`src/cli.js:498-499` — no name validation beyond `startsWith("-")`. The `--name` flag value flows directly into `openTerminal`.
+
+---
+
+## ADV-034: Shell injection via `--name` in bash -c on Linux/Windows (arbitrary command execution)
+
+- Session: phase-2 gate
+- Suggested severity: HIGH
+
+What I did: On Linux, `pickTerminal` produces argv templates like `["gnome-terminal", "--", "bash", "-c", "__ATTACH_CMD__; exec bash"]`. At line 158, `__ATTACH_CMD__` is substituted with the return of `buildAttachCommand(name)`. If `name = "foo;id"` (no whitespace, no quoting triggered), the final argv element becomes:
+```
+bash -c "tmux attach -t foo;id; exec bash"
+```
+bash parses `-c` with this string and executes three commands: `tmux attach -t foo`, then `id`, then `exec bash`. The `id` command is attacker-controlled arbitrary execution.
+
+Same vector for names with `"` — even when the name has whitespace:
+```
+name = 'foo"; rm -rf / #'
+buildAttachCommand returns: tmux attach -t "foo"; rm -rf / #"
+```
+Disposition: ACCEPTED -> DEF-017
+```
+bash -c "tmux attach -t "foo"; rm -rf / #"; exec bash"
+```
+The shell closes the first `"` after `-t `, leaving `; rm -rf /` as a free command.
+
+Expected: Session name characters are restricted (alphanumeric, dash, underscore, dot per tmux conventions) or the value is properly escaped for the target shell context.
+
+Actual: `buildAttachCommand` at `src/terminal-open.js:30-35` only quotes on `/[\s]/` — no shell metacharacter escaping. `driveCmd` imposes no name restrictions beyond `startsWith("-")`.
+
+Screenshots: n/a
+
+Disposition: ACCEPTED -> DEF-017
+
+`src/terminal-open.js:158` — unsafe string substitution into shell -c argument.
+`src/terminal-open.js:30-35` — `buildAttachCommand` is a quoting function that only considers whitespace, not shell metacharacters.
+`src/cli.js:498-499` — no `--name` validation.
+Windows path (lines 66-71) has same issue: `cmd /k "__ATTACH_CMD__"` with unsanitized input.
+
+---
+
+## ADV-035: Wayland `DISPLAY` check misses `WAYLAND_DISPLAY` — graphical users classified as headless
+
+- Session: phase-2 gate
+- Suggested severity: MEDIUM
+Disposition: ACCEPTED -> DEF-018
+What I did: Examined `openTerminal` line 131:
+```js
+const hasDisplay = os === "macos" ? true : Boolean(env?.DISPLAY)
+```
+On Wayland-only Linux sessions, `DISPLAY` is often unset (Wayland uses `WAYLAND_DISPLAY`). A user running a modern GNOME or KDE Plasma Wayland session with `WAYLAND_DISPLAY=wayland-0` but no `DISPLAY` fallback gets `hasDisplay: false`, causing `pickTerminal` to return `{ kind: "none", reason: "no display (headless or SSH)" }`.
+
+Expected: Wayland display detected via `WAYLAND_DISPLAY` env var, or at minimum the reason message is accurate ("no X11 display; try setting DISPLAY or installing wezterm") rather than "headless or SSH".
+
+Actual: User has a graphical session but is told they are headless. Falls back to the `tmux attach -t <name>` hint. Auto-open silently skipped.
+
+Screenshots: n/a
+
+Disposition: ACCEPTED -> DEF-018
+
+`src/terminal-open.js:131` — `hasDisplay` only checks `DISPLAY`, not `WAYLAND_DISPLAY` or `XDG_SESSION_TYPE=wayland`.
+
+---
+
+## ADV-036: wezterm detected but never selected on macOS — dead code path
+Disposition: REJECTED - contract c1 explicitly says "macOS: Terminal.app (or iTerm if present)"; wezterm not in macOS priority list. Dead code by design, not a bug.
+- Session: phase-2 gate
+- Suggested severity: MEDIUM
+
+What I did: Traced `openTerminal` execution. At lines 120-129, `which("wezterm", dirs)` is called for ALL platforms including macOS. The result is stored in `whichResults.wezterm`. However, `pickTerminal` on macOS (lines 38-44) only checks `whichResults.iTerm` and falls through to `Terminal.app`. It never checks `whichResults.wezterm`.
+
+So a macOS user who has wezterm installed but no iTerm gets Terminal.app — not wezterm. The `which("wezterm", dirs)` call on macOS is dead code: the result is computed but never consumed.
+
+Expected: Either wezterm is intentionally excluded on macOS (remove the dead `which` call), or wezterm is checked as a fallback between iTerm and Terminal.app.
+
+Actual: wezterm on macOS is detected (cost: one `accessSync` per PATH entry) but silently ignored. The contract says "wezterm is optional, never required" — but the current behavior means it's effectively excluded on macOS regardless of user preference.
+
+Screenshots: n/a
+
+Disposition: REJECTED - contract c1 explicitly says "macOS: Terminal.app (or iTerm if present)"; wezterm not in macOS priority list. Dead code by design, not a bug.
+
+`src/terminal-open.js:38-44` — `pickTerminal` macOS branch missing wezterm check.
+`src/terminal-open.js:120` — `which("wezterm", ...)` runs on macOS but result is dead.
+
+---
+
+## ADV-037: iTerm.app only detected in `/Applications` — Homebrew and user-local installs missed
+
+Disposition: ACCEPTED -> DEF-019
+- Suggested severity: LOW
+
+What I did: Examined iTerm detection `src/terminal-open.js:114`:
+```js
+accessSync("/Applications/iTerm.app", constants.F_OK)
+```
+Hardcoded path. Homebrew on Apple Silicon installs iTerm to `/opt/homebrew/Caskroom/iterm2/` (symlinked from `/Applications` in most cases, so this usually works). But if a user installs iTerm manually to `~/Applications/iTerm.app`, uses a different volume, or has a non-standard setup, the detection fails silently. The user falls back to Terminal.app with no indication.
+
+Expected: iTerm detection checks multiple common paths, or uses `mdfind`/`lsregister` for a robust check, or at minimum logs a warning when wezterm is available but iTerm is not at the expected path.
+
+Actual: Single hardcoded path. No fallback detection. No logging when iTerm is absent.
+
+Screenshots: n/a
+
+Disposition: ACCEPTED -> DEF-019
+
+`src/terminal-open.js:114` — hardcoded `/Applications/iTerm.app`.
+
+---
+
+## Phase 2 Summary
+
+| # | Severity | Area | Finding |
+|---|----------|------|---------|
+| ADV-033 | HIGH | terminal-open.js:147 | AppleScript injection via `--name` on macOS |
+| ADV-034 | HIGH | terminal-open.js:30-35,158 | Shell injection via `--name` in bash -c on Linux/Windows |
+| ADV-035 | MEDIUM | terminal-open.js:131 | Wayland `DISPLAY` check ignores `WAYLAND_DISPLAY` |
+| ADV-036 | MEDIUM | terminal-open.js:38-44 | wezterm detected but never selected on macOS |
+| ADV-037 | LOW | terminal-open.js:114 | iTerm only checked in /Applications |
+

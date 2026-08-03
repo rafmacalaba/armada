@@ -1,7 +1,211 @@
+
+## DEF-020: TODO.md lane-drive entry missing at time of prior verification (race condition)
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Re-verify TODO.md for lane-drive entries at lines 30 (Quick wins) and 283 (Polish — done).
+2. Confirm `- [x]` checkboxes are present for the lane-drive feature.
+
+Expected: Both TODO.md entries exist with `- [x]` checked — lane-drive is documented as done.
+Actual: Both entries confirmed present — line 30 (`Lane drive — TUI-ready handshake + auto-open visible terminal`) and line 283 (`Lane drive visible terminal + handshake polish`). Prior verification failed due to race: docs entry was written AFTER qa read the file.
+Screenshot: n/a
+
+History:
+- qa: opened
+- qa: closed — TODO.md has lane-drive entries at lines 30 (Quick wins) and 283 (Polish — done); race in prior verification (docs wrote after qa read).
+
+## DEF-019: iTerm detection hardcoded to /Applications/
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: adversary (ADV-037)
+- Phase: 2
+
+Steps to reproduce:
+1. Install iTerm.app to `~/Applications/iTerm.app` instead of `/Applications/`.
+2. Run `armada drive <lane>` on macOS.
+
+Expected: iTerm is detected and used (kind: "iTerm").
+Actual (before fix): `whichResults.iTerm` is null (hardcoded `/Applications/iTerm.app` check fails).
+Actual (after fix): `detectITerm(home)` checks both `/Applications/iTerm.app` and `${HOME}/Applications/iTerm.app`.
+Screenshot: n/a
+
+History:
+- qa: opened
+- backend-dev: FIX READY — detectITerm checks both paths
+- qa: closed — regression test "DEF-019: detectITerm finds iTerm from HOME/Applications" (tests/terminal-open.test.js:403) passes; detectITerm checks both /Applications/iTerm.app and ~/Applications/iTerm.app
+
+## DEF-018: Wayland not detected on Linux
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: adversary (ADV-035)
+- Phase: 2
+
+Steps to reproduce:
+1. Set `WAYLAND_DISPLAY=wayland-0`, unset `DISPLAY`.
+2. Call `openTerminal` on Linux with PATH containing `gnome-terminal`.
+
+Expected: hasDisplay=true; terminal opens.
+Actual (before fix): `Boolean(env.DISPLAY)` is false; misclassified as headless; prints attach hint.
+Actual (after fix): checks `env.DISPLAY || env.WAYLAND_DISPLAY`.
+Screenshot: n/a
+
+History:
+- qa: opened
+- backend-dev: FIX READY — hasDisplay checks both DISPLAY and WAYLAND_DISPLAY
+- qa: closed — regression test "DEF-018: openTerminal uses WAYLAND_DISPLAY when DISPLAY absent" (tests/terminal-open.test.js:363) passes; hasDisplay checks DISPLAY || WAYLAND_DISPLAY
+
+## DEF-017: Shell injection via session name on Linux/Windows
+
+- Status: CLOSED
+- Severity: HIGH
+- Found by: adversary (ADV-034)
+- Phase: 2
+
+Steps to reproduce:
+1. `armada drive --name='foo; rm -rf /' /tmp/foo` on Linux.
+
+Expected: The `;` is escaped or the name is rejected; no code execution.
+Actual (before fix): `buildAttachCommand` only quotes whitespace; name with `;` is unquoted. Substituted into `bash -c "tmux attach -t foo; rm -rf /; exec bash"`. RCE.
+Actual (after fix): `buildAttachCommand` always single-quotes the name with POSIX `'\''` escaping.
+Screenshot: n/a
+
+History:
+- qa: opened
+- backend-dev: FIX READY — buildAttachCommand always single-quotes, escapes embedded single quotes
+- qa: closed — regression tests "buildAttachCommand: dangerous chars inside single quotes" and "buildAttachCommand: name with single-quote escaped POSIX-style" (tests/terminal-open.test.js:68-73) pass; always single-quotes with POSIX escaping
+
+## DEF-016: AppleScript injection via session name on macOS
+
+- Status: CLOSED
+- Severity: HIGH
+- Found by: adversary (ADV-033)
+- Phase: 2
+
+Steps to reproduce:
+1. `armada drive --name='foo"; do shell script "echo PWNED' /tmp/foo` on macOS.
+
+Expected: The `"` is escaped; no code execution.
+Actual (before fix): AppleScript becomes `tell application "Terminal" to do script "tmux attach -t foo"; do shell script "echo PWNED"`. RCE.
+Actual (after fix): `escapeAppleScript` backslash-escapes `\` and `"` before AppleScript interpolation.
+Screenshot: n/a
+
+History:
+- qa: opened
+- backend-dev: FIX READY — escapeAppleScript helper called before osascript argv assembly
+- qa: closed — regression test "DEF-016: AppleScript escaping — injection chars escaped" (tests/terminal-open.test.js:326) passes; escapeAppleScript escapes \ and " before osascript interpolation
+
 # DEFECTS.md
 
 All defects live here, one entry per defect, newest first.
 Writers: qa (create, close, reopen) and orchestrator (record developer responses, reject).
+
+## DEF-015: --prompt starting with -- silently ignored
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: adversary (ADV-032)
+- Phase: 1
+
+Steps to reproduce:
+1. Run `armada drive --prompt -- /tmp/foo` (user wants prompt literally "--").
+2. Observe: the `--` value is rejected by anti-flag guard, falls back to DEFAULT_PROMPT.
+
+Expected: Error "error: --prompt value cannot start with "--"" and exit 1.
+Actual: After fix: clear error + exit 1. Before: silent fallback to default prompt.
+Screenshot: n/a
+
+History:
+- qa: opened
+- backend-dev: FIX READY — added guard in driveCmd, test in cli.test.js
+- qa: closed — regression test "drive --prompt starting with -- exits 1" (tests/cli.test.js:405) passes; stderr matches /--prompt value cannot start with/
+
+## DEF-014: CLI prints "prompt registered" when reattaching (no prompt sent)
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: adversary (ADV-027)
+- Phase: 1
+
+Steps to reproduce:
+1. Start a lane session via `armada drive /tmp/foo`.
+2. Run `armada drive /tmp/foo` again (same lane path).
+3. Observe output message.
+
+Expected: Message says "already running (reattached)", not "prompt registered".
+Actual: After fix: branches on result.attached. Before: same misleading message for both paths.
+Screenshot: n/a
+
+History:
+- qa: opened
+- backend-dev: FIX READY — driveCmd branches message on result.attached
+- qa: closed — regression test "drive on existing session says already running" (tests/cli.test.js:392) passes; stdout matches /already running|reattach/, does not match /prompt registered/
+
+## DEF-013: bootLane succeeds when register never detected after resend
+
+- Status: CLOSED
+- Severity: HIGH
+- Found by: adversary (ADV-026)
+- Phase: 1
+
+Steps to reproduce:
+1. Fake tmux where capture-pane shows ready pattern but NEVER shows thinking/register pattern.
+2. Call bootLane with the fake tmux.
+3. Observe: after resend+recheck, registered still false, but function returns success.
+
+Expected: DriveError thrown with "did not register" message.
+Actual: After fix: throws DriveError. Before: returned { name, attached: false } silently.
+Screenshot: n/a
+
+History:
+- qa: opened
+- backend-dev: FIX READY — added throw after second checkRegister fails
+- qa: closed — regression test "register-never: throws DriveError after prompt resend fails" (tests/drive.test.js:256) passes; bootLane rejects with name "DriveError" and message matching /did not register/
+
+## DEF-012: --timeout non-numeric produces NaN deadline
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: adversary (ADV-024)
+- Phase: 1
+
+Steps to reproduce:
+1. `armada drive --timeout=abc /tmp/foo`
+2. `armada drive --timeout=0 /tmp/foo`
+
+Expected: Non-numeric falls back to 30000. Zero or negative exits 1 with error.
+Actual: After fix: NaN falls back to 30000; 0 exits 1 with "timeout must be a positive integer".
+Screenshot: n/a
+
+History:
+- qa: opened
+- backend-dev: FIX READY — NaN fallback, zero validation in driveCmd
+- qa: closed — regression tests "drive --timeout=abc falls back to default 30000" (tests/cli.test.js:374) and "drive --timeout=0 exits 1 with error" (tests/cli.test.js:385) both pass; abc falls back to 30000 (exit 0), 0 exits 1 with /timeout must be a positive integer/
+
+## DEF-011: --name with single-dash value breaks tmux argv
+
+- Status: CLOSED
+- Severity: HIGH
+- Found by: adversary (ADV-023)
+- Phase: 1
+
+Steps to reproduce:
+1. `armada drive --name=-foo /tmp/foo`
+2. Observe: `-foo` is passed to tmux as `-t -foo`, parsed as flag.
+
+Expected: Error "session name cannot start with "-"" and exit 1.
+Actual: After fix: clear error + exit 1.
+Screenshot: n/a
+
+History:
+- qa: opened
+- backend-dev: FIX READY — added guard after name extraction in driveCmd
+- qa: closed — regression test "drive --name=-foo exits 1 with clear error" (tests/cli.test.js:367) passes; exit code 1, stderr matches /session name cannot start with/
 
 ## DEF-001: Bootstrap exception — orchestrator wrote .opencode/* under user authorization
 
