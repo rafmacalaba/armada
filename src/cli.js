@@ -107,17 +107,18 @@ export async function main(argv = process.argv.slice(2)) {
       return uninstallCmd(rest)
     case "ping":
       console.log("armada ok")
-      return
+      return 0
     case "new": {
       const name = rest[0]
       const typeIdx = rest.indexOf("--type")
-      return runNew({
+      const code = await runNew({
         name,
         type: typeIdx !== -1 ? rest[typeIdx + 1] : undefined,
         beginner: rest.includes("--beginner"),
         experienced: rest.includes("--experienced"),
         yes: rest.includes("--yes"),
       })
+      return code ?? 0
     }
     case "help":
     case "-h":
@@ -180,19 +181,19 @@ async function init(args) {
     if (!file || file.startsWith("--")) {
       console.error(`Manifest not found: (missing)`)
       process.exitCode = 1
-      return
+      return 1
     }
     if (!existsSync(resolve(file))) {
       console.error(`Manifest not found: ${file}`)
       process.exitCode = 1
-      return
+      return 1
     }
     try {
       manifest = parseManifestYaml(readFileSync(resolve(file), "utf8"))
     } catch (err) {
       console.error(String(err?.message ?? err))
       process.exitCode = 1
-      return
+      return 1
     }
   } else {
     const nonInteractive = args.includes("--yes") || !process.stdin.isTTY
@@ -221,7 +222,7 @@ async function init(args) {
     } catch (err) {
       logError(err)
       process.exitCode = 1
-      return
+      return 1
     }
     manifest.project.requirementsFile = args[reqIdx + 1]
   }
@@ -241,7 +242,7 @@ async function init(args) {
   } catch (err) {
     logError(err, `check permissions on the target directory`)
     process.exitCode = 1
-    return
+    return 1
   }
   console.log(`\n${dryRun ? "(dry-run) " : ""}Scaffolded opencode-armada team:`)
   for (const f of files) console.log(`  ${dryRun ? "(dry-run) + " : "+ "}${f}`)
@@ -249,6 +250,7 @@ async function init(args) {
   console.log("  1. opencode")
   console.log("  2. /armada  -> team status")
   console.log("  3. 'ping all agents'  -> verify roster")
+  return 0
 }
 
 // Default (non-interactive) manifest: guessed project name, balanced budget,
@@ -289,7 +291,7 @@ async function models(args) {
     } catch (err) {
       logError(err, `check permissions on ${cachePath ?? "~/.armada"}`)
       process.exitCode = 1
-      return
+      return 1
     }
   } else {
     availability = loadModelsCache(cachePath)
@@ -299,6 +301,7 @@ async function models(args) {
     console.log("✓ available on providers   ✗ unavailable (falls back)")
   }
   console.log(renderCatalog(budget, availability))
+  return 0
 }
 
 async function doctor() {
@@ -309,7 +312,7 @@ async function doctor() {
     console.log(`${name}: ${status} — ${detail}`)
     if (status === "fail") anyFail = true
   }
-  if (anyFail) process.exitCode = 1
+  return anyFail ? 1 : 0
 }
 
 async function uninstallCmd(args) {
@@ -326,7 +329,7 @@ async function uninstallCmd(args) {
     } catch (err) {
       logError(err)
       process.exitCode = 1
-      return
+      return 1
     }
   } else {
     console.warn("Manifest not found; cleaning by known paths")
@@ -342,8 +345,9 @@ async function uninstallCmd(args) {
   } catch (err) {
     logError(err, `check permissions on the target directory`)
     process.exitCode = 1
-    return
+    return 1
   }
   console.log(`\n${dryRun ? "(dry-run) " : ""}Removed armada artifacts:`)
   for (const f of removed) console.log(`  ${dryRun ? "(dry-run) - " : "- "}${f}`)
+  return 0
 }

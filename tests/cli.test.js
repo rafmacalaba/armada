@@ -56,6 +56,15 @@ test("main returns exit code 1 for unknown command", async () => {
   process.exitCode = prev
 })
 
+test("main returns 0 for successful init", async () => {
+  const dir = makeTempRepo({ "armada/armada.yaml": manifestYaml() })
+  const prev = process.exitCode
+  process.exitCode = 0
+  const code = await main(["init", "--from-armada", join(dir, "armada/armada.yaml"), "--target", dir])
+  assert.strictEqual(code, 0)
+  process.exitCode = prev
+})
+
 test("filesystem errors print message and hint", async () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-ro-"))
   chmodSync(dir, 0o555)
