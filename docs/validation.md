@@ -572,20 +572,20 @@ Live target remains a user-side re-scaffold + manual walkthrough.
   postgres + playwright`. Matches `armada.yaml`.
 - **Native agents.** 8 `.opencode/agent/*.md` files generated with valid frontmatter
   (mode/model/permission). Listing + frontmatter parse at
-  `armada/state/evidence/phase-1/native-agents.txt`.
+  `docs/validation-evidence/phase-1-native-agents.txt`.
 - **`opencode.json`.** Minimal + valid: `model: opencode-go/minimax-m3`,
   `default_agent: orchestrator`, `permission.external_directory: deny`, yolo `{"*": "allow"}`.
-  Captured at `armada/state/evidence/phase-1/opencode-json.txt`.
+  Captured at `docs/validation-evidence/phase-1-opencode-json.txt`.
 - **Manifest round-trip.** `parseManifestYaml(evidence-target/armada/armada.yaml)` accepts
   it (8 team members, correct stack). Evidence at
-  `armada/state/evidence/phase-1/armada-roundtrip.txt`.
+  `docs/validation-evidence/phase-1-armada-roundtrip.txt`.
 - **Stack detection (live target).** The live `~/WBG/data-ai-chatbot` re-scaffold is a
-  user-side manual step (see `armada/state/evidence/phase-2/manual-walkthrough.md`); the
+  user-side manual step (see `docs/validation-evidence/phase-2-manual-walkthrough.md`); the
   in-lane validation runs against the in-sandbox `evidence-target/` facsimile. The lane
   can read the live target's files (read-only, no writes): inspection of
   `opencode.json`, `armada/armada.yaml`, and `.opencode/agent/*.md` confirmed stack
-  detection matches. Evidence at `armada/state/evidence/phase-1/stack-detection.txt` and
-  `armada/state/evidence/phase-1/live-target-note.txt`.
+  detection matches. Evidence at `docs/validation-evidence/phase-1-stack-detection.txt` and
+  `docs/validation-evidence/phase-1-live-target-note.txt`.
 
 ### What armada-side fixed (Phase 1)
 
@@ -600,28 +600,28 @@ iterable case.
 - **In-tree reconcile.** `armada reconcile` (fallback: `node src/cli.js reconcile`) against
   this lane's own `armada/state/` prints a resume line + drift count. Output:
   `resume: feature real-repo-validation, phase phase-2 (in_progress), evidence 0 in, drift 0`.
-  Captured at `armada/state/evidence/phase-2/in-tree-reconcile.out`.
+  Captured at `docs/validation-evidence/phase-2-in-tree-reconcile.out`.
 - **Evidence-target reconcile.** Same command against a fresh fixture state with evidence
   produces: `resume: feature demo-feat, phase phase-1 (in_progress), evidence 1 in, drift 0`.
   Drift detection works: forced drift (deleted evidence file) → exit 2 + drift list.
-  Captured at `armada/state/evidence/phase-2/evidence-target-reconcile.out`.
+  Captured at `docs/validation-evidence/phase-2-evidence-target-reconcile.out`.
 - **Test suite.** `node --test 'tests/*.test.js'` — 313 tests green.
-  `armada/state/evidence/phase-2/tests-pass.txt`.
+  `docs/validation-evidence/phase-2-tests-pass.txt`.
 - **Manual walkthrough.** Exact commands for the user to run in `~/WBG/data-ai-chatbot`:
   pre-flight (global binary) → scratch feature → kill mid-phase → `armada reconcile` →
   resume → cleanup. Each step has expected output + a "what to check" line. Documented at
-  `armada/state/evidence/phase-2/manual-walkthrough.md`.
+  `docs/validation-evidence/phase-2-manual-walkthrough.md`.
 
 ### Live target status
 
 `~/WBG/data-ai-chatbot` was scaffolded with an older armada (omo-slim era). Re-scaffold
 is a user-side manual step; commands documented in
-`armada/state/evidence/phase-2/manual-walkthrough.md`. The clone-based validation above
+`docs/validation-evidence/phase-2-manual-walkthrough.md`. The clone-based validation above
 confirms the generated repo path works end-to-end; the live target needs the re-scaffold
 step before the walkthrough.
 
 ### Resume walkthrough
 
-See `armada/state/evidence/phase-2/manual-walkthrough.md`. Pre-flight (global `armada` on
+See `docs/validation-evidence/phase-2-manual-walkthrough.md`. Pre-flight (global `armada` on
 PATH) → re-scaffold → scratch feature → kill mid-phase → `armada reconcile` → resume →
 cleanup. Each step has expected output + a "what to check" line.
