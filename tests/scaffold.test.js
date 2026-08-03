@@ -71,6 +71,9 @@ test("scaffold writes all expected files", () => {
     "armada/armada.yaml",
     "armada/REQUIREMENTS.md",
     ".opencode/commands/armada.md",
+    ".opencode/commands/armada-status.md",
+    ".opencode/commands/armada-scout.md",
+    ".opencode/commands/armada-resume.md",
     ...ROLES.map((r) => `.opencode/agent/${r}.md`),
   ]
   for (const f of expected) {
@@ -86,6 +89,16 @@ test("scaffold writes all expected files", () => {
   const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
   assert.match(orch, /^---\n/m)
   assert.match(orch, /mode: primary/)
+
+  // bundled commands carry frontmatter + fleet-status reference
+  const status = readFileSync(join(dir, ".opencode/commands/armada-status.md"), "utf8")
+  assert.match(status, /^---\n/m)
+  assert.match(status, /fleet-status\.md/)
+  assert.match(status, /orchestrator/i)
+  const scout = readFileSync(join(dir, ".opencode/commands/armada-scout.md"), "utf8")
+  assert.match(scout, /read-only|no writes/i)
+  const resume = readFileSync(join(dir, ".opencode/commands/armada-resume.md"), "utf8")
+  assert.match(resume, /fleet-status\.md/)
 
   rmSync(dir, { recursive: true, force: true })
 })
@@ -189,6 +202,30 @@ test("uninstall keeps user files under .opencode/ and warns", () => {
   assert.ok(warns.some((w) => /non-armada/.test(w)), "warning emitted")
 
   rmSync(dir, { recursive: true, force: true })
+})
+
+test("uninstall removes bundled command files", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-uni4-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  for (const f of [
+    ".opencode/commands/armada.md",
+    ".opencode/commands/armada-status.md",
+    ".opencode/commands/armada-scout.md",
+    ".opencode/commands/armada-resume.md",
+  ]) {
+    assert.ok(existsSync(join(dir, f)), `present before uninstall: ${f}`)
+  }
+  const removed = uninstall(manifest)
+  for (const f of [
+    ".opencode/commands/armada.md",
+    ".opencode/commands/armada-status.md",
+    ".opencode/commands/armada-scout.md",
+    ".opencode/commands/armada-resume.md",
+  ]) {
+    assert.ok(!existsSync(join(dir, f)), `removed after uninstall: ${f}`)
+    assert.ok(removed.includes(f), `listed in removed: ${f}`)
+  }
 })
 
 test("scaffold prunes stale omo-slim artifacts on re-scaffold", () => {

@@ -66,6 +66,13 @@ the final phase completes.
 3. **Read the fleet status on session start.** If `.opencode/fleet-status.md` exists, read it
    first. Summarize pending phases and ask the user for the next action before resuming.
 
+## Fleet commands
+
+- `/armada` — team status, roles, regenerate.
+- `/armada-status` — read `.opencode/fleet-status.md`, report active phases + next action.
+- `/armada-scout` — dispatch a read-only investigation (adversary/architect), no writes.
+- `/armada-resume` — read `.opencode/fleet-status.md`, summarize, ask the user the next action.
+
 ## Cost discipline
 
 Your model is slow and expensive. Spend it on judgment, not typing. Never write or edit code.

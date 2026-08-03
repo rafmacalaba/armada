@@ -105,6 +105,22 @@ list lags.
   (e.g. `openrouter/~anthropic/claude-sonnet-latest` for the latest alias).
 - **Budget tiers:** `armada init --budget free|balanced|power`.
 
+### Fleet commands
+
+Every scaffold ships four in-session commands under `.opencode/commands/`:
+
+| Command | What it does |
+|---|---|
+| `/armada` | Team status, roles, how to regenerate |
+| `/armada-status` | Read `.opencode/fleet-status.md` — active phases, last update, next action |
+| `/armada-scout` | Dispatch a read-only investigation (adversary/architect), no writes, no PR |
+| `/armada-resume` | Read `.opencode/fleet-status.md`, summarize pending phases, ask the next action |
+
+**Fleet status file (`.opencode/fleet-status.md`):** written by the orchestrator so a killed
+session can be resumed. Format: YAML frontmatter (`active_phases`, `last_update`, `next_action`)
+plus a short markdown body — one line per active phase (phase, evidence in, status). The
+orchestrator reads it on session start (hard rule 3) and on `/armada-status` / `/armada-resume`.
+
 **B. Hand-author the manifest** (full control):
 
 ```yaml
