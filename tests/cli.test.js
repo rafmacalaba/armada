@@ -466,7 +466,7 @@ test("drive auto-open succeeds when terminal is available", async () => {
   const binDir = makeBin(fakeBin)
   const lanePath = mkdtempSync(join(tmpdir(), "drive-auto-"))
   const r = await runCli(["drive", lanePath], {
-    env: { PATH: binDir, ...envExtra },
+    env: { PATH: binDir, ...envExtra, TERM_PROGRAM: "", VSCODE_IPC_HOOK_CLI: "" },
   })
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /session/)
