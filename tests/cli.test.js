@@ -332,3 +332,142 @@ test("doctor exits 1 via script mode when a check fails", async () => {
   assert.strictEqual(r.code, 1)
   assert.match(r.stdout, /opencode CLI: fail/)
 })
+
+test("drive boots a lane session and prints success", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-lane-"))
+  const r = await runCli(["drive", lanePath], { env: { PATH: binDir } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /session/)
+  assert.match(r.stdout, /auto-attach skipped/)
+  assert.match(r.stdout, /tmux attach -t/)
+})
+
+test("drive with nonexistent path exits 1", async () => {
+  const r = await runCli(["drive", "/nonexistent/path/12345"])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /lane path not found/)
+})
+
+test("drive --no-open prints skipped message", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-noopen-"))
+  const r = await runCli(["drive", "--no-open", lanePath], { env: { PATH: binDir } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /--no-open: skipped auto-attach/)
+  assert.match(r.stdout, /session/)
+})
+
+// DEF-011: --name with single-dash value
+test("drive --name=-foo exits 1 with clear error", async () => {
+  const r = await runCli(["drive", "--name=-foo", "/tmp"])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /session name cannot start with/)
+})
+
+// DEF-012: --timeout non-numeric falls back to default
+test("drive --timeout=abc falls back to default 30000", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-to-abc-"))
+  const r = await runCli(["drive", "--timeout=abc", lanePath], { env: { PATH: binDir } })
+  assert.strictEqual(r.code, 0)
+})
+
+// DEF-012: --timeout=0 exits 1
+test("drive --timeout=0 exits 1 with error", async () => {
+  const r = await runCli(["drive", "--timeout=0", "/tmp"])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /timeout must be a positive integer/)
+})
+
+// DEF-014: reattach message says "already running", not "prompt registered"
+test("drive on existing session says already running", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 0 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-reattach-"))
+  const r = await runCli(["drive", lanePath], { env: { PATH: binDir } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /already running|reattach/)
+  assert.doesNotMatch(r.stdout, /prompt registered/)
+})
+
+// DEF-015: --prompt starting with -- exits 1
+test("drive --prompt starting with -- exits 1", async () => {
+  const r = await runCli(["drive", "--prompt", "--custom", "/tmp"])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /--prompt value cannot start with/)
+})
+
+// Phase 2: auto-open enabled, no terminal available -> fallback hint
+test("drive auto-open falls back with hint when no terminal available", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-fallback-"))
+  const r = await runCli(["drive", lanePath], {
+    env: { PATH: binDir, DISPLAY: "" },
+  })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /session/)
+  assert.match(r.stdout, /auto-attach skipped/)
+  assert.match(r.stdout, /tmux attach -t/)
+  assert.match(r.stdout, /attach manually/)
+})
+
+// Phase 2: --no-open skips auto-open, prints skip message
+test("drive --no-open skips auto-open and prints skip message", async () => {
+  const binDir = makeBin({
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-noopen2-"))
+  const r = await runCli(["drive", "--no-open", lanePath], { env: { PATH: binDir } })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /--no-open: skipped auto-attach/)
+  assert.match(r.stdout, /session/)
+  assert.doesNotMatch(r.stdout, /auto-attach skipped/)
+  assert.doesNotMatch(r.stdout, /attach manually/)
+})
+
+// Phase 2: auto-open with fake terminal succeeds (platform-adaptive)
+test("drive auto-open succeeds when terminal is available", async () => {
+  const plat = process.platform
+  // macOS: fake osascript + open; Linux: fake wezterm with DISPLAY; Windows: fake wt
+  const fakeBin = {}
+  const envExtra = {}
+  if (plat === "darwin") {
+    fakeBin.osascript = "#!/bin/sh\nexit 0\n"
+    fakeBin.open = "#!/bin/sh\nexit 0\n"
+  } else if (plat === "win32") {
+    fakeBin.wt = "@echo off\nexit /b 0\n"
+    envExtra.DISPLAY = ":0"
+  } else {
+    // Linux
+    fakeBin.wezterm = "#!/bin/sh\nexit 0\n"
+    envExtra.DISPLAY = ":0"
+  }
+  fakeBin.opencode = "#!/bin/sh\nexit 0\n"
+  fakeBin.tmux = "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n"
+
+  const binDir = makeBin(fakeBin)
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-auto-"))
+  const r = await runCli(["drive", lanePath], {
+    env: { PATH: binDir, ...envExtra },
+  })
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /session/)
+  assert.match(r.stdout, /auto-attached in/)
+  assert.doesNotMatch(r.stdout, /auto-attach skipped/)
+})

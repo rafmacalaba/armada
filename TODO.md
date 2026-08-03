@@ -27,6 +27,12 @@ Small, low-risk, high-leverage. Do first.
   Shipped 2026-08-03.
 - [x] **`renderCatalog` auto-size columns** — replace hardcoded padding with computed widths.
   Shipped 2026-08-03.
+- [x] **Lane drive — TUI-ready handshake + auto-open visible terminal.** New
+  `armada drive <lane-path>` subcommand: boots a tmux session, polls the TUI prompt
+  bar, sends the drive prompt, verifies registration, retries once. Auto-opens a
+  visible terminal (Terminal.app/iTerm, gnome-terminal/konsole/x-terminal-emulator
+  /wezterm, Windows Terminal/wezterm). `--no-open` for CI; headless falls back to
+  a `tmux attach` hint without failing the drive. Shipped 2026-08-03.
 
 ### High
 
@@ -255,7 +261,7 @@ lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/la
   attach -t <name>`). Fall back per-OS: macOS Terminal.app/iTerm, Linux
   `x-terminal-emulator`/`gnome-terminal`/`konsole`, Windows Terminal. `--no-open` (headless/CI)
   prints the `tmux attach -t <name>` hint instead — never fails the drive.
-- [ ] **Tab in the primary terminal, not a new window.** The current auto-open *spawns a fresh
+- [x] **Tab in the primary terminal, not a new window.** The current auto-open *spawns a fresh
   terminal window* (macOS `osascript do script`, Linux `gnome-terminal`/`konsole` launch) — which
   looks like a rogue process popping a window (the "virus installation vibes"). If the user is
   already sitting in a terminal (they almost always are — they ran the drive command from one),
@@ -270,6 +276,7 @@ lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/la
   - Detection rule: if the drive command is running under a terminal we can address (TERM_PROGRAM
     env: `iTerm.app`, `WezTerm`, `vscode`, etc.), target that; otherwise fall back to current
     behavior. This keeps it invisible-and-native instead of spawning windows.
+  Shipped 2026-08-03.
 - [ ] **Refactor to wezterm as the baseline** — if the wezterm-first path proves out, make
   wezterm the default terminal recommendation in docs and treat per-OS emulators as fallback
   only (see the fleet-terminology spec below for the naming direction).
@@ -650,3 +657,6 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 
 - [x] Add `--dry-run` to `init` (print files without writing)
 - [x] Add `--yes` / non-interactive defaults so `init` works without a TTY
+- [x] **Lane drive visible terminal + handshake polish** — the `armada drive` quick win
+  (above) covers the TUI-ready handshake and terminal auto-open; backfilled into the
+  polish ledger with the rest of the lane-drive feature. Shipped 2026-08-03.
