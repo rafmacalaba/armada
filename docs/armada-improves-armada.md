@@ -4,10 +4,16 @@ The recurring loop: armada's own team audits and builds armada itself. Everythin
 `sandbox/<name>/` worktree so the live repo stays pristine. Two lanes share one skeleton:
 
 - **Lane A — Audit** (recurring): the team reviews armada's code, files findings.
-- **Lane B — Feature** (one-off): the team implements a TODO item or design spec.
+- **Lane B — Feature** (one-off): the team implements a TODO item or feature.
 
 This doc supersedes the old `docs/self-dogfood.md`. For using armada on **other** repos, see
 [docs/using-armada.md](./using-armada.md).
+
+> **Currency note (2026-08-02):** this flow now targets the **per-feature contract + on-disk
+> state** direction in `TODO.md` — each feature is its own contract (the end-goal spec of what
+> the user wants), scaffolded into a worktree, driven autonomously with `--yolo`. As armada
+> becomes session-based (state/, restart-proof), this loop is what it uses to keep improving
+> itself across sessions.
 
 ## Why
 
@@ -29,6 +35,23 @@ session opens. `/armada` only reports status.
 The orchestrator dispatches the team in **parallel** as opencode-native background subagents:
 independent phases, and `backend-dev ∥ frontend-dev` within a phase.
 
+## The contract — the end-goal spec
+
+A feature contract **is the end goal of what the user wants to implement**, written before any
+code. It lives at `armada/REQUIREMENTS.md` (today) and will move to `armada/contracts/<feature>.md`
+as per-feature contracts ship (see `TODO.md` — implementation/session-based armada). A contract has:
+
+- **Goal** — what the user wants, in their words, refined by the orchestrator.
+- **Phases** — each with `Depends on:`, `Goal:`, `Success criteria:` (measurable, evidence-gated).
+- **Final criteria** — what "done" means across the whole feature.
+- **Constraints** — non-functional requirements (a11y, no deps, perf, etc.).
+
+Rules that make it the end goal rather than a vague wish:
+
+- The orchestrator **co-writes** it with you, one question at a time, until consensus.
+- **No implementation starts against an unapproved contract.**
+- **Done only when every final criterion is demonstrably true** (test run / screenshot / file:line).
+
 ## Shared skeleton
 
 ```bash
@@ -36,11 +59,15 @@ independent phases, and `backend-dev ∥ frontend-dev` within a phase.
 git worktree add -b feat/<name> sandbox/<name>
 cd sandbox/<name>
 
-# 2. scaffold the team (headless = bash allow, no ask-stalls)
-node ../../src/cli.js init --yes --headless --budget balanced
+# 2. scaffold the team — --yolo = autonomous, no permission prompts
+#    (--headless scopes orchestrator bash for headless runs; --yolo is the strict superset)
+node ../../src/cli.js init --yes --yolo --budget balanced
 
-# 3. drive it
-opencode        # boots into the orchestrator (default_agent)
+# 3. write the contract (or leave blank to co-write with the orchestrator)
+#    armada/REQUIREMENTS.md  <- the end-goal spec of the feature
+
+# 4. drive it — boots into the orchestrator (default_agent)
+opencode
 ```
 
 `git worktree list` shows all sandboxes. Cleanup when done:
@@ -56,7 +83,7 @@ changes.
 ```bash
 git worktree add -b feat/audit sandbox/audit
 cd sandbox/audit
-node ../../src/cli.js init --yes --headless --budget balanced
+node ../../src/cli.js init --yes --yolo --budget balanced
 opencode
 ```
 
@@ -86,20 +113,20 @@ separating bugs from improvements. Do not change code.
 
 ## Lane B — Feature implementation
 
-Anything in `TODO.md` or a design spec (kept locally under `docs/superpowers/specs/`,
-gitignored): a new command like `armada new`, a landing page, a bugfix.
+Anything in `TODO.md`: a new command like `armada feature`, a state schema, a bugfix — each is
+a feature with its own contract (the end-goal spec).
 
 ### Run it
 
 ```bash
 git worktree add -b feat/<name> sandbox/<name>
 cd sandbox/<name>
-node ../../src/cli.js init --yes --headless --budget balanced
+node ../../src/cli.js init --yes --yolo --budget balanced
 ```
 
-Write the contract at `armada/REQUIREMENTS.md` — either hand-drafted from the TODO item / spec,
-or left blank so the orchestrator co-writes it with you (blank phases → it asks, drafts,
-iterates, gets approval; no implementation before approval).
+Write the contract at `armada/REQUIREMENTS.md` — either hand-drafted from the TODO item / spec
+(the end-goal spec of the feature), or left blank so the orchestrator co-writes it with you
+(blank phases → it asks, drafts, iterates, gets approval; no implementation before approval).
 
 Then:
 
@@ -131,10 +158,16 @@ git worktree remove sandbox/<name>
   they report in-session and the orchestrator writes files. See the generated `AGENTS.md`.
 - **TUI required for background parallel dispatch.** Background-job reconciliation only works
   in the live TUI. One-shot `opencode run` uses **inline** subagent dispatch (results land after
-  the orchestrator's turn ends).
-- **`--headless`** sets orchestrator bash to `allow`, so `opencode run` doesn't stall on `ask`.
+  the orchestrator's turn ends). With `--yolo`, `opencode run` is fully autonomous (no prompts).
+- **`--yolo`** sets `permission: { "*": "allow" }` in `opencode.json` + orchestrator/qa bash to
+  `allow`, so the fleet never stalls on a prompt — the default for self-improvement lanes.
+  Role `edit` boundaries are kept (the orchestrator still delegates writes).
+- **`--headless`** (older) scopes orchestrator bash for CI; `--yolo` is the strict superset.
 - **`external_directory: deny`** in generated `opencode.json` blocks writing outside the repo;
   have agents write repo-relative files.
+- **State (landing soon):** the fleet will track features in `armada/state/` (per-feature
+  contracts, phase graph, evidence, next action) so a killed session resumes — see
+  `TODO.md` "implementation/session-based armada".
 
 ## See also
 
