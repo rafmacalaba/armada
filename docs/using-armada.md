@@ -90,6 +90,21 @@ Then translate the preset's `agents:` schema to the manifest's `team:` schema
 project directory and let the scaffolder generate `armada/armada.yaml` for
 you — see step 3 option B).
 
+### OpenRouter
+
+Armada uses OpenRouter as the cross-provider model layer: fallbacks in `balanced`,
+the whole `power` preset. A scaffolded `opencode.json` registers every OpenRouter model armada
+references (with `allow_fallbacks: true`), so they work even if opencode's preloaded OpenRouter
+list lags.
+
+- **One-time auth:** in opencode run `/connect` → **OpenRouter** → paste your key, or set
+  `OPENROUTER_API_KEY`.
+- **Check:** `armada doctor` — an `openrouter auth` check reports the credential (the `power`
+  preset needs it).
+- **Override a role's model:** in `armada/armada.yaml`, `agents.<role>.model: "openrouter/<slug>"`
+  (e.g. `openrouter/~anthropic/claude-sonnet-latest` for the latest alias).
+- **Budget tiers:** `armada init --budget free|balanced|power`.
+
 **B. Hand-author the manifest** (full control):
 
 ```yaml

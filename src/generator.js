@@ -146,6 +146,18 @@ export function renderAgentFile(agent, promptText) {
 // no `agent` block is needed in opencode.json. `default_agent` boots the TUI
 // straight into the orchestrator.
 export function renderOpenCodeJson(manifest, team) {
+  const openrouterModels = {}
+  for (const a of team) {
+    for (const id of [a.model, a.fallback, CATALOG[a.role]?.free, CATALOG[a.role]?.power]) {
+      if (typeof id !== "string") continue
+      if (!id.startsWith("openrouter/")) continue
+      const slug = id.slice("openrouter/".length)
+      if (!slug) continue
+      openrouterModels[slug] = {
+        options: { provider: { allow_fallbacks: true } },
+      }
+    }
+  }
   return {
     $schema: "https://opencode.ai/config.json",
     model: modelFor("orchestrator", manifest.project?.budget ?? "balanced"),
@@ -153,6 +165,9 @@ export function renderOpenCodeJson(manifest, team) {
       external_directory: "deny",
     },
     default_agent: "orchestrator",
+    ...(Object.keys(openrouterModels).length
+      ? { provider: { openrouter: { models: openrouterModels } } }
+      : {}),
   }
 }
 

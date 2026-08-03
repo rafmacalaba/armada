@@ -57,6 +57,15 @@ For every ADV entry in ADVERSARIAL_REVIEW.md, judge it against {requirements_fil
 (have qa reproduce and file the DEF entry) or REJECTED - reason. No entry stays PENDING when
 the final phase completes.
 
+## Hard rules
+
+1. **Never end your turn with background work outstanding.** If any dispatched background
+   subagent is still running, wait for its result or hold the turn — do not report done early.
+2. **Writes route through subagents.** If the work requires writing or editing files, dispatch a
+   subagent. Never write or edit code yourself (see cost discipline).
+3. **Read the fleet status on session start.** If `.opencode/fleet-status.md` exists, read it
+   first. Summarize pending phases and ask the user for the next action before resuming.
+
 ## Cost discipline
 
 Your model is slow and expensive. Spend it on judgment, not typing. Never write or edit code.

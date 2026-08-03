@@ -30,6 +30,19 @@ export async function runDoctor(opts = {}) {
     detail: firstLine(auth.out, auth.ok ? "exit 0" : "command failed"),
   })
 
+  const orAuth = await run("opencode", ["auth", "list"], env)
+  const hasOpenrouter = orAuth.ok && /openrouter/i.test(orAuth.out)
+  const orEnv = typeof env.OPENROUTER_API_KEY === "string" && env.OPENROUTER_API_KEY.length > 0
+  checks.push({
+    name: "openrouter auth",
+    status: hasOpenrouter || orEnv ? "pass" : "fail",
+    detail: hasOpenrouter
+      ? "openrouter credential found (opencode auth list)"
+      : orEnv
+        ? "OPENROUTER_API_KEY set"
+        : "no openrouter credential — run /connect openrouter or set OPENROUTER_API_KEY (power preset needs it)",
+  })
+
   const bg = env.OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS === "true"
   checks.push({
     name: "background dispatch",
