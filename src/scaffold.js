@@ -48,7 +48,7 @@ export function fillPrompt(templatePath, manifest, stack) {
 }
 
 export const PROMPT_SOURCE = {
-  orchestrator: "agents/orchestrator/append.template.md",
+  orchestrator: "agents/orchestrator/prompt.template.md",
   "backend-dev": "agents/backend-dev/prompt.template.md",
   "frontend-dev": "agents/frontend-dev/prompt.template.md",
   qa: "agents/qa/prompt.template.md",

@@ -208,23 +208,18 @@ test("scaffold writes custom requirements file, no-clobber", () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("orchestrator append prompt fills requirements_file, no dangling placeholders", () => {
+test("orchestrator full prompt is self-contained and dependency-driven", () => {
   const manifest = makeManifest(".")
   manifest.project.requirementsFile = "REQUIREMENTS-admin.md"
   const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
   assert.match(filled, /REQUIREMENTS-admin\.md is the contract/)
   assert.match(filled, /co-write|Co-write/)
+  assert.match(filled, /Start every ready phase/)
+  assert.ok(!/append to your existing|you keep everything/i.test(filled), "must not reference a base prompt")
   assert.ok(!/\{[a-z_]+\}/.test(filled), "no dangling placeholders")
 })
 
-test("orchestrator append prompt is dependency-driven and lean", () => {
-  const manifest = makeManifest(".")
-  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
-  assert.match(filled, /Start every ready phase/)
-  assert.ok(!/## Parallelism/.test(filled), "no standalone Parallelism section")
-})
-
-test("orchestrator append prompt renders existing instruction files", () => {
+test("orchestrator full prompt renders existing instruction files", () => {
   const manifest = makeManifest(".")
   manifest.project.stack.instructions = ["AGENTS.md", "CLAUDE.md"]
   const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
