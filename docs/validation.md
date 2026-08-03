@@ -364,3 +364,54 @@ dispatch their own subagents and only dependent phases wait.
 183 pass (was 178): yolo manifest round-trip, buildTeam yolo bash flip + boundary preservation,
 renderOpenCodeJson yolo config-level allow, CLI `init --yolo` e2e, orchestrator prompt disjoint-files
 rule.
+
+---
+
+## Phase 4 — Restart-proof reconcile (session-based armada)
+
+**Date:** 2026-08-02
+**Validated by:** qa (`e2e/validation.test.js`)
+**Full suite:** 246/246 pass (243 unit + 3 e2e), 0 regressions
+
+### Scenario A: mid-phase kill + reopen
+
+Created feature "alpha" via `armada feature new alpha`. Verified `active.json` shape (feature,
+phaseGraph, phases array). Simulated a kill by setting phase-1 status to `in_progress` with one
+criterion evidenced (`tests/state.test.js`) and `nextAction` set. Ran `armada feature status` —
+output confirmed `active feature: alpha` and `phase-1: in_progress`. Built the resume line
+from active state: `resume: feature alpha, phase phase-1 (in_progress), evidence 1 in, next
+action continue phase 1 implementation`. State fields survived the simulated kill/reopen with
+no loss.
+
+**Result: PASS** — `e2e/validation.test.js:75`
+
+### Scenario B: multi-feature safety
+
+Created "alpha" and "beta" in the same repo. Disjoint contract files (`armada/contracts/alpha.md`
+vs `beta.md`), disjoint entry files (`features/alpha.json` vs `features/beta.json`), both present
+in `features/index.json`. Mutated alpha to `in_progress` — beta remained `open`. Closed alpha
+with evidence in its contract — alpha shipped, beta still open. History files
+(`history/alpha.jsonl`, `history/beta.jsonl`) exist and are disjoint.
+
+**Result: PASS** — `e2e/validation.test.js:136`
+
+### Scenario C: state round-trip via API + CLI
+
+Created "gamma" via `armada feature new gamma`. Read back via `armada feature status`. CLI
+output fields match what was written. Raw `active.json` verified: feature=gamma, contract
+contains gamma, phases show pending, evidence empty, nextAction empty, updatedAt set.
+
+**Result: PASS** — `e2e/validation.test.js:214`
+
+### How to reproduce
+
+```bash
+cd /Users/rafaelmacalaba/WBG/opencode-armada/sandbox/impl-session
+node --test e2e/validation.test.js
+node --test 'tests/*.test.js'
+```
+
+### Tests
+
+246 pass (was 243): added 3 e2e validation tests (mid-phase resume, multi-feature disjoint,
+state round-trip). All prior 243 stay green.

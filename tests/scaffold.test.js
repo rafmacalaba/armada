@@ -323,11 +323,12 @@ test("orchestrator prompt routes writes through subagents", () => {
   assert.match(filled, /never write or edit code/, "orchestrator must not write/edit code directly")
 })
 
-test("orchestrator prompt reads fleet status on session start", () => {
+test("orchestrator prompt reads active state on session start", () => {
   const manifest = makeManifest(".")
   const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
-  assert.match(filled, /fleet-status|fleet status/i)
+  assert.match(filled, /armada\/state\/active\.json/)
   assert.match(filled, /session start|session begins|on start/i)
+  assert.match(filled, /write state on every transition/i)
 })
 
 test("orchestrator prompt prefers disjoint files to unlock parallel phases", () => {
