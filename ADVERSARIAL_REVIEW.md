@@ -1,395 +1,63 @@
-# ADVERSARIAL_REVIEW.md
+# opencode-armada — Adversarial review findings
 
-Adversarial review of opencode-armada CLI contract. Scope: `src/cli.js`, `src/scaffold.js`, `src/manifest.js`, `src/generator.js`.
+Adversary writes entries. Orchestrator fills Disposition. Nobody else.
 
-## ADV-001: Invalid budget silently accepted (exit 0)
+## ADV-027: Round-trip test re-parses only, not YAML text
+
+- Session: final
+- Suggested severity: LOW
+
+What I did: Read `tests/manifest.test.js` "round-trips through renderManifestYaml with overrides preserving new fields". It calls `parseManifestYaml` twice (input + re-rendered) and asserts structural equality.
+Expected: Test might also assert text equality for the with-overrides case.
+Actual: Test only re-parses, not text equality. The no-overrides case (`round-trips through renderManifestYaml`) already asserts text equality, so coverage exists.
+Screenshot: n/a
+
+Disposition: REJECTED - re-parse is a stronger structural check than text equality; the no-override text-identity case is already covered by the original round-trip test. No defect.
+
+## ADV-026: Instructions append spacing varies by template trailing newline
+
+- Session: final
+- Suggested severity: LOW
+
+What I did: Verified all bundled prompt templates end with `\n`; with `\n\n` separator, the result is consistently 2 blank lines for the bundled path. A custom template without trailing newline gets 1 blank line.
+Expected: N/A (cosmetic).
+Actual: Cosmetic variation only; bundled case is stable.
+Screenshot: n/a
+
+Disposition: REJECTED - bundled templates are consistent; custom-template authors own their own formatting. Cosmetic, not a defect.
+
+## ADV-025: deepMerge scalar override replaces subtree — doc could be clearer
+
+- Session: final
+- Suggested severity: LOW
+
+What I did: Read `src/generator.js:11-23` (`deepMerge`) and `docs/using-armada.md:280-348`.
+Expected: Doc might explicitly state that a scalar at a path where base has an object replaces the entire subtree.
+Actual: Doc says "user leaf values replace base values key-by-key" and "Your rules win", which is accurate.
+Screenshot: n/a
+
+Disposition: REJECTED - the doc accurately describes "user rules win"; the merge implementation is consistent with the documented behavior. Doc wording is honest. Not a defect.
+
+## ADV-024: Symlink at custom prompt path bypasses directory containment
+
+- Session: final
+- Suggested severity: LOW
+
+What I did: Traced `scaffold.js:101-110` and `scaffold.js:65-77` (`validateTargetDir`).
+Expected: Symlink at the custom prompt path could let a user point at a file outside the repo.
+Actual: `validateTargetDir` only blocks symlinks at the top-level target and `.opencode/`. A symlink at the custom prompt path is followed.
+Screenshot: n/a
+
+Disposition: REJECTED - the threat model is "user pastes a bad manifest" (armada init runs as the user themselves). A symlink in the user's own repo is the user's own choice. `validateTargetDir` already guards the more sensitive paths. No real-world risk in this model.
+
+## ADV-023: prompt: "." or prompt: "./" passes validation, EISDIR crash
 
 - Session: final
 - Suggested severity: MEDIUM
 
-What I did: `armada init --yes --budget ultra_mega --no-browser`
-Expected: Non-zero exit with error message "unknown budget: ultra_mega"
-Actual: Exit 0, scaffolds with budget "balanced" (default). No warning to user.
+What I did: Tested `prompt: "."` against `parseManifestYaml` + `scaffold`. Validation passes (non-empty, no `..`, not absolute, resolves inside target). `readFileSync` then throws `EISDIR: illegal operation on a directory`.
+Expected: Clear error: "prompt must be a file path, not a directory" before the read.
+Actual: Cryptic EISDIR from readFileSync. Hard to diagnose for a user.
 Screenshot: n/a
 
-Disposition: PENDING
-
-`src/cli.js:170-173` — the `BUDGETS.includes(args[budgetIdx + 1])` guard silently ignores invalid values. `renderManifestYaml` writes `budget: balanced` which then round-trips as "balanced" on re-scaffold. User thinks they chose a custom budget but gets default.
-
----
-
-## ADV-002: Empty model string silently accepted
-
-- Session: final
-- Suggested severity: HIGH
-
-What I did: `armada.yaml` with `model: ""` for a team member
-Expected: Parse error "model must not be empty"
-Actual: Writes `"model": ""` into slim JSONC and armada.yaml. opencode will fail to start with empty model.
-Screenshot: n/a
-
-Disposition: PENDING
-
-`src/manifest.js:19-24` — no validation on `t.model`. `src/cli.js:157-162` — catches parse errors but empty-string model is not a parse error. Generated `oh-my-opencode-slim.jsonc` contains `"model": ""` which causes runtime failure.
-
----
-
-## ADV-003: Duplicate role names silently accepted (first wins)
-
-- Session: final
-- Suggested severity: MEDIUM
-
-What I did: `armada.yaml` with two team entries both having `role: qa` with different models
-Expected: Error "duplicate role: qa" or warning
-Actual: Exit 0, only first entry used, second silently discarded. No indication to user.
-Screenshot: n/a
-
-Disposition: PENDING
-
-`src/manifest.js:19` — no duplicate check. `src/generator.js:100` — `manifest.team.some((t) => t.role === role ...)` finds the first match, second entry has no effect. `renderManifestYaml` writes both entries back out (src/generator.js:343-347), creating a misleading armada.yaml where only the first duplicate takes effect.
-
----
-
-## ADV-004: `enabled: 0` (number) treated as enabled
-
-- Session: final
-- Suggested severity: LOW
-
-What I did: YAML `enabled: 0` in team entry (YAML number 0, expected falsy)
-Expected: `enabled: false` (0 is falsy in YAML bool contexts)
-Actual: `enabled: true` — role is enabled
-Screenshot: n/a
-
-Disposition: PENDING
-
-`src/manifest.js:23` — only checks `t.enabled === false || t.enabled === "false"`. Number `0` is neither, defaults to `true`. Should use truthy check: `Boolean(t.enabled) !== false` or explicit `t.enabled === 0` handling. Note: YAML spec treats `0` as not-boolean, but user expectation is that `0` means disabled.
-
----
-
-## ADV-005: Read-only filesystem errors dump full stack trace
-
-- Session: final
-- Suggested severity: MEDIUM
-
-What I did: `chmod 500 .opencode/` then `armada init --from-armada armada/armada.yaml`
-Expected: Clean error "Cannot write to .opencode/: permission denied"
-Actual: Full Node.js stack trace with absolute paths (EACCES) dumped to stderr
-Screenshot: n/a
-
-Disposition: PENDING
-
-`src/cli.js:140-143` — `main().catch(err => console.error(err))` prints full Error object including stack. `src/scaffold.js:63` — `writeFileSync` throws on permission denied, no try/catch in scaffold. Error propagates to catch handler unformatted. Absolute path `/Users/rafaelmacalaba/...` leaked in stack.
-
----
-
-## ADV-006: Uninstall requires manifest — no fallback cleanup
-
-- Session: final
-- Suggested severity: MEDIUM (known gap — STILL BROKEN)
-
-What I did: `armada init`, then `rm armada/armada.yaml`, then `armada uninstall`
-Expected: Uninstall should still clean up generated files, or at least offer `--force` flag
-Actual: "Manifest not found: armada/armada.yaml" exit 1. All generated artifacts remain. No way to clean up.
-Screenshot: n/a
-
-Disposition: PENDING
-
-`src/cli.js:268-274` — uninstall always requires a manifest. If user deletes `armada/armada.yaml` (e.g., by accident or git clean), there is no path to remove: `.opencode/oh-my-opencode-slim.jsonc`, `.opencode/oh-my-opencode-slim/*.md`, `.opencode/commands/armada.md`. Suggestion: add `--force` flag that removes all known armada artifacts without reading manifest.
-
----
-
-## ADV-007: `init --from-armada --budget free` treats `--budget` as filename
-
-- Session: final
-- Suggested severity: LOW
-
-What I did: `armada init --from-armada --budget free`
-Expected: Parse error about missing file argument after `--from-armada`
-Actual: "Manifest not found: --budget" — confusing error, the flag `--budget` is consumed as the file path
-Screenshot: n/a
-
-Disposition: PENDING
-
-`src/cli.js:151` — no `file.startsWith("--")` guard on the `--from-armada` value. Compare `src/cli.js:271` where `uninstall` has this guard: `if (!file || file.startsWith("--") || !existsSync(...))`. Missing guard on `init --from-armada` causes confusing error message instead of "missing file argument for --from-armada".
-
----
-
-## ADV-008: `opencode.json` model ignores budget tier
-
-- Session: final
-- Suggested severity: LOW
-
-What I did: Manifest with `budget: free` and orchestrator `model: opencode-go/minimax-m3` (balanced-tier model)
-Expected: opencode.json model should match the budget-adjusted model (hy3 for free tier)
-Actual: opencode.json gets `"model": "opencode-go/minimax-m3"` while slim JSONC gets `"model": "opencode-go/hy3"` — inconsistency
-Screenshot: n/a
-
-Disposition: PENDING
-
-`src/generator.js:164` — `renderOpenCodeJson` reads `manifest.team.find(t => t.role === "orchestrator")?.model` from raw manifest, not from `buildTeam` budget-adjusted output. If user sets `budget: free` but leaves a power/balanced model for orchestrator, opencode.json uses the expensive model while armada-orchestrator in slim JSONC uses the free model. Should use `modelFor("orchestrator", manifest.project.budget)` for consistency.
-
----
-
-## ADV-009: CLI writes through `.opencode` symlinks without warning
-
-- Session: final
-- Suggested severity: LOW
-
-What I did: `ln -sf target/ .opencode` then `armada init`
-Expected: Warning or error about `.opencode` being a symlink
-Actual: Silently follows symlink, writes all files to symlink target. Could be exploited to write outside expected directory.
-Screenshot: n/a
-
-Disposition: PENDING
-
-`src/scaffold.js:60-66` — `write()` uses `mkdirSync` and `writeFileSync` without symlink detection. If `.opencode` is a symlink to another location, armada files are written there. In practice this requires user action (creating the symlink), so severity LOW, but a `realpath` check or warning would be defense-in-depth.
-
----
-
-## ADV-010: `init` hardcodes `targetDir = "."` — no `--target` flag
-
-- Session: final
-- Suggested severity: LOW
-
-What I did: Running `armada init` from any directory always scaffolds to CWD
-Expected: `--target <dir>` flag to specify output directory
-Actual: `manifest.targetDir = "."` hardcoded at `src/cli.js:187`. No way to scaffold into a different directory.
-Screenshot: n/a
-
-Disposition: PENDING
-
-This is a design limitation, not a bug. Users who want to scaffold into a specific directory must `cd` first. A `--target` flag would improve scripting/CI workflows and match user expectation from other scaffolding tools.
-
----
-
-## Summary
-
-| # | Severity | Area | Finding |
-|---|----------|------|---------|
-| ADV-001 | MEDIUM | cli.js:170 | Invalid budget silently accepted |
-| ADV-002 | HIGH | manifest.js:19 | Empty model string generates broken config |
-| ADV-003 | MEDIUM | manifest.js:19 | Duplicate roles silently accepted |
-| ADV-004 | LOW | manifest.js:23 | `enabled: 0` treated as true |
-| ADV-005 | MEDIUM | cli.js:140 | Stack traces leak on filesystem errors |
-| ADV-006 | MEDIUM | cli.js:268 | Uninstall requires manifest — STILL BROKEN |
-| ADV-007 | LOW | cli.js:151 | Missing `--` guard on `--from-armada` arg |
-| ADV-008 | LOW | generator.js:164 | opencode.json model ignores budget tier |
-| ADV-009 | LOW | scaffold.js:60 | Symlinks followed without warning |
-| ADV-010 | LOW | cli.js:187 | No `--target` flag for output directory |
-| ADV-011 | MEDIUM | reconcile.js:20 | `/\d+ failing/` false positive on "0 failing" |
-| ADV-012 | MEDIUM | reconcile.js:71 | Uppercase `X` in checkboxes not parsed |
-| ADV-013 | LOW | reconcile.js:286 | Inconsistent activeFeature/resumeLine with no phases |
-| ADV-014 | LOW | reconcile.js:104-111 | Directory evidence flagged as `evidence-missing` |
-| ADV-021 | LOW | generator.js:383 | Fallback instruction unreachable in generated repos |
-| ADV-022 | LOW | docs/validation.md:480 | Live validation ran fallback, not primary path |
-
-`main() returns undefined` / exit code propagation: **FIXED** — `main()` is async, returns Promise. Resolved promise with `undefined` value exits 0. On rejection, catch handler sets `process.exitCode = 1`. Commands that set `process.exitCode` inline (unknown command, missing manifest) exit correctly.
-
----
-
-## ADV-011: `/\d+ failing/` regex triggers false positive on "0 failing"
-
-- Session: phase-3 gate
-- Suggested severity: MEDIUM
-
-What I did: Wrote evidence file containing `Tests: 25 passed, 0 failing, 0 skipped` (a common passing test summary), then ran `reconcile()` with `kind: "test"` pointing at it.
-Expected: No drift — "0 failing" means everything passed.
-Actual: Drift `evidence-failed` reported.
-Screenshot: n/a
-
-Disposition: ACCEPTED -> DEF-002
-
-`src/reconcile.js:20` — `/\d+ failing/` matches `0 failing`. Fix: change to `/^[1-9]\d* failing/m` or `/\b[1-9]\d* failing\b/`. Reproduce:
-```js
-// evidence file: 'Tests: 25 passed, 0 failing, 0 skipped\n'
-// regex /\d+ failing/ matches '0 failing' -> evidence-failed
-```
-
----
-
-## ADV-012: Uppercase `X` in checkboxes not parsed as ticked
-
-- Session: phase-3 gate
-- Suggested severity: MEDIUM
-
-What I did: Contract markdown with `- [X] Test A` (uppercase X in checkbox). Phase status `passed`, evidence exists on disk.
-Expected: Criterion recognized as ticked per contract spec (`- [X]` counts as ticked). No drift.
-Actual: Regex at `src/reconcile.js:71` (`/^-\s+\[([ x])\]\s+(.+)/`) only captures `[ ]` and `[x]`. Uppercase `[X]` is silently ignored — the criterion line is not parsed at all. `contractCriteria` for that phase is empty, so `criterion-unticked` check never fires. The criterion is invisible.
-
-Disposition: ACCEPTED -> DEF-003
-
-`src/reconcile.js:71` — change character class from `[ x]` to `[ xX]`. The contract spec (`armada/REQUIREMENTS.md`) explicitly says `- [X]` should count as ticked.
-
----
-
-## ADV-013: Active feature with empty/null phaseGraph reports "no active feature" in resumeLine
-
-- Session: phase-3 gate
-- Suggested severity: LOW
-
-What I did: `active.json` with `feature: "feat"` and `phaseGraph: null` (or `phaseGraph.phases: []`). Ran `reconcile()`.
-Expected: `resumeLine` reflects there is an active feature but no phases (e.g. "resume: feature feat, phase (none)").
-Actual: `plan.activeFeature === "feat"` but `plan.resumeLine === "resume: no active feature"`. JSON fields are internally inconsistent — the plan says there IS an active feature (`activeFeature: "feat"`) while the resume line says there isn't.
-Screenshot: n/a
-
-Disposition: ACCEPTED -> DEF-004
-
-`src/reconcile.js:286-288` — `resumeLine` uses `currentPhase` as a proxy for "has active feature". When `findCurrentPhase` returns `null` (empty phases array), the line defaults to "no active feature" even though `active.feature` is set. Fix: separate the null-phase case from the null-feature case.
-
----
-
-## ADV-014: Evidence path pointing to directory flagged as `evidence-missing`
-
-- Session: phase-3 gate
-- Suggested severity: LOW
-
-What I did: Evidence ref `tests/somedir` is a directory that exists on disk (not a missing file). Ran `reconcile()`.
-Expected: Either recognize directory as existing evidence (no drift), or report a distinct drift like `evidence-is-directory`.
-Actual: `existsSync()` returns true for directories, then `readFileSync()` throws (EISDIR), caught by `try/catch` → `evidence-missing`. User sees "evidence-missing" for a path that definitely exists — misleading.
-Screenshot: n/a
-
-Disposition: ACCEPTED -> DEF-005
-
-`src/reconcile.js:96-117` — `checkEvidence` does not distinguish a missing file from a directory. Add an `fs.statSync(fullPath).isFile()` check after `existsSync`, or handle the `EISDIR` error code in the catch block.
-
----
-
-## ADV-015: `parseManifestYaml` drops `variant` field — lost on re-scaffold
-
-- Session: final
-- Suggested severity: MEDIUM
-
-What I did: armada.yaml with `variant: thinking` on orchestrator team entry. Ran `parseManifestYaml`.
-Expected: parsed team entry includes `variant: "thinking"`, survives round-trip.
-Actual: `variant` is validated (line 65) but not returned in the team entry object (lines 66-71). `variant` is always `undefined` in parseManifestYaml output. On `init --from-armada`, `buildTeam` reads `override?.variant` → undefined → falls back to `CATALOG[role].variant`. This means preset-written variants only work by coincidence (balanced preset's `thinking` matches catalog default). A custom preset variant would be silently ignored.
-Screenshot: n/a
-
-Disposition: ACCEPTED -> DEF-006
-
-`src/manifest.js:63-71` — validates variant at line 65 but the `return { role, model, fallback, enabled }` at lines 66-71 omits variant. `buildTeam` in `src/generator.js:125` reads `override?.variant` which is always undefined. `renderManifestYaml` in `src/generator.js:503-507` doesn't write variant either, so even a direct-to-YAML round-trip would drop it.
-
----
-
-## ADV-016: Duplicate next-steps sections in `armada init` output
-
-- Session: final
-- Suggested severity: LOW
-
-What I did: `armada init --yes --headless`, examined stdout.
-Expected: One "Next steps:" section printed.
-Actual: Two identical sections — "Next:" from `cli.js:293-296` AND "Next steps:" from `renderInitSummary` output (init-summary.js:27-32). Both contain the same three steps (opencode, /armada, ping all agents).
-
-Disposition: ACCEPTED -> DEF-007
-
-`src/cli.js:293-298` — explicit "Next:" block still printed before `renderInitSummary(manifest)`. `src/init-summary.js:27-32` — summary itself includes "Next steps:" with identical content. Remove the cli.js "Next:" block (lines 293-296) since renderInitSummary now covers it.
-
----
-
-## ADV-017: `renderOpenRouterModels` crashes on null/undefined `id` or `name`
-
-- Session: final
-- Suggested severity: MEDIUM
-
-What I did: `renderOpenRouterModels([{ id: 'test/foo', name: null }])` and `renderOpenRouterModels([{ id: null, name: 'Test' }])`
-Expected: Graceful rendering with empty string for missing field, or defensive guard.
-Actual: `TypeError: Cannot read properties of null (reading 'length')` at `m.id.length` (line 194) or `m.name.length` (line 195). Uncaught crash.
-Screenshot: n/a
-
-Disposition: ACCEPTED -> DEF-008
-
-`src/model-catalog.js:194-195` — `m.id.length` and `m.name.length` assume both fields are strings. OpenRouter API contract says `{ id: string, name: string }` but a malformed response would crash. Fix: `(m.id || "").length` and `(m.name || "").length`.
-
----
-
-## ADV-018: `listOpenRouterModels` misleading error for non-array `data` field
-
-- Session: final
-- Suggested severity: LOW
-
-What I did: Fake-fetch that returns `ok: true` with `data: {x: 1}` (object, not array).
-Expected: Error message indicating response format was unexpected (e.g., "data field is not an array").
-Actual: `json.data.map is not a function — check network / OPENROUTER_API_KEY`. The `.map is not a function` error is wrapped with a network/auth hint that doesn't apply — this is a response format error, not a network/auth issue.
-Screenshot: n/a
-
-Disposition: REJECTED - "check network / OPENROUTER_API_KEY" is a general hint; the per-cause distinction is polish, not a contract violation.
-
-`src/model-catalog.js:183-184` — `if (!json.data)` only checks falsy, not `Array.isArray(json.data)`. Add an `Array.isArray(json.data)` check and throw a distinct message like "data field is not an array" before `— check network / OPENROUTER_API_KEY`.
-
----
-
-## ADV-019: `applyPreset` drops `stack.instructions` from armada.yaml
-
-- Session: final
-- Suggested severity: MEDIUM
-
-What I did: armada.yaml with `stack.instructions: [".cursor/rules", "CLAUDE.md"]`. Ran `armada preset power --target <dir>`.
-Expected: `instructions` field preserved in the rewritten armada.yaml (preset only changes budget + team models).
-Actual: `instructions` silently dropped from output. Post-preset armada.yaml has zero `instructions` lines. Data loss on preset apply.
-Screenshot: n/a
-
-Disposition: ACCEPTED -> DEF-009
-
-`src/preset-command.js:56-98` — local `renderArmadaYaml` template at lines 87-92 doesn't include `instructions` field. The canonical `renderManifestYaml` in `src/generator.js:530` does include `instructions`. The local copy diverges: it supports `variant` (generator doesn't) but drops `instructions` (generator includes them). Fix: either use `renderManifestYaml(buildTeam(...))` as the contract specifies, or keep the local renderer in sync.
-
----
-
-## ADV-020: `applyPreset` local renderer silently drops any future manifest fields
-
-- Session: final
-- Suggested severity: MEDIUM
-
-What I did: armada.yaml with any field not in the local `renderArmadaYaml` template (e.g., `stack.instructions`, or any future `project.` field).
-Expected: Non-model/budget fields pass through unchanged (preset only overrides budget + team models/variants).
-Actual: Any field not explicitly in `renderArmadaYaml`'s template is silently dropped. The contract for Phase 3 says "writes back via renderManifestYaml(buildTeam(manifest))" but the code uses a locally-maintained copy. Schema evolution creates a maintenance fork.
-Screenshot: n/a
-
-Disposition: ACCEPTED -> DEF-010
-
-`src/preset-command.js:56-98` — `renderArmadaYaml` is a local copy distinct from the canonical `renderManifestYaml` in `src/generator.js:501-536`. Differences: local supports variant but drops instructions; canonical supports instructions but drops variant. Any schema change must be mirrored in both places.
-
----
-
-## ADV-021: Fallback instruction unreachable in generated repos
-
-- Session: final
-- Suggested severity: LOW
-
-What I did: Read the rendered command body from `renderArmadaResumeCommand()` (generator.js:383-389). The body says:
-`Run \`armada reconcile\` ... If the global \`armada\` binary is not on PATH, fall back to \`node src/cli.js reconcile\`.`
-
-In a generated repo (e.g. `~/WBG/data-ai-chatbot`), `src/cli.js` does not exist — only the armada source tree has that file. The command body is rendered identically for both source-tree and generated-repo contexts (`renderArmadaResumeCommand()` takes zero arguments). An orchestrator in a generated repo without the global binary would follow the fallback instruction and get `Error: Cannot find module '.../src/cli.js'` — silent failure, no resume line.
-
-Expected: Command body is either context-aware (mentions fallback only for source tree) or clarifies that the in-tree path exists only inside the armada source tree.
-
-Actual: Both paths rendered unconditionally. Fallback is unreachable in generated repos.
-
-Screenshot: n/a
-
-Disposition: PENDING
-
-Contract says fallback is "in-tree" (`armada/REQUIREMENTS.md:19` — "fall back to the in-tree `node src/cli.js reconcile`"). The command body text is correct per the contract, but the context (generated repo vs source tree) is lost by the time the orchestrator reads it. The orchestrator has no way to know the fallback won't work.
-
-Disposition: ACCEPTED -> fixed in `src/generator.js:388` (command body now conditions the fallback on `src/cli.js` existing in cwd; generated-repo orchestrator that loses the global binary gets a clear "missing binary" report instead of a confusing module-not-found error)
-
----
-
-## ADV-022: Live validation ran fallback path, not primary path
-
-- Session: final
-- Suggested severity: LOW
-
-What I did: Read `docs/validation.md:480-535`. The Phase 2 live-validation criterion says (REQUIREMENTS.md:35-38): "init there, open a feature, kill a session mid-phase, run `armada reconcile` from the generated repo."
-
-The validation ran `node src/cli.js reconcile` (fallback), not `armada reconcile` (primary), because `command -v armada` returned not-found (line 500-501). The doc also used a clone of the target repo instead of the live checkout (lines 524-529), with rationale documented.
-
-Expected: Live validation exercises the primary path (`armada reconcile`) on a real global install, or explicitly documents that it was skipped and why.
-
-Actual: Doc is honest — it states the global binary is not installed and the fallback was used (line 518-522). The e2e test (`e2e/armada-resume-command.test.js`) covers the primary path with a fake binary. The combination (e2e primary + live fallback) covers both paths fully. The doc correctly notes "For a true end-to-end test of the primary path on this machine, install armada globally" (line 521-522).
-
-Screenshot: n/a
-
-Disposition: PENDING
-
-This is a documentation gap, not a code gap. The e2e test proves the primary path works (fake bin → real CLI reconcile → exit 0 + resume line). The live validation proves the fallback works on real state. The contract says "run `armada reconcile` from the generated repo" — this was not done with a real global install. The doc is transparent about the limitation.
-
-Disposition: ACCEPTED -> fixed by `npm link` (`/opt/homebrew/bin/armada` -> lane's `bin/armada.js`); live validation re-ran against the `~/WBG/data-ai-chatbot` clone via the primary `armada reconcile` invocation. Same resume line, same exit 0. Recorded in `docs/validation.md` (2026-08-03 re-run section).
+Disposition: ACCEPTED -> DEF-001

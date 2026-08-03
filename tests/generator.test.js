@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
-import { buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaSupervisionPlugin } from "../src/generator.js"
+import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaSupervisionPlugin } from "../src/generator.js"
 import { parseManifestYaml } from "../src/manifest.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -472,4 +472,101 @@ test("renderArmadaSupervisionPlugin denies orchestrator edit-deny targets", () =
   assert.match(src, /REQUIREMENTS\.md/)
   assert.match(src, /AGENTS\.md/)
   assert.match(src, /\.opencode\/\*/)
+})
+
+// -- Phase 2: deepMerge --
+
+test("deepMerge: user leaf wins over base", () => {
+  const base = { a: "deny", b: "ask" }
+  const override = { a: "allow" }
+  const result = deepMerge(base, override)
+  assert.strictEqual(result.a, "allow")
+  assert.strictEqual(result.b, "ask")
+})
+
+test("deepMerge: nested objects merged recursively", () => {
+  const base = { edit: { "*.md": "deny", "*.ts": "deny" }, bash: { "*": "ask" } }
+  const override = { edit: { "*.ts": "allow" } }
+  const result = deepMerge(base, override)
+  assert.deepStrictEqual(result, { edit: { "*.md": "deny", "*.ts": "allow" }, bash: { "*": "ask" } })
+})
+
+test("deepMerge: order-stable (base keys first, then override-only)", () => {
+  const base = { a: 1, c: 3 }
+  const override = { b: 2 }
+  const result = deepMerge(base, override)
+  assert.deepStrictEqual(Object.keys(result), ["a", "c", "b"])
+})
+
+test("deepMerge: override-only keys added after base keys", () => {
+  const base = { x: 1 }
+  const override = { y: 2, z: 3 }
+  const result = deepMerge(base, override)
+  assert.deepStrictEqual(Object.keys(result), ["x", "y", "z"])
+})
+
+test("deepMerge: null override returns base", () => {
+  const base = { a: 1 }
+  assert.deepStrictEqual(deepMerge(base, null), base)
+  assert.deepStrictEqual(deepMerge(base, undefined), base)
+})
+
+test("deepMerge: leaf string overrides leaf string", () => {
+  const base = { p: "deny" }
+  const override = { p: "allow" }
+  assert.strictEqual(deepMerge(base, override).p, "allow")
+})
+
+test("deepMerge: does not mutate inputs", () => {
+  const base = { a: { x: 1 } }
+  const override = { a: { y: 2 } }
+  const baseBefore = JSON.stringify(base)
+  const overrideBefore = JSON.stringify(override)
+  deepMerge(base, override)
+  assert.strictEqual(JSON.stringify(base), baseBefore)
+  assert.strictEqual(JSON.stringify(override), overrideBefore)
+})
+
+// -- Phase 2: buildTeam permissions override --
+
+test("buildTeam deep-merges user permissions over base", () => {
+  const m = structuredClone(baseManifest)
+  m.team = [
+    { role: "backend-dev", model: modelFor("backend-dev", "balanced"), variant: null, fallback: null, enabled: true,
+      permissions: { edit: { "*": "allow", "e2e/*": "deny" }, bash: { "*": "ask" } } },
+    { role: "qa", model: modelFor("qa", "balanced"), variant: null, fallback: null, enabled: true },
+  ]
+  const team = buildTeam(m)
+  const backend = team.find((a) => a.role === "backend-dev")
+  // user override wins
+  assert.strictEqual(backend.permissions.edit["*"], "allow")
+  // user override present
+  assert.strictEqual(backend.permissions.edit["e2e/*"], "deny")
+  // base keys not overridden survive
+  assert.strictEqual(backend.permissions.edit["DEFECTS.md"], "deny")
+  assert.strictEqual(backend.permissions.edit["armada/*"], "deny")
+  // QA has no overrides, uses base
+  const qa = team.find((a) => a.role === "qa")
+  assert.strictEqual(qa.permissions.edit["*"], "deny")
+  assert.strictEqual(qa.permissions.edit["e2e/*"], "allow")
+})
+
+test("buildTeam passes through instructions and prompt", () => {
+  const m = structuredClone(baseManifest)
+  m.team = [
+    { role: "backend-dev", model: modelFor("backend-dev", "balanced"), variant: null, fallback: null, enabled: true,
+      instructions: "extra backend rules", prompt: "templates/custom-be.md" },
+  ]
+  const team = buildTeam(m)
+  const backend = team.find((a) => a.role === "backend-dev")
+  assert.strictEqual(backend.instructions, "extra backend rules")
+  assert.strictEqual(backend.prompt, "templates/custom-be.md")
+})
+
+test("buildTeam instructions and prompt default to null", () => {
+  const team = buildTeam(baseManifest)
+  for (const a of team) {
+    assert.strictEqual(a.instructions, null)
+    assert.strictEqual(a.prompt, null)
+  }
 })

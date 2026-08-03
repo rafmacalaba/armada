@@ -277,6 +277,76 @@ team:
 Required roles are `orchestrator` + at least one specialist. Disable the rest
 with `enabled: false` if you don't need them.
 
+### Per-role configurability
+
+Every `team:` entry accepts three optional fields that tailor a role for this project:
+`permissions`, `instructions`, and `prompt`. All three are optional — a manifest without them
+scaffolds exactly as before (byte-identical default output, no regression).
+
+**`permissions`** — deep-merged over the role's built-in permission set (`BASE_PERMISSIONS`).
+Your rules win; base keys you don't override survive. Values are `"allow"`, `"deny"`, or
+`"ask"`, nested to mirror the base structure:
+
+```yaml
+team:
+  - role: qa
+    model: opencode/mimo-v2.5-free
+    enabled: true
+    permissions:
+      bash:
+        "npm test*": "allow"
+      edit:
+        "*": "deny"
+```
+
+**`instructions`** — extra prompt text appended to the role's rendered prompt, after the
+template body:
+
+```yaml
+team:
+  - role: docs
+    model: opencode/deepseek-v4-flash-free
+    enabled: true
+    instructions: "Cite file:line for every claim. No emojis."
+```
+
+**`prompt`** — path to a custom `prompt.template.md` override, relative to the repo root.
+Absent field = bundled template. Missing file = scaffold fails with a clear error
+(`custom prompt template not found: <path> (for role <role>)`). Paths stay inside the repo:
+no `..` segments, no absolute paths (rejected at schema validation):
+
+```yaml
+team:
+  - role: security
+    model: opencode/big-pickle
+    enabled: true
+    prompt: custom/security.prompt.template.md
+```
+
+All three at once:
+
+```yaml
+team:
+  - role: backend-dev
+    model: opencode-go/deepseek-v4-pro
+    fallback: openrouter/deepseek/deepseek-v4-pro
+    enabled: true
+    permissions:
+      bash:
+        "npm test*": "allow"
+    instructions: "Write the failing test first. Cite file:line in every summary."
+    prompt: custom/backend-dev.prompt.template.md
+```
+
+**Merge precedence.** `permissions` is a deep merge: your leaf values replace base values
+key-by-key, base keys you don't mention survive untouched, and keys only you define are added.
+Merge order is stable. The rendered `.opencode/agent/<role>.md` frontmatter carries the merged
+`permission` block only — base and override are never visible separately.
+
+**Round-trip.** `armada init --from-armada armada/armada.yaml` preserves all three fields
+exactly. Re-scaffold from a configured manifest and you get the same overrides back,
+byte-for-byte.
+
 ### 3. Scaffold the team
 
 From the new project directory:

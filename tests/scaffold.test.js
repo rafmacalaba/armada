@@ -370,3 +370,66 @@ test("uninstall keeps user-owned .devcontainer when manifest devcontainer is fal
   assert.ok(existsSync(join(dir, ".devcontainer/devcontainer.json")))
   rmSync(dir, { recursive: true, force: true })
 })
+
+// -- Phase 2: instructions appended to rendered agent file --
+
+test("scaffold appends instructions to the rendered prompt body", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-instr-"))
+  const manifest = makeManifest(dir)
+  manifest.team = [
+    { role: "backend-dev", model: modelFor("backend-dev", "balanced"), variant: null, fallback: null, enabled: true,
+      instructions: "Extra instruction line 1\nExtra instruction line 2" },
+  ]
+  scaffold(manifest, manifest.project.stack)
+  const agentFile = readFileSync(join(dir, ".opencode/agent/backend-dev.md"), "utf8")
+  // The instructions text must appear after frontmatter and prompt body, separated by a blank line
+  assert.match(agentFile, /\n\nExtra instruction line 1\nExtra instruction line 2$/)
+  rmSync(dir, { recursive: true, force: true })
+})
+
+// -- Phase 2: custom prompt template path --
+
+test("scaffold resolves custom prompt template when prompt is set", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-customprompt-"))
+  const manifest = makeManifest(dir)
+  // Write a custom template file
+  mkdirSync(join(dir, "templates"), { recursive: true })
+  writeFileSync(join(dir, "templates/custom-be.md"), "Custom prompt for {backend_stack} with {database}.")
+  manifest.team = [
+    { role: "backend-dev", model: modelFor("backend-dev", "balanced"), variant: null, fallback: null, enabled: true,
+      prompt: "templates/custom-be.md" },
+  ]
+  scaffold(manifest, manifest.project.stack)
+  const agentFile = readFileSync(join(dir, ".opencode/agent/backend-dev.md"), "utf8")
+  assert.match(agentFile, /Custom prompt for python-fastapi with postgres\./)
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("scaffold throws when custom prompt template is a directory", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-dirprompt-"))
+  const manifest = makeManifest(dir)
+  mkdirSync(join(dir, "templates"), { recursive: true })
+  manifest.team = [
+    { role: "backend-dev", model: modelFor("backend-dev", "balanced"), variant: null, fallback: null, enabled: true,
+      prompt: "templates" },
+  ]
+  assert.throws(
+    () => scaffold(manifest, manifest.project.stack),
+    /custom prompt template is a directory, not a file: templates \(for role backend-dev\)/
+  )
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("scaffold throws when custom prompt template is missing", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-missprompt-"))
+  const manifest = makeManifest(dir)
+  manifest.team = [
+    { role: "backend-dev", model: modelFor("backend-dev", "balanced"), variant: null, fallback: null, enabled: true,
+      prompt: "templates/nonexistent.md" },
+  ]
+  assert.throws(
+    () => scaffold(manifest, manifest.project.stack),
+    /custom prompt template not found: templates\/nonexistent\.md \(for role backend-dev\)/
+  )
+  rmSync(dir, { recursive: true, force: true })
+})
