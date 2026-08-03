@@ -385,7 +385,7 @@ export function renderArmadaResumeCommand() {
 description: opencode-armada — resume after an interrupted session
 agent: orchestrator
 ---
-Run \`node src/cli.js reconcile\` and print the resume line plus any drift list. Keep it terse.
+Run \`armada reconcile\` and print the resume line plus any drift list. If the global \`armada\` binary is not on PATH AND \`src/cli.js\` exists in the cwd (i.e. you are in the armada source checkout), fall back to \`node src/cli.js reconcile\`. Otherwise report the missing binary. Keep it terse.
 `
 }
 

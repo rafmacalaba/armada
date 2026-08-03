@@ -348,10 +348,11 @@ test("renderArmadaScoutCommand is read-only, dispatches investigation", () => {
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
 })
 
-test("renderArmadaResumeCommand calls node src/cli.js reconcile, one paragraph", () => {
+test("renderArmadaResumeCommand prefers armada reconcile with in-tree fallback", () => {
   const md = renderArmadaResumeCommand()
   assert.match(md, /^---\n/)
   assert.match(md, /description:/)
+  assert.match(md, /armada reconcile/)
   assert.match(md, /node src\/cli\.js reconcile/)
   assert.match(md, /resume line/)
   assert.match(md, /drift list/)
