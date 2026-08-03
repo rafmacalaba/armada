@@ -80,6 +80,10 @@ create → work → test → merge → clean
 - **merge**: from the main repo, `git merge feat/<name>` (or open a PR).
 - **clean**: `git worktree remove sandbox/<name>` (worktree) or `rm -rf sandbox/<name>` (plain).
 
+After the team is scaffolded, use `armada drive <lane-path>` to boot the session and auto-attach
+a visible terminal. See [docs/armada-improves-armada.md](./armada-improves-armada.md) for the
+full Lane B flow.
+
 ## Sandbox vs. external sibling
 
 The repo is also used *from outside* via a sibling directory (e.g.
@@ -154,8 +158,9 @@ Drive it:
 
 ```bash
 cd sandbox/landing-page
-opencode
-# /armada
+armada drive .
+# a terminal auto-opens attached to the session; the orchestrator is running
+# /armada        # (optional) team status
 ```
 
 Path note: it lives inside the repo at `sandbox/landing-page/`, not at an

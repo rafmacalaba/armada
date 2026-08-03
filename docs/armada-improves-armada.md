@@ -113,6 +113,9 @@ separating bugs from improvements. Do not change code.
 
 ## Lane B — Feature implementation
 
+> Lane B uses `armada drive` (Phase 1) to boot the team and hand it the contract — no more manual
+> `tmux new-session` + `sleep` + `send-keys` dance.
+
 Anything in `TODO.md`: a new command like `armada feature`, a state schema, a bugfix — each is
 a feature with its own contract (the end-goal spec).
 
@@ -131,17 +134,32 @@ Write the contract at `armada/REQUIREMENTS.md` — either hand-drafted from the 
 Then:
 
 ```bash
-opencode
-# "Drive the contract in armada/REQUIREMENTS.md. Phase-gate on evidence.
-#  Run independent phases in parallel. Don't advance a phase without passing its criteria."
+# 4. drive it — boots into the orchestrator, waits until the TUI is ready,
+#    then sends the drive prompt. Safe to re-run; attaches if the session exists.
+node ../../src/cli.js drive sandbox/lane-drive
 ```
+
+`armada drive` is a subcommand of the existing `armada` binary, so a global install can just run
+`armada drive sandbox/lane-drive`. It creates the tmux session (idempotent — attaches if present),
+polls `tmux capture-pane` until the TUI shows its prompt bar, sends the drive prompt, verifies it
+registered (the pane flips to the orchestrator's `thinking` indicator, resending once if not), and
+on timeout prints the captured pane tail and exits non-zero.
+
+Once the session is up, `armada drive` auto-opens a visible terminal attached to it: macOS opens
+Terminal.app (or iTerm if installed), Linux opens the default X terminal emulator
+(`gnome-terminal`, `konsole`, or `x-terminal-emulator`; `wezterm start` fallback if installed;
+requires `DISPLAY`), and Windows opens Windows Terminal with a new tab (wezterm fallback if
+installed). wezterm is optional — never required. If no terminal can be opened (headless, missing
+binary, no `DISPLAY`), it prints `tmux attach -t <name>` and continues — the drive never fails.
+Pass `--no-open` to skip the auto-open for CI/headless use.
 
 Phase gates: a phase closes only with evidence — passing test run, screenshot, or file/line
 citation. `DEFECTS.md` and `ADVERSARIAL_REVIEW.md` are append-only; only qa closes a defect.
 
 ### Driving it yourself (the co-write interview)
 
-If the fleet runs in a detached tmux session, attach to talk to the orchestrator:
+`armada drive` creates the tmux session and hands off to the attach automatically — the TUI is
+yours when the drive prompt lands. To drive the co-write interview yourself, attach manually:
 
 ```bash
 tmux attach -t <session>        # you're now IN the orchestrator's TUI

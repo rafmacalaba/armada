@@ -27,6 +27,12 @@ Small, low-risk, high-leverage. Do first.
   Shipped 2026-08-03.
 - [x] **`renderCatalog` auto-size columns** — replace hardcoded padding with computed widths.
   Shipped 2026-08-03.
+- [x] **Lane drive — TUI-ready handshake + auto-open visible terminal.** New
+  `armada drive <lane-path>` subcommand: boots a tmux session, polls the TUI prompt
+  bar, sends the drive prompt, verifies registration, retries once. Auto-opens a
+  visible terminal (Terminal.app/iTerm, gnome-terminal/konsole/x-terminal-emulator
+  /wezterm, Windows Terminal/wezterm). `--no-open` for CI; headless falls back to
+  a `tmux attach` hint without failing the drive. Shipped 2026-08-03.
 
 ### High
 
@@ -547,3 +553,6 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 
 - [x] Add `--dry-run` to `init` (print files without writing)
 - [x] Add `--yes` / non-interactive defaults so `init` works without a TTY
+- [x] **Lane drive visible terminal + handshake polish** — the `armada drive` quick win
+  (above) covers the TUI-ready handshake and terminal auto-open; backfilled into the
+  polish ledger with the rest of the lane-drive feature. Shipped 2026-08-03.

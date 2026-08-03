@@ -13,7 +13,7 @@
 //   armada help                 this help
 
 import { existsSync, readFileSync, realpathSync } from "node:fs"
-import { resolve } from "node:path"
+import { basename, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { runQuestionnaire, guessName } from "./questionnaire.js"
@@ -27,6 +27,8 @@ import { createFeature, listFeatures, closeFeature, setActiveContract, readActiv
 import { main as reconcileMain } from "./reconcile-cli.js"
 import { renderInitSummary } from "./init-summary.js"
 import { applyPreset } from "./preset-command.js"
+import { bootLane, DriveError } from "./drive.js"
+import { openTerminal } from "./terminal-open.js"
 
 export const VERSION = "0.6.2"
 
@@ -56,6 +58,7 @@ Usage:
   armada feature status [name]               show active or named feature state
   armada reconcile [--json] [--state-dir <p>] [--repo <p>]
                           check for evidence drifts against contract (exit 2 if drifts)
+  armada drive <lane-path>                boot a lane session and send the drive prompt (TUI-ready handshake)
   armada ping                                sanity check
   armada help                                this help
 `
@@ -138,6 +141,8 @@ export async function main(argv = process.argv.slice(2)) {
       return featureCmd(rest)
     case "reconcile":
       return reconcileCmd(rest)
+    case "drive":
+      return driveCmd(rest)
     case "preset":
       return preset(rest)
     case "help":
@@ -449,6 +454,134 @@ async function reconcileCmd(args) {
     return await reconcileMain(args, { cwd: process.cwd() })
   } catch (err) {
     logError(err)
+    process.exitCode = 1
+    return 1
+  }
+}
+
+// Extract a flag value supporting both --flag=value and --flag value forms.
+// Returns the value, or undefined if the flag is absent or the next arg is missing/flag-like.
+function flagValue(args, flag) {
+  // Check for --flag=value form
+  const eqArg = args.find((a) => a.startsWith(`${flag}=`))
+  if (eqArg) return eqArg.slice(flag.length + 1)
+
+  // Check for --flag value form
+  const idx = args.indexOf(flag)
+  if (idx === -1) return undefined
+  const v = args[idx + 1]
+  if (v === undefined || v.startsWith("-")) return undefined
+  return v
+}
+async function getAutoOpenSuffix(name) {
+  try {
+    const result = await openTerminal({
+      name,
+      platform: process.platform,
+      env: process.env,
+    })
+    if (result.opened) {
+      return ` (auto-attached in ${result.kind})`
+    }
+    return ` (auto-attach skipped: unable to open terminal — attach manually: ${result.hint})`
+  } catch {
+    // terminal-open must never fail the drive
+    return ` (auto-attach skipped: unable to open terminal — attach manually: tmux attach -t ${name})`
+  }
+}
+
+async function driveCmd(args) {
+  // Positional arg: <lane-path>, default "."
+  const lanePath = args.find((a) => !a.startsWith("--")) || "."
+
+  // --name <session>: tmux session name, default basename of lane path
+  const rawName = flagValue(args, "--name")
+  const name = rawName ?? basename(resolve(lanePath))
+
+  if (name.startsWith("-")) {
+    console.error(`error: session name cannot start with "-" (got: ${name})`)
+    process.exitCode = 1
+    return 1
+  }
+
+  // --prompt <text>: drive prompt
+  const DEFAULT_PROMPT = "Drive the contract in armada/REQUIREMENTS.md. Phase-gate on evidence. Run independent phases in parallel. Don't advance a phase without passing its criteria."
+  const rawPrompt = flagValue(args, "--prompt")
+  const prompt = rawPrompt ?? DEFAULT_PROMPT
+
+  // Detect --prompt with a value that starts with -- (was filtered out by flagValue)
+  const promptIdx = args.indexOf("--prompt")
+  if (promptIdx !== -1 && rawPrompt === undefined) {
+    const nextArg = args[promptIdx + 1]
+    if (nextArg && nextArg.startsWith("--")) {
+      console.error(`error: --prompt value cannot start with "--" (use --prompt=<text> if you must)`)
+      process.exitCode = 1
+      return 1
+    }
+  }
+
+  // --timeout <ms>: total ready timeout, default 30000
+  const rawTimeout = flagValue(args, "--timeout")
+  let timeoutMs = 30000
+  if (rawTimeout !== undefined) {
+    const parsed = parseInt(rawTimeout, 10)
+    if (Number.isNaN(parsed)) {
+      timeoutMs = 30000
+    } else if (parsed <= 0) {
+      console.error("error: timeout must be a positive integer")
+      process.exitCode = 1
+      return 1
+    } else {
+      timeoutMs = parsed
+    }
+  }
+
+  const noOpen = args.includes("--no-open")
+
+  // Resolve lane path to absolute and verify it exists
+  const absLane = resolve(lanePath)
+  if (!existsSync(absLane)) {
+    console.error(`lane path not found: ${absLane}`)
+    process.exitCode = 1
+    return 1
+  }
+
+  // cwd: parent of lane path (so team in worktree can see live repo),
+  // or process cwd when lane path is "."
+  const cwd = lanePath === "." ? process.cwd() : resolve(absLane, "..")
+
+  try {
+    const result = await bootLane({
+      name,
+      cwd,
+      command: "opencode",
+      prompt,
+      timeoutMs,
+      tmuxBin: "tmux",
+    })
+    let attachSuffix = ""
+    if (result.attached) {
+      if (noOpen) {
+        attachSuffix = " (--no-open: skipped auto-attach)"
+      } else {
+        attachSuffix = await getAutoOpenSuffix(name)
+      }
+      console.log(`armada drive: session "${name}" already running (reattached).${attachSuffix}`)
+    } else {
+      if (noOpen) {
+        attachSuffix = " (--no-open: skipped auto-attach)"
+      } else {
+        attachSuffix = await getAutoOpenSuffix(name)
+      }
+      console.log(`armada drive: session "${name}" ready, prompt registered.${attachSuffix}`)
+    }
+    return 0
+  } catch (err) {
+    if (err instanceof DriveError) {
+      console.error(err.message)
+    } else {
+      console.error(err?.message ?? err)
+    }
     process.exitCode = 1
     return 1
   }
