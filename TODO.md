@@ -5,6 +5,59 @@ link them to an issue/PR when relevant.
 
 ---
 
+## Wave plan — implementation order (dependency-first)
+
+Execution plan for the **open** backlog, ordered by dependencies not priority. Each wave lands
+before the next; lanes within a wave run in parallel (disjoint files). Exhaustive list of what is
+still unimplemented (all items below still have open `[ ]` specs — shipped items are marked in the
+sections further down).
+
+### Wave 0 — finish in-flight lanes (parallel, running now)
+
+Empty — no lanes in flight. `feat/fleet-dashboard` merged (#59), `feat/artifacts-under-armada`
+merged (#58), `feat/landing-page-armada` merged (#15), `feat/audit` merged (#17),
+`feat/real-repo-validation` merged (#53).
+
+### Wave 1 — foundations (parallel; disjoint files)
+
+- [ ] **PR-first finish + stacked PRs** (spec below). Unblocks: every future lane's finish gate,
+  dashboard PR URL, issue-posting `gh` flow. Files: contracts, orchestrator prompt, tests.
+- [ ] **Fleet terminology + role display names** (specs below). Unblocks: downstream docs/UI
+  naming. Files: docs, `src/role-display.js`, prompt prose. Note: run *after* PR-first merges
+  (both touch the orchestrator prompt) or combine into one lane.
+- [ ] **Lane-drive completion — wezterm-baseline refactor** (spec below). Unblocks: dashboard
+  `--watch` tab. Files: `src/drive.js`, `src/terminal-open.js`.
+- [ ] **Multi-feature via worktrees** (spec below). Composes with artifacts' worktree-aware
+  layout. Files: `src/feature-commands.js`, drive.
+
+### Wave 2 — first consumers (parallel)
+
+- [ ] **Skills integration** (spec below). Requires: per-role configurability (shipped #52).
+  Files: `src/skills/`, generator, manifest, prompts.
+- [ ] **Security findings ledger** (spec below). Requires: artifacts ledgers (Wave 0).
+  Files: security prompt, `armada/ledgers/`.
+
+### Wave 3 — systemic self-improvement (sequential)
+
+- [ ] **Prompt-optimization feedback loop** (spec below). Requires: artifacts layout + prompt
+  infra. Files: `armada/findings/`, all subagent prompts, docs digest.
+- [ ] **Self-improvement issue posting** (spec below). Requires: feedback-loop digest + PR-first
+  `gh` flow. Files: `src/issue-report.js`, orchestrator prompt, manifest.
+
+Shared orchestrator-prompt + findings files → sequence, don't parallelize.
+
+### Wave 4 — product surface + cleanup (parallel)
+
+- [ ] **Re-evaluate 8-role roster** (spec below). Result folds into the role-display map.
+- [ ] **Dashboard `--watch` TUI follow-up** (fleet-dashboard spec). Requires: fleet-dashboard
+  (shipped #59) + wezterm baseline (Wave 1). Files: `src/fleet-tracker.js`, `armada fleet --watch`.
+
+### Wave 5 — deferred
+
+- [ ] **Multi-harness** (spec below). Last by design; nothing depends on it.
+
+---
+
 ## Backlog — prioritized
 
 Open work, ordered by value. Pick up the top item in each band first. Sections further down
@@ -44,18 +97,20 @@ The improvements that unlock the durable-implementation vision.
   lanes with local merges/pushes and skipping the PR step; that breaks the reviewed-delivery
   rule (`docs/armada-improves-armada.md` Finish section). Spec below. Live symptom: lanes end
   without `gh pr create --base master`, so work lands unreviewed.
-- [ ] **Lane drive — TUI-ready handshake + auto-open visible terminal** — spec below. Drive a
+- [x] **Lane drive — TUI-ready handshake + auto-open visible terminal** — spec below. Drive a
   lane without swallowing the prompt (poll `tmux capture-pane` for the TUI input bar, verify the
   drive prompt registered, resend once) and auto-open a visible terminal attached to the
   session. **Use wezterm (https://github.com/wezterm/wezterm) before anything else if possible** —
   it is the one cross-platform (macOS/Linux/Windows) terminal that can host an attached tmux
   session; prefer it when installed (or via `--term wezterm`), fall back to per-OS defaults
-  (Terminal.app/iTerm, x-terminal-emulator, Windows Terminal), `--no-open` for headless. Live
-  lane: `feat/lane-drive` in `sandbox/lane-drive`.
+  (Terminal.app/iTerm, x-terminal-emulator, Windows Terminal), `--no-open` for headless.
+  Shipped in #52 (`armada drive`) + #55 (tab in primary terminal). Residual: wezterm-baseline
+  refactor — see the Wave plan.
 - [ ] **Skills integration** — spec below. Ships fleet skills into generated repos and lets
   every role consume them. (User priority: HIGH.)
-- [ ] **Per-role configurability** — spec below. Manifest-level `permissions`, `instructions`,
+- [x] **Per-role configurability** — spec below. Manifest-level `permissions`, `instructions`,
   optional custom `prompt` per role. Closes the "are the prompts optimal?" gap.
+  Shipped in #52.
 - [x] **Validate in a real repo — `~/WBG/data-ai-chatbot`** (fastapi + nextjs). Confirm stack
   detection, native agents load (`opencode agent list`), background orchestration
   (`OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true`), tune prompts against real conventions,
@@ -72,7 +127,7 @@ The improvements that unlock the durable-implementation vision.
 
 Bigger features, well-specified, sequenced after the High items.
 
-- [ ] **`armada new` — cookiecutter-inspired repo generator.** Replace the stub. Template set
+- [x] **`armada new` — cookiecutter-inspired repo generator.** Replace the stub. Template set
   `starter/<category>/` (AGENTS.md, README, LICENSE, .gitignore, CI, test bootstrap,
   package.json/pyproject.toml, optional devcontainer, `starter.yaml` metadata);
   `armada new <name>` with category picker (web-app / cli-tool / api-service / ml-training /
@@ -80,7 +135,8 @@ Bigger features, well-specified, sequenced after the High items.
   (drill-down: package manager, monorepo, auth, deploy target, CI) paths; non-interactive
   `--type <cat> --beginner|--yes`; post-scaffold handoff (`armada init` team flow into the
   fresh repo); tests (template render with no dangling placeholders, catalog integrity, CLI
-  e2e: new repo → detectStack → team scaffolds).
+  e2e: new repo → detectStack → team scaffolds). Shipped in #36 (`src/new-command.js` +
+  `starter/{web-app,ml-training,research-paper}/`).
 - [ ] **Multi-feature via worktrees.** `armada feature new <name>` optionally creates a
   `git worktree` per feature (`git worktree add sandbox/<feature>`, per-feature branch);
   `feature list` shows each worktree; zero cross-feature clobber; per-feature fast-forward
@@ -165,19 +221,19 @@ The gap behind "are the prompts optimal?": prompt text is one fixed template per
 permissions are hardcoded in `BASE_PERMISSIONS` (`src/generator.js:11`), and armada.yaml
 serializes only role/model/fallback/enabled (`src/generator.js:503`).
 
-- [ ] **Manifest fields.** `team:` entries gain optional:
+- [x] **Manifest fields.** `team:` entries gain optional:
   - `permissions:` — deep-merged over `BASE_PERMISSIONS[role]` (user rules win; e.g.
     `edit: { "scripts/*": "deny" }`, `bash: "deny"`)
   - `instructions:` — extra prompt text appended to the role's prompt (per-project
     conventions, e.g. backend-dev: "use FastAPI, keep handlers in src/")
   - `prompt:` — path to a custom `prompt.template.md` override (falls back to the bundled
     template)
-- [ ] **Generator.** Merge in `buildTeam` (`structuredClone` base, apply overrides in order),
+- [x] **Generator.** Merge in `buildTeam` (`structuredClone` base, apply overrides in order),
   render `permissions` into agent frontmatter, append `instructions` to the prompt body,
   resolve `prompt` path.
-- [ ] **Round-trip.** armada.yaml serialization writes these fields back so
+- [x] **Round-trip.** armada.yaml serialization writes these fields back so
   `init --from-armada` is idempotent.
-- [ ] **Tests.** Manifest schema accepts the fields; merge precedence (user > base); render
+- [x] **Tests.** Manifest schema accepts the fields; merge precedence (user > base); render
   includes them; round-trip equality; a fixture with a custom template.
 
 ### Restart-proof resume in a generated repo (HIGH)
@@ -190,9 +246,9 @@ exists inside armada's own source tree. A generated repo (e.g. data-ai-chatbot) 
   (`armada reconcile`), callable from any armada-armed repo. `/armada-resume` command body uses
   `armada reconcile` (global) with `node src/cli.js reconcile` as the in-tree fallback. Merged
   2026-08-03 (feat/resume-reachable).
-- [ ] **Verify in a generated repo.** In `~/WBG/data-ai-chatbot`: init, open a feature, kill the
+- [x] **Verify in a generated repo.** In `~/WBG/data-ai-chatbot`: init, open a feature, kill the
   session mid-phase, `armada reconcile` prints the resume line + drift list, resume completes,
-  no state loss.
+  no state loss. Shipped in #53 (real-repo validation + resume walkthrough, docs/validation.md).
 - [x] **Tests.** CLI e2e with a fake `armada` binary on PATH (existing `makeBin` pattern);
   command renderer emits the new body; reconcile engine regression stays green. Merged
   2026-08-03 (feat/resume-reachable).
@@ -249,12 +305,12 @@ Driving a lane is manual + racy: `tmux new-session -d` → `sleep` → `send-key
 drive prompt if the TUI isn't up yet, and the lane is invisible until someone attaches. Make
 lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/lane-drive`.
 
-- [ ] **TUI-ready handshake.** A drive script/command polls `tmux capture-pane` until the opencode
+- [x] **TUI-ready handshake.** A drive script/command polls `tmux capture-pane` until the opencode
   TUI's input bar is visible (footer shows `tab agents` / `ctrl+p`), with a timeout; then sends
   the drive prompt; verifies it registered (pane flips to `thinking`); resends once on miss;
   exits non-zero with the pane tail on timeout. Idempotent session names (never clobber an
   existing session).
-- [ ] **Auto-open visible terminal — wezterm first.** Open a visible terminal attached to the
+- [x] **Auto-open visible terminal — wezterm first.** Open a visible terminal attached to the
   lane session. **Preferred: wezterm** (https://github.com/wezterm/wezterm) — the one terminal
   that's truly cross-platform (macOS/Linux/Windows) and can host an attached tmux session. Use it
   whenever it's installed or explicitly requested (`--term wezterm`, `wezterm start -- tmux
@@ -280,10 +336,10 @@ lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/la
 - [ ] **Refactor to wezterm as the baseline** — if the wezterm-first path proves out, make
   wezterm the default terminal recommendation in docs and treat per-OS emulators as fallback
   only (see the fleet-terminology spec below for the naming direction).
-- [ ] **Tests.** Terminal-opening logic is a pure module (OS detect + command builder) with unit
+- [x] **Tests.** Terminal-opening logic is a pure module (OS detect + command builder) with unit
   tests; the handshake is tested against a fake `tmux` binary on PATH (`makeBin` pattern) or
   marked integration-only if unfakeable.
-- [ ] **Docs.** `docs/armada-improves-armada.md` + `docs/sandbox.md` updated to the new drive step.
+- [x] **Docs.** `docs/armada-improves-armada.md` + `docs/sandbox.md` updated to the new drive step.
 
 ### Fleet terminology — retire "Lane A" / "Lane B" (IDEATION, HIGH)
 
@@ -430,19 +486,20 @@ Refactor scope (draft):
   active lanes live: phase, status, age, cost, STALLED blink. Trade-off: needs a terminal
   renderer dependency (e.g. `blessed`) + a redraw loop; the plain-table `armada fleet` stays the
   zero-dep default. Keys: redraw interval (e.g. 2s), stall blink threshold, `q` to quit.
-  When tackled: the contract's "Optional polish: `armada fleet --open`" becomes
-  `armada fleet --watch` (live) instead of a one-shot table.
-- [ ] **Store module.** `src/fleet-tracker.js` (pure: schema, diff, staleness calc) + I/O in
+  When tackled: `armada fleet --open` (shipped #59) becomes `armada fleet --watch` (live).
+- [x] **Store module.** `src/fleet-tracker.js` (pure: schema, diff, staleness calc) + I/O in
   scaffold style; tests for schema + staleness.
-- [ ] **Plugin (opt-in).** One `.opencode/plugins/armada-fleet.js` file rendered by the generator
+- [x] **Plugin (opt-in).** One `.opencode/plugins/armada-fleet.js` file rendered by the generator
   (mirror `renderArmadaSupervisionPlugin`): session.created heartbeat start, session.idle
   heartbeat tick + stall marking, session.closed finalize. Rendered only with the new flag.
-- [ ] **`/armada-fleet` command + `armada fleet` CLI.** Renderer + CLI subcommand reading the
+- [x] **`/armada-fleet` command + `armada fleet` CLI.** Renderer + CLI subcommand reading the
   store, printing the dashboard table / JSON.
-- [ ] **Wire lane-drive.** `bootLane` records run start into the store; `--no-track` disables.
-- [ ] **Tests.** Store schema/staleness unit tests; command renderer emits valid descriptor;
+- [x] **Wire lane-drive.** `bootLane` records run start into the store; `--no-track` disables.
+- [x] **Tests.** Store schema/staleness unit tests; command renderer emits valid descriptor;
   fake-`tmux` e2e that a drive boot writes a run entry; no-clobber + round-trip preserved.
-- [ ] **Docs.** `docs/using-armada.md` + `docs/armada-improves-armada.md` — fleet dashboard usage.
+- [x] **Docs.** `docs/using-armada.md` + `docs/armada-improves-armada.md` — fleet dashboard usage.
+
+Shipped in #59 (`feat/fleet-dashboard`): 4 phases, 511/511 tests green.
 
 ### Self-improvement issue posting — armada files issues back to armada (IDEATION, HIGH)
 
@@ -580,40 +637,40 @@ armada/
 └── screenshots/<feature>/         # per-feature evidence
 ```
 
-Refactor scope:
+Refactor scope (shipped in #58, `feat/artifacts-under-armada`):
 
-- [ ] **`.gitignore` block.** `armada init` + `armada new` append a marker-based block
+- [x] **`.gitignore` block.** `armada init` + `armada new` append a marker-based block
   (`# armada:start` … `# armada:end`, same merge pattern AGENTS.md uses) ignoring `/armada/`,
   `/.opencode/`, `/opencode.json`. Appends only — never rewrites an existing `.gitignore`; if the
   file is absent, create it. `uninstall` removes the block. Ask-once at init unless `--yes`/
   `--yolo` (matches no-clobber posture: modifying a user file, but reversible + marked).
-- [ ] **Per-feature ledger paths.** `DEFAULT_PLAYBOOK` ledger paths become
+- [x] **Per-feature ledger paths.** `DEFAULT_PLAYBOOK` ledger paths become
   `armada/ledgers/<feature>/…` (+ `shared/` for cross-feature). Feature name resolves from the
   active feature (state active.json) or the lane/worktree name.
-- [ ] **Prompts reference the per-feature path.** The 7× `DEFECTS.md` + 5× `ADVERSARIAL_REVIEW.md`
+- [x] **Prompts reference the per-feature path.** The 7× `DEFECTS.md` + 5× `ADVERSARIAL_REVIEW.md`
   references in `agents/*/prompt.template.md` become `{ledgers_dir}` placeholders (already have
   placeholder machinery + a no-dangling-placeholder test).
-- [ ] **Permissions.** `BASE_PERMISSIONS` globs `"DEFECTS.md": allow/deny` become
+- [x] **Permissions.** `BASE_PERMISSIONS` globs `"DEFECTS.md": allow/deny` become
   `"armada/ledgers/*"` rules; qa owns `armada/ledgers/*` + `armada/e2e/*` + `armada/screenshots/*`;
   read-only roles keep read-only under `armada/`. (All in `src/generator.js` BASE_PERMISSIONS +
   the supervision plugin's deny mirrors.)
-- [ ] **Role descriptions.** `src/model-catalog.js` role `reasoning` strings reference the old
+- [x] **Role descriptions.** `src/model-catalog.js` role `reasoning` strings reference the old
   paths ("e2e tests, screenshots, DEFECTS.md ownership", "ADVERSARIAL_REVIEW.md") — update to
   the armada/ledgers paths (feeds routing prompt + `/armada` output).
-- [ ] **Findings + state move cleanly.** `armada/findings/` (specced) and existing
+- [x] **Findings + state move cleanly.** `armada/findings/` (specced) and existing
   `armada/state/` already live under the gitignored dir — confirm nothing references a root-level
   path anymore.
-- [ ] **uninstall.** Removes the `.gitignore` block + the whole `armada/` runtime dir (already
+- [x] **uninstall.** Removes the `.gitignore` block + the whole `armada/` runtime dir (already
   removes armada/ recursively) + `.opencode/`.
-- [ ] **armada new templates.** Starter `.gitignore` files gain the armada block so a fresh repo
+- [x] **armada new templates.** Starter `.gitignore` files gain the armada block so a fresh repo
   is clean from day one.
-- [ ] **Generator renderers.** Every root-path reference in `src/generator.js` (20 refs: 5×
+- [x] **Generator renderers.** Every root-path reference in `src/generator.js` (20 refs: 5×
   DEFECTS.md, 5× ADVERSARIAL_REVIEW.md, 5× e2e/, 5× screenshots/ — across BASE_PERMISSIONS,
   AGENTS.md playbook renderer, requirements renderer, supervision-plugin deny mirrors) resolves
   through the per-feature ledgers dir. The `DEFAULT_PLAYBOOK` ledger file fields
   (`src/manifest.js`) become per-feature paths; `{ledgers_dir}` placeholder flows into the
   generated AGENTS.md + agent prompts.
-- [ ] **Tests.** Fresh-repo e2e: after init, `git status` shows no armada files as untracked;
+- [x] **Tests.** Fresh-repo e2e: after init, `git status` shows no armada files as untracked;
   ledgers render under `armada/ledgers/<feature>/`; round-trip + no-clobber still hold; uninstall
   restores the user's `.gitignore`; multi-feature: two features → two ledger namespaces, no
   DEF collision; placeholder test still green.
