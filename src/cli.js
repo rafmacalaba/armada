@@ -118,7 +118,7 @@ export async function main(argv = process.argv.slice(2)) {
         experienced: rest.includes("--experienced"),
         yes: rest.includes("--yes"),
       })
-      return code ?? 0
+      return code ?? process.exitCode ?? 0
     }
     case "help":
     case "-h":
@@ -312,6 +312,7 @@ async function doctor() {
     console.log(`${name}: ${status} — ${detail}`)
     if (status === "fail") anyFail = true
   }
+  if (anyFail) process.exitCode = 1
   return anyFail ? 1 : 0
 }
 

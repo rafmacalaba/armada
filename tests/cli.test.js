@@ -277,3 +277,10 @@ test("init rejects .opencode symlink under target", async () => {
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /symlink/)
 })
+
+test("doctor exits 1 via script mode when a check fails", async () => {
+  const binDir = makeBin({ opencode: "#!/bin/sh\nexit 1\n" })
+  const r = await runCli(["doctor"], { env: { PATH: `${binDir}:${process.env.PATH}` } })
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stdout, /opencode CLI: fail/)
+})
