@@ -11,6 +11,28 @@ journal — session progress lives in commits and PRs.
 - CLI smoke: `node src/cli.js help`
 - Scaffold a team into a repo: `node src/cli.js init --from-armada armada.yaml`
 
+## Feature work must run through armada (mandatory)
+
+Any feature or implementation request — new command, new module, multi-file change, "ship a TODO
+item" — runs through the armada Lane B flow (`docs/armada-improves-armada.md`). Do not implement
+features directly in this working tree.
+
+Mandatory steps:
+
+1. Create the lane: `git worktree add -b feat/<name> sandbox/<name>`
+2. Scaffold the team into it: `node ../../src/cli.js init --yes --yolo --budget balanced` (from the sandbox)
+3. Write the feature contract at `sandbox/<name>/armada/REQUIREMENTS.md` (leave blank to co-write)
+4. Drive it: `tmux new-session -d -s <name> -c sandbox/<name> 'opencode'` — the orchestrator boots and dispatches
+5. Verify evidence (tests green), then **push the branch and open a PR** — never merge locally.
+   Ask the user to merge; after merge, `git worktree remove sandbox/<name>`
+
+The live repo stays pristine — never scaffolded, never edited by feature work.
+
+Exceptions that may be edited directly in the live tree (no lane): small doc/process edits
+(README, TODO, this file), defect ledger maintenance, and single-file bug fixes. If a request
+implies net-new functionality and you are not in a lane, stop and propose the lane before
+editing any source.
+
 ## Architecture
 
 Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:

@@ -161,8 +161,43 @@ export function renderCatalog(budget = "balanced", availability = null) {
     const e = CATALOG[role]
     const primary = modelFor(role, budget)
     const mark = availability ? (availability.has(primary) ? "✓" : "✗") : ""
-    return [role.padEnd(14), `${mark}${primary}`.padEnd(38), e.fallback || ""]
+    const recommended = ` (Recommended)`
+    return [role, `${mark}${primary}${recommended}`, e.fallback || ""]
   })
-  const header = ["role".padEnd(14), "model".padEnd(38), "fallback"]
-  return [header.join("  "), rows.map((r) => r.join("  ")).join("\n")].join("\n")
+  const roleWidth = Math.max("role".length, ...rows.map((r) => r[0].length))
+  const modelWidth = Math.max("model".length, ...rows.map((r) => r[1].length))
+  const fallbackWidth = Math.max("fallback".length, ...rows.map((r) => r[2].length))
+  const header = ["role".padEnd(roleWidth), "model".padEnd(modelWidth), "fallback".padEnd(fallbackWidth)]
+  const body = rows.map((r) => [r[0].padEnd(roleWidth), r[1].padEnd(modelWidth), r[2].padEnd(fallbackWidth)])
+  return [header.join("  "), body.map((r) => r.join("  ")).join("\n")].join("\n")
+}
+
+// fetch a live model list from the OpenRouter API.
+export async function listOpenRouterModels(opts = {}) {
+  const fetch = opts.fetch || globalThis.fetch
+  const url = opts.url || "https://openrouter.ai/api/v1/models"
+  try {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const json = await res.json()
+    if (!json.data) throw new Error("missing data field in response")
+    return json.data.map((m) => ({ id: m.id, name: m.name }))
+  } catch (err) {
+    throw new Error(`${err.message} — check network / OPENROUTER_API_KEY`)
+  }
+}
+
+// render two-column "id  name" table with auto-sized widths.
+export function renderOpenRouterModels(models) {
+  const entries = models.map((m) => ({
+    id: String(m?.id ?? ""),
+    name: String(m?.name ?? ""),
+  }))
+  const idHeader = "id"
+  const nameHeader = "name"
+  const idWidth = Math.max(idHeader.length, ...entries.map((m) => m.id.length))
+  const nameWidth = Math.max(nameHeader.length, ...entries.map((m) => m.name.length))
+  const header = `${idHeader.padEnd(idWidth)}  ${nameHeader.padEnd(nameWidth)}`
+  const rows = entries.map((m) => `${m.id.padEnd(idWidth)}  ${m.name.padEnd(nameWidth)}`)
+  return [header, ...rows].join("\n")
 }

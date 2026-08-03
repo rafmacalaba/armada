@@ -19,12 +19,14 @@ import { fileURLToPath } from "node:url"
 import { runQuestionnaire, guessName } from "./questionnaire.js"
 import { detectStack } from "./stack-detect.js"
 import { scaffold, uninstall } from "./scaffold.js"
-import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache } from "./model-catalog.js"
+import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache, listOpenRouterModels, renderOpenRouterModels } from "./model-catalog.js"
 import { parseManifestYaml, validateRequirementsFile } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 import { runNew } from "./new-command.js"
 import { createFeature, listFeatures, closeFeature, setActiveContract, readActive, readFeatureEntry } from "./feature-commands.js"
 import { main as reconcileMain } from "./reconcile-cli.js"
+import { renderInitSummary } from "./init-summary.js"
+import { applyPreset } from "./preset-command.js"
 
 export const VERSION = "0.6.2"
 
@@ -44,6 +46,8 @@ Usage:
   armada init --from-armada armada/armada.yaml      regenerate from manifest
   armada models [budget]                     show curated model catalog
   armada models --refresh                    merge live provider models
+  armada models --list-openrouter            live OpenRouter model list
+  armada preset <name> [--target <dir>]      apply a budget preset to armada.yaml
   armada doctor                              environment health check
   armada uninstall [--all] [--dry-run] [--target <dir>]  remove armada-generated artifacts
   armada feature new <name>                  create per-feature contract + register
@@ -134,6 +138,8 @@ export async function main(argv = process.argv.slice(2)) {
       return featureCmd(rest)
     case "reconcile":
       return reconcileCmd(rest)
+    case "preset":
+      return preset(rest)
     case "help":
     case "-h":
     case "--help":
@@ -284,10 +290,7 @@ async function init(args) {
   }
   console.log(`\n${dryRun ? "(dry-run) " : ""}Scaffolded opencode-armada team:`)
   for (const f of files) console.log(`  ${dryRun ? "(dry-run) + " : "+ "}${f}`)
-  console.log("\nNext:")
-  console.log("  1. opencode")
-  console.log("  2. /armada  -> team status")
-  console.log("  3. 'ping all agents'  -> verify roster")
+  console.log(renderInitSummary(manifest))
   return 0
 }
 
@@ -317,6 +320,18 @@ export function defaultManifest(target = ".") {
 }
 
 async function models(args) {
+  if (args.includes("--list-openrouter")) {
+    try {
+      const models = await listOpenRouterModels()
+      console.log(renderOpenRouterModels(models))
+      return 0
+    } catch (err) {
+      logError(err)
+      process.exitCode = 1
+      return 1
+    }
+  }
+
   const refresh = args.includes("--refresh")
   const budget = args.find((a) => BUDGETS.includes(a)) ?? "balanced"
   const cacheIdx = args.indexOf("--cache")
@@ -342,6 +357,29 @@ async function models(args) {
   }
   console.log(renderCatalog(budget, availability))
   return 0
+}
+
+async function preset(args) {
+  const name = args.find((a) => !a.startsWith("--"))
+  if (!name) {
+    console.error("preset: name is required")
+    process.exitCode = 1
+    return 1
+  }
+  const targetIdx = args.indexOf("--target")
+  const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--") ? args[targetIdx + 1] : "."
+  try {
+    const result = applyPreset(resolve(target), name)
+    console.log(`preset "${name}" applied`)
+    console.log(`  budget: ${result.budget}`)
+    console.log(`  changed: ${result.changed} team entries`)
+    console.log(`Re-run 'armada init --from-armada armada/armada.yaml' to re-scaffold.`)
+    return 0
+  } catch (err) {
+    logError(err)
+    process.exitCode = 1
+    return 1
+  }
 }
 
 async function doctor() {
