@@ -37,6 +37,29 @@ test("round-trip active state", () => {
   assert.deepStrictEqual(cloned, state)
 })
 
+test("active state validates prUrl as null or non-empty string", () => {
+  const s1 = makeActive()
+  s1.prUrl = null
+  validateState(s1) // must not throw
+
+  const s2 = makeActive()
+  s2.prUrl = "https://github.com/owner/repo/pull/42"
+  validateState(s2) // must not throw
+
+  const s3 = makeActive()
+  s3.prUrl = ""
+  assert.throws(() => validateState(s3), /prUrl/, "empty string prUrl must throw")
+
+  const s4 = makeActive()
+  s4.prUrl = 42
+  assert.throws(() => validateState(s4), /prUrl/, "non-string prUrl must throw")
+})
+
+test("emptyActive seeds prUrl as null", () => {
+  const s = makeActive()
+  assert.strictEqual(s.prUrl, null, "emptyActive must default prUrl to null")
+})
+
 test("round-trip feature index entry", () => {
   const entry = emptyFeatureIndexEntry("f1", "armada/contracts/f1.md", makePhaseGraph())
   validateFeatureIndexEntry(entry)
