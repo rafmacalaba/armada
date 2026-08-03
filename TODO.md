@@ -429,6 +429,105 @@ Refactor scope (draft):
   fake-`tmux` e2e that a drive boot writes a run entry; no-clobber + round-trip preserved.
 - [ ] **Docs.** `docs/using-armada.md` + `docs/armada-improves-armada.md` — fleet dashboard usage.
 
+### Self-improvement issue posting — armada files issues back to armada (IDEATION, HIGH)
+
+Armada improves itself in-band today (Lane A audit, Lane B feature, `docs/validation.md`), but
+there's no out-of-band channel: when a fleet run on ANY armada-armed repo (e.g.
+`~/WBG/data-ai-chatbot`) hits something it cannot resolve — a template that misled it, a
+generator bug, a prompt that stalled the orchestrator, a missing command — there's no way for
+that repo's fleet to hand the finding back to armada's maintainers. It just dies in a local
+ledger. Goal: a git-enabled issue-posting path wired into armada-armed repos that creates an
+issue on armada's own repo (by asking the user first), so the tool improves itself from real
+field failures.
+
+Design sketch:
+
+- **Trigger points.** Two explicit moments the fleet asks to file: (a) feature completion —
+  the orchestrator reports "this run tripped on X" as part of the final summary; (b) unresolved
+  blocker — a phase cannot pass, a defect cannot be reproduced, a contract conflict the fleet
+  can't settle. Both are orchestrator-owned decisions; it dispatches a subagent to do the
+  filing.
+- **User consent always.** Never file silently. The orchestrator drafts the issue body, shows
+  it, and asks the user to approve/merge before anything is created. The issue is the *human's*
+  contribution to armada, filed under their identity, on their behalf — armada just makes it a
+  one-keystroke job.
+- **What gets posted.** A structured issue: repo + stack, feature/lane, what tripped (template
+  text, prompt section, generator error), expected vs actual, reproduction steps, and a
+  suggested armada-side fix (e.g. "orchestrator prompt step 5 lacks a security dispatch —
+  consider gating it like adversary"). Severity + file:line where applicable.
+- **Subagent assignment.** The orchestrator dispatches `docs` (or a dedicated role) to draft +
+  file via `gh issue create` against the armada repo (remote URL from the manifest or a config).
+  The subagent reads the armada repo's issue template if present.
+- **Cross-repo wiring.** Armada-armed repos know their own repo; armada's repo URL ships in
+  armada.yaml (`project.upstreamRepo` or similar, default `rafmacalaba/opencode-armada`),
+  overridable. `gh` must be authed (doctor already checks provider auth); no gh → the draft is
+  written to a local file the user can paste.
+- **Relation to audit lane.** This is the *distributed* half of Lane A: audits are armada's own
+  fleet reviewing itself; issue-posting lets any customer's fleet report back too.
+
+Open questions to ideate before building:
+
+- Should the issue auto-tag (e.g. `field-report`) and reference the armada version
+  (`VERSION` in `src/cli.js`)? Yes, cheap + lets maintainers triage.
+- One-shot per session, or a per-repo dedup (don't file the same finding twice)? Start with a
+  dedup hash of the template/error text in the run's state.
+- Does this compose with the prompt-feedback loop (below)? Yes — an unresolved prompt stall is
+  exactly the kind of finding that should surface as an issue.
+
+Refactor scope (draft):
+
+- [ ] **Draft/filing module.** `src/issue-report.js` (pure: build the issue body from run state
+  + tripped item) + a `gh issue create` caller; `--dry-run` prints the draft.
+- [ ] **Orchestrator prompt rules.** On completion or unresolved blocker: "if something
+  tripped that armada should fix, draft an issue, show the user, file on approval." A subagent
+  (docs) does the drafting/filing; the orchestrator never files directly.
+- [ ] **Manifest field.** `project.upstreamRepo` (default armada's repo), round-trips.
+- [ ] **Command.** `armada issue` (draft + file) and/or `/armada-issue` command descriptor.
+- [ ] **Tests.** Body builder unit tests; dedup; no-gh fallback; CLI e2e with a fake `gh`
+  binary on PATH (`makeBin` pattern).
+- [ ] **Docs.** `docs/using-armada.md` — how field findings become armada issues.
+
+### Prompt-optimization feedback loop — notable-findings ledger (IDEATION, HIGH)
+
+There is no measurement of prompt quality today: validation runs are one-shot, nothing closes the
+loop back into the templates, and `armada/state/history/` only records state transitions. This
+loop makes the templates learn from real fleet runs. Designed to be **non-blocking and
+low-burden**: it never interferes with the running process, and the human sees one compact digest
+at the end, not a log stream.
+
+Design (Approach B — both sides capture, docs digests):
+
+- [ ] **Notable-findings capture (non-blocking).** Every subagent prompt gains: "if something
+  tripped you notably — a misleading prompt section, a tool failure, a misunderstanding that
+  cost a re-dispatch — append one line to `armada/findings/<run>-raw.log`: your role, what
+  tripped, the prompt section implicated, severity (GOOD-TO-ENFORCE | BAD-TO-FIX). Otherwise
+  stay silent." The orchestrator writes dispatch-outcome lines to the same log only when notable
+  (stall, re-dispatch, surprising success). **Never blocks the process** — log-and-recover,
+  fire-and-forget. Silent when nothing is notable.
+- [ ] **Gitignored.** `armada/findings/` is a runtime artifact, gitignored (like state) — armada
+  does not own the user's repo, and raw findings are clutter if committed. The digest is the only
+  human-facing artifact, and it too is gitignored (reviewed in-session, not committed).
+- [ ] **End-of-implementation digest (offloaded, compact).** When the feature's final criteria
+  are met, the orchestrator dispatches **docs** (not itself — cost discipline) to read the raw
+  log, cluster recurring entries, and write `armada/findings/<run>-digest.md`: each finding, how
+  often it recurred, the implicated prompt/template, and a proposed edit. The user sees one
+  compact digest.
+- [ ] **Issue posting — orchestrator's discretion, always asks.** After the digest, the
+  orchestrator decides whether any finding rises to "armada should fix this" — its judgment,
+  entirely optional. If yes: it drafts an issue body from the digest entry, **shows the user**,
+  and files only on approval (`gh issue create` against armada's repo, or a paste-able local
+  draft when no `gh`/remote). Never silent, never automatic. If it judges nothing worth filing,
+  nothing is filed. Composes with the self-improvement issue-posting spec above.
+- [ ] **Periodic template edits.** A recurring review pass (the existing Lane A audit) reads
+  accumulated digests across runs; recurring clusters become template-edit PRs, human-reviewed
+  and merged.
+- [ ] **Tests + docs.** Prompt tests assert every subagent carries the findings rule and the
+  log path; docs/using-armada.md documents the loop and that findings are gitignored.
+
+Constraints: zero runtime dependency, ESM + `.js`, Node >= 20, no emojis. The findings write must
+not be permission-guarded to the point it stalls — every role that runs can append to
+`armada/findings/` (low-risk append-only, gitignored).
+
 ---
 
 ## History — done
