@@ -7,5 +7,6 @@ coverage/
 .DS_Store
 *.pem
 .env*.local
+.env
 *.tsbuildinfo
 next-env.d.ts

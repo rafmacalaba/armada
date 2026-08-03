@@ -16,7 +16,7 @@
 import { execFile } from "node:child_process"
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs"
 import { homedir } from "node:os"
-import { join, dirname } from "node:path"
+import { join, dirname, resolve, isAbsolute, sep } from "node:path"
 
 export const ROLES = [
   "orchestrator",
@@ -115,6 +115,22 @@ export function defaultCachePath() {
   return join(homedir(), ".armada", "models.cache.json")
 }
 
+// Keep `--cache <path>` from writing anywhere on the filesystem. Allowed: a relative
+// filename (resolves under cwd) or an absolute path under ~/.armada. Rejects traversal,
+// `~` expansion, and writes outside the cache area.
+export function validateCachePath(cachePath) {
+  const p = String(cachePath ?? "")
+  if (p.startsWith("~")) throw new Error(`cache path must not use ~: ${p}`)
+  if (p.split(/[\/\\]/).includes("..")) throw new Error(`cache path must not contain '..': ${p}`)
+  if (isAbsolute(p)) {
+    const root = resolve(homedir(), ".armada")
+    const abs = resolve(p)
+    if (abs !== root && !abs.startsWith(root + sep)) {
+      throw new Error(`cache path must be inside ~/.armada: ${p}`)
+    }
+  }
+}
+
 export function loadModelsCache(cachePath = defaultCachePath()) {
   try {
     const c = JSON.parse(readFileSync(cachePath, "utf8"))
@@ -129,6 +145,7 @@ export function loadModelsCache(cachePath = defaultCachePath()) {
 export async function refreshModels(opts = {}) {
   const env = opts.env || process.env
   const cachePath = opts.cachePath || defaultCachePath()
+  validateCachePath(cachePath)
   const out = await new Promise((res, rej) =>
     execFile("opencode", ["models"], { timeout: 30000, env }, (err, stdout) =>
       err ? rej(new Error(`opencode models failed: ${err.message}`)) : res(stdout)))

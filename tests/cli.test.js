@@ -168,8 +168,15 @@ test("init --from-armada --budget free does not swallow budget as manifest", asy
 
 test("models --refresh merges availability via fake opencode", async () => {
   const binDir = makeBin({ opencode: "#!/bin/sh\necho \"opencode/big-pickle\nopencode/mimo-v2.5-free\"\n" })
-  const cache = join(makeTempRepo({}), "cache.json")
-  const r = await runCli(["models", "--refresh", "--cache", cache], { env: { PATH: `${binDir}:${process.env.PATH}` } })
+  const dir = makeTempRepo({})
+  const prevCwd = process.cwd()
+  process.chdir(dir)
+  let r
+  try {
+    r = await runCli(["models", "--refresh", "--cache", "cache.json"], { env: { PATH: `${binDir}:${process.env.PATH}` } })
+  } finally {
+    process.chdir(prevCwd)
+  }
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /✓/)
   assert.match(r.stdout, /✗/)
@@ -185,8 +192,15 @@ test("models without --refresh and no cache prints catalog without markers", asy
 
 test("models --refresh spawn failure exits 1", async () => {
   const binDir = makeBin({ opencode: "#!/bin/sh\nexit 1\n" })
-  const cache = join(makeTempRepo({}), "cache.json")
-  const r = await runCli(["models", "--refresh", "--cache", cache], { env: { PATH: `${binDir}:${process.env.PATH}` } })
+  const dir = makeTempRepo({})
+  const prevCwd = process.cwd()
+  process.chdir(dir)
+  let r
+  try {
+    r = await runCli(["models", "--refresh", "--cache", "cache.json"], { env: { PATH: `${binDir}:${process.env.PATH}` } })
+  } finally {
+    process.chdir(prevCwd)
+  }
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /failed|command failed/)
 })

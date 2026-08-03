@@ -128,3 +128,47 @@ test("new CLI placeholder substitution", async () => {
   assert.doesNotMatch(layout, /\{project_\w+\}/)
   assert.doesNotMatch(readme, /\{\w+\}/)
 })
+
+test("new CLI scaffolds agentic-repo best practices", async () => {
+  const parent = makeTempRepo({})
+  const r = await runCli(["new", "agentic-app", "--type", "web-app", "--beginner", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 0)
+  const projDir = join(parent, "agentic-app")
+  // agent-first instructions
+  assert.ok(existsSync(join(projDir, "AGENTS.md")), "AGENTS.md missing")
+  assert.ok(existsSync(join(projDir, "CONTRIBUTING.md")), "CONTRIBUTING.md missing")
+  assert.ok(existsSync(join(projDir, "LICENSE")), "LICENSE missing")
+  // CI + env
+  assert.ok(existsSync(join(projDir, ".github/workflows/ci.yml")), "CI workflow missing")
+  assert.ok(existsSync(join(projDir, ".env.example")), ".env.example missing")
+  // test bootstrap (pure-lib test)
+  assert.ok(existsSync(join(projDir, "src/lib/strings.ts")), "lib utility missing")
+  assert.ok(existsSync(join(projDir, "src/lib/strings.test.ts")), "lib test missing")
+  // placeholders filled, year injected
+  const agents = readFileSync(join(projDir, "AGENTS.md"), "utf8")
+  assert.match(agents, /agentic-app/)
+  assert.doesNotMatch(agents, /\{\w+\}/)
+  const license = readFileSync(join(projDir, "LICENSE"), "utf8")
+  assert.match(license, /Copyright \(c\) \d{4} agentic-app/)
+})
+
+test("new CLI scaffolds agentic files for ml-training", async () => {
+  const parent = makeTempRepo({})
+  const r = await runCli(["new", "ml-agentic", "--type", "ml-training", "--beginner", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 0)
+  const projDir = join(parent, "ml-agentic")
+  assert.ok(existsSync(join(projDir, "AGENTS.md")), "AGENTS.md missing")
+  assert.ok(existsSync(join(projDir, "LICENSE")), "LICENSE missing")
+  assert.ok(existsSync(join(projDir, ".github/workflows/ci.yml")), "CI missing")
+  assert.ok(existsSync(join(projDir, "tests/test_model.py")), "test bootstrap missing")
+})
+
+test("new CLI scaffolds agentic files for research-paper", async () => {
+  const parent = makeTempRepo({})
+  const r = await runCli(["new", "paper-agentic", "--type", "research-paper", "--beginner", "--yes"], { cwd: parent })
+  assert.strictEqual(r.code, 0)
+  const projDir = join(parent, "paper-agentic")
+  assert.ok(existsSync(join(projDir, "AGENTS.md")), "AGENTS.md missing")
+  assert.ok(existsSync(join(projDir, "LICENSE")), "LICENSE missing")
+  assert.ok(existsSync(join(projDir, ".github/workflows/ci.yml")), "CI missing")
+})
