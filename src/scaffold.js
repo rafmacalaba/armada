@@ -97,8 +97,24 @@ export function scaffold(manifest, stack, opts = {}) {
   //    Frontmatter carries mode/model/permission; body is the filled prompt.
   for (const a of team) {
     if (!a.enabled) continue
-    const src = join(ROOT, PROMPT_SOURCE[a.role])
-    const content = renderAgentFile(a, fillPrompt(src, manifest, stack))
+    let promptText
+    if (a.prompt) {
+      const customPath = join(target, a.prompt)
+      if (!existsSync(customPath)) {
+        throw new Error(`custom prompt template not found: ${a.prompt} (for role ${a.role})`)
+      }
+      if (lstatSync(customPath).isDirectory()) {
+        throw new Error(`custom prompt template is a directory, not a file: ${a.prompt} (for role ${a.role})`)
+      }
+      promptText = fillPrompt(customPath, manifest, stack)
+    } else {
+      const src = join(ROOT, PROMPT_SOURCE[a.role])
+      promptText = fillPrompt(src, manifest, stack)
+    }
+    if (a.instructions) {
+      promptText = promptText + "\n\n" + a.instructions
+    }
+    const content = renderAgentFile(a, promptText)
     write(`.opencode/agent/${a.role}.md`, content)
   }
 

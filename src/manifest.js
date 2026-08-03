@@ -23,13 +23,72 @@ export function validateRequirementsFile(file, target) {
   }
 }
 
+const VALID_PERMISSION_VALUES = new Set(["allow", "deny", "ask"])
+
+function validatePermissionsDeep(obj, role, path) {
+  for (const [key, value] of Object.entries(obj)) {
+    const currentPath = [...path, key]
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      validatePermissionsDeep(value, role, currentPath)
+    } else if (typeof value === "string") {
+      if (!VALID_PERMISSION_VALUES.has(value)) {
+        throw new Error(
+          `armada.yaml: schema violation: ${role} permissions.${currentPath.join(".")} must be "allow", "deny", or "ask"`
+        )
+      }
+    } else {
+      throw new Error(
+        `armada.yaml: schema violation: ${role} permissions.${currentPath.join(".")} must be a string ("allow", "deny", or "ask")`
+      )
+    }
+  }
+}
+
+function validatePermissions(perms, role) {
+  if (perms === null || perms === undefined) return null
+  if (typeof perms !== "object" || Array.isArray(perms)) {
+    throw new Error(`armada.yaml: schema violation: ${role} permissions must be an object`)
+  }
+  validatePermissionsDeep(perms, role, [])
+  return perms
+}
+
+function validateInstructions(instructions, role) {
+  if (instructions === null || instructions === undefined) return null
+  if (typeof instructions !== "string" || instructions === "") {
+    throw new Error(`armada.yaml: schema violation: ${role} instructions must be a non-empty string`)
+  }
+  return instructions
+}
+
+function validatePrompt(prompt, role, target) {
+  if (prompt === null || prompt === undefined) return null
+  if (typeof prompt !== "string" || prompt === "") {
+    throw new Error(`armada.yaml: schema violation: ${role} prompt must be a non-empty string`)
+  }
+  if (prompt.split(/[\/\\]/).includes("..")) {
+    throw new Error(`armada.yaml: schema violation: ${role} prompt must not contain '..'`)
+  }
+  if (isAbsolute(prompt)) {
+    throw new Error(`armada.yaml: schema violation: ${role} prompt must be a relative path`)
+  }
+  if (target !== undefined) {
+    const absFile = resolve(target, prompt)
+    const absTarget = resolve(target)
+    if (absFile !== absTarget && !absFile.startsWith(absTarget + sep)) {
+      throw new Error(`armada.yaml: schema violation: ${role} prompt must be inside the target directory`)
+    }
+  }
+  return prompt
+}
+
 function parseBoolean(value, field) {
   if (value === true || value === "true") return true
   if (value === false || value === "false") return false
   throw new Error(`armada.yaml: schema violation: ${field} must be a boolean`)
 }
 
-export function parseManifestYaml(text) {
+export function parseManifestYaml(text, target) {
   let raw
   try {
     raw = YAML.parse(text)
@@ -69,6 +128,9 @@ export function parseManifestYaml(text) {
       fallback: t.fallback ?? null,
       variant: t.variant ?? null,
       enabled: parseBoolean(t.enabled, "team.enabled"),
+      permissions: validatePermissions(t.permissions, t.role),
+      instructions: validateInstructions(t.instructions, t.role),
+      prompt: validatePrompt(t.prompt, t.role, target),
     }
   })
   if (!team.length) throw new Error("armada.yaml: team is empty")

@@ -5,6 +5,23 @@ import { ROLES, CATALOG, modelFor, fallbackFor } from "./model-catalog.js"
 import { DEFAULT_PLAYBOOK } from "./manifest.js"
 import YAML from "yaml"
 
+// Deep-merge override into base. Base keys not overridden survive; user leaf
+// values replace base values. Merge order is stable: base keys first, then
+// override-only keys. Both arguments must be plain objects (null-safe).
+export function deepMerge(base, override) {
+  if (override === null || override === undefined) return base
+  if (typeof override !== "object" || Array.isArray(override)) return override
+  if (base === null || base === undefined || typeof base !== "object" || Array.isArray(base)) return override
+  const result = {}
+  for (const key of Object.keys(base)) {
+    result[key] = key in override ? deepMerge(base[key], override[key]) : base[key]
+  }
+  for (const key of Object.keys(override)) {
+    if (!(key in base)) result[key] = override[key]
+  }
+  return result
+}
+
 // Permission model shared by every role. Mirrors the personal-space pattern:
 // strict file ownership enforced at SDK level (not just prompt). Keys are
 // opencode permission globs.
@@ -90,7 +107,7 @@ export function buildTeam(manifest) {
   return ROLES.map((role) => {
     const override = teamByRole[role]
     const enabled = override ? override.enabled !== false : false
-    const permissions = structuredClone(BASE_PERMISSIONS[role] || {})
+    const permissions = deepMerge(structuredClone(BASE_PERMISSIONS[role] || {}), override?.permissions)
     if (headless && role === "orchestrator") {
       // Non-interactive runs (opencode run / CI) auto-reject `ask` permissions,
       // which stalls the orchestrator's git-status/diff/log + inspection calls.
@@ -124,6 +141,8 @@ export function buildTeam(manifest) {
       fallback: override?.fallback ?? fallbackFor(role),
       variant: override?.variant ?? CATALOG[role].variant ?? null,
       permissions,
+      instructions: override?.instructions ?? null,
+      prompt: override?.prompt ?? null,
       orchestratorPrompt: routingPrompt(role),
       browser: browserTesting && ["qa", "adversary", "frontend-dev"].includes(role),
       enabled,
@@ -500,12 +519,26 @@ export const ArmadaSupervision = async ({ client }) => {
 // Build `armada.yaml` manifest content (serialized).
 export function renderManifestYaml(manifest, team) {
   const q = (v) => JSON.stringify(v)
+  const teamByRole = Object.fromEntries((manifest.team || []).map((t) => [t.role, t]))
   const teamLines = team
     .map(
-      (a) =>
-        `  - role: ${q(a.role)}\n    model: ${q(a.model)}\n    fallback: ${a.fallback === null ? "null" : q(a.fallback)}\n` +
-        `${a.variant !== null && a.variant !== undefined ? `    variant: ${q(a.variant)}\n` : ""}` +
-        `    enabled: ${a.enabled}`
+      (a) => {
+        const mt = teamByRole[a.role]
+        let lines = `  - role: ${q(a.role)}\n    model: ${q(a.model)}\n    fallback: ${a.fallback === null ? "null" : q(a.fallback)}\n`
+        if (a.variant !== null && a.variant !== undefined) lines += `    variant: ${q(a.variant)}\n`
+        if (mt?.permissions !== null && mt?.permissions !== undefined) {
+          const permYaml = YAML.stringify(mt.permissions).trim()
+          lines += `    permissions:\n${permYaml.split("\n").map((l) => "      " + l).join("\n")}\n`
+        }
+        if (mt?.instructions !== null && mt?.instructions !== undefined) {
+          lines += `    instructions: ${q(mt.instructions)}\n`
+        }
+        if (mt?.prompt !== null && mt?.prompt !== undefined) {
+          lines += `    prompt: ${q(mt.prompt)}\n`
+        }
+        lines += `    enabled: ${a.enabled}`
+        return lines
+      }
     )
     .join("\n")
   const s = manifest.project.stack || {}
