@@ -61,6 +61,33 @@ straight into it. No separate "start armada" step — the protocol is live when 
 The orchestrator dispatches the team in **parallel** as opencode-native background subagents:
 independent phases, and `backend-dev ∥ frontend-dev` within a phase.
 
+## How you drive it (the co-write conversation)
+
+You don't write code — you talk to the orchestrator. It is the only agent you address; it
+delegates everything else.
+
+1. **Attach to the orchestrator.** If you launched `opencode` directly, you're already in it.
+   If armada is running in a detached tmux session (e.g. a `sandbox/` worktree), attach with
+   `tmux attach -t <session>`. You'll see `Orchestrator · <model>` at the bottom.
+2. **Describe what you want.** Say it in plain language — scope, what "done" means, any
+   constraints. You can paste a TODO item, a bug report, or a raw wish.
+3. **Co-write the contract.** The orchestrator reads `armada/REQUIREMENTS.md` (the current
+   feature contract). If it's blank, it **does not build** — it asks you one question at a time
+   (scope, users, data, pages), drafts the phases + success criteria, and iterates until you
+   **explicitly approve**. No implementation starts against an unapproved contract.
+4. **Watch it delegate.** Once approved, the orchestrator dispatches subagents in parallel as
+   background jobs. You can watch the panel (`ctrl+x`), but you don't have to — it reports when
+   phases pass or it needs a decision.
+5. **It comes back to you only for judgment.** Phase gates pass on evidence (tests/screenshots).
+   It escalates to you for: contract approval, a real decision it can't make, or a permission
+   override. Everything else it resolves itself.
+
+**`--yolo` changes permissions, not this conversation.** Autonomous mode auto-approves *tool*
+permission prompts — but the *product decision* (what to build) is still co-written with you,
+one question at a time, explicit approval before building. This is the recommended way to run:
+`armada init --yolo`, leave the contract blank, and let the orchestrator lead the requirements
+interview.
+
 ## Build features in the project
 
 ### 1. Create the project directory

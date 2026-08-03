@@ -139,6 +139,31 @@ opencode
 Phase gates: a phase closes only with evidence — passing test run, screenshot, or file/line
 citation. `DEFECTS.md` and `ADVERSARIAL_REVIEW.md` are append-only; only qa closes a defect.
 
+### Driving it yourself (the co-write interview)
+
+If the fleet runs in a detached tmux session, attach to talk to the orchestrator:
+
+```bash
+tmux attach -t <session>        # you're now IN the orchestrator's TUI
+```
+
+The orchestrator is the only agent you address. To co-write a feature you're driving:
+
+1. **Start a blank contract** — leave `armada/REQUIREMENTS.md` as the stub (don't hand-author
+   phases). That's the signal to co-write.
+2. **Say what you want**, e.g. *"Let's co-write the contract for <feature>. Ask me one question
+   at a time."*
+3. **Answer its questions one at a time** — it drafts phases + success criteria as you go and
+   iterates until you **explicitly approve**. No building before approval.
+4. **Detach when you're done** (`Ctrl+b` then `d`) — the session keeps running, the fleet
+   dispatches, and the orchestrator holds its turn on the evidence gates.
+5. **Re-attach anytime** (`tmux attach -t <session>`) to answer a question, approve a gate, or
+   watch the subagent panel (`ctrl+x`).
+
+This is the canonical armada interaction: **you steer via questions and approvals; the fleet
+executes.** `--yolo` only auto-approves tool permissions — the contract co-write is still
+yours.
+
 ### Finish
 
 ```bash
