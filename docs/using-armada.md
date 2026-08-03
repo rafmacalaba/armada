@@ -121,6 +121,29 @@ session can be resumed. Format: YAML frontmatter (`active_phases`, `last_update`
 plus a short markdown body — one line per active phase (phase, evidence in, status). The
 orchestrator reads it on session start (hard rule 3) and on `/armada-status` / `/armada-resume`.
 
+### Opt-in supervision plugin (advanced)
+
+Default `armada init` is plugin-free. For firstmate-grade supervision, enable a single thin
+plugin that opencode auto-loads from `.opencode/plugins/` (no install):
+
+```bash
+armada init --supervision-plugin
+# or set in armada.yaml:
+#   supervision:
+#     plugin: true
+```
+
+It adds one file, `.opencode/plugins/armada-supervision.js`, with three handlers:
+
+| Hook | What it does |
+|---|---|
+| `session.created` | If `.opencode/fleet-status.md` exists, inject it so a fresh session resumes mid-fleet |
+| `session.idle` | Once per session, remind the orchestrator not to end its turn with background work outstanding (no blind stop) |
+| `tool.execute.before` | Deny `bash` redirects (`>`, `>>`, `tee`, `sed -i`) targeting files in the orchestrator's `permission.edit` deny set — closes the shell-bypass gap the SDK can't reach |
+
+`armada doctor` reports the plugin's presence when enabled. `armada uninstall` removes it.
+The plugin needs no API key and makes no network calls.
+
 **B. Hand-author the manifest** (full control):
 
 ```yaml

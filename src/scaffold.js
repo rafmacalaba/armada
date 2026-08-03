@@ -16,6 +16,7 @@ import {
   renderArmadaStatusCommand,
   renderArmadaScoutCommand,
   renderArmadaResumeCommand,
+  renderArmadaSupervisionPlugin,
 } from "./generator.js"
 import { ROLES } from "./model-catalog.js"
 import { formatStack } from "./stack-detect.js"
@@ -154,6 +155,11 @@ export function scaffold(manifest, stack, opts = {}) {
   write(".opencode/commands/armada-scout.md", renderArmadaScoutCommand())
   write(".opencode/commands/armada-resume.md", renderArmadaResumeCommand())
 
+  // 7b. Opt-in thin supervision plugin.
+  if (manifest.project.supervision?.plugin) {
+    write(".opencode/plugins/armada-supervision.js", renderArmadaSupervisionPlugin(team))
+  }
+
   // 8. Optional devcontainer.
   if (manifest.project.devcontainer) {
     if (!opts.dryRun) ensure(".devcontainer")
@@ -204,6 +210,9 @@ export function uninstall(manifest, opts = {}) {
   for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume"]) {
     removeFile(`.opencode/commands/${cmd}.md`)
   }
+  // Opt-in supervision plugin (armada-owned, only removed when present).
+  removeFile(".opencode/plugins/armada-supervision.js")
+  removeEmptyDir(".opencode/plugins")
   // Remove armada's native agent files by exact role name; keep any user agent files.
   const agentDir = join(target, ".opencode/agent")
   if (existsSync(agentDir)) {

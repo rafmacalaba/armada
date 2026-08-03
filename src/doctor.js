@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process"
+import { existsSync } from "node:fs"
+import { join } from "node:path"
 
 function run(bin, args, env) {
   return new Promise((resolve) => {
@@ -53,5 +55,16 @@ export async function runDoctor(opts = {}) {
   })
 
   checks.push({ name: "node", status: "pass", detail: process.version })
+
+  if (opts.project?.supervision?.plugin) {
+    const pluginPath = join(opts.targetDir ?? ".", ".opencode/plugins/armada-supervision.js")
+    checks.push({
+      name: "supervision plugin",
+      status: existsSync(pluginPath) ? "pass" : "fail",
+      detail: existsSync(pluginPath)
+        ? ".opencode/plugins/armada-supervision.js present"
+        : "supervision.plugin is true but .opencode/plugins/armada-supervision.js missing — re-run armada init",
+    })
+  }
   return checks
 }

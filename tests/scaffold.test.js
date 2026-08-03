@@ -228,6 +228,25 @@ test("uninstall removes bundled command files", () => {
   }
 })
 
+test("supervision plugin written only when enabled, removed on uninstall", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-sup-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  assert.ok(!existsSync(join(dir, ".opencode/plugins/armada-supervision.js")), "no plugin by default")
+
+  manifest.project.supervision = { plugin: true }
+  scaffold(manifest, manifest.project.stack)
+  const plugin = join(dir, ".opencode/plugins/armada-supervision.js")
+  assert.ok(existsSync(plugin), "plugin written when enabled")
+  const src = readFileSync(plugin, "utf8")
+  assert.match(src, /export const ArmadaSupervision/)
+  assert.match(src, /tool\.execute\.before/)
+
+  const removed = uninstall(manifest)
+  assert.ok(!existsSync(plugin), "plugin removed on uninstall")
+  assert.ok(removed.includes(".opencode/plugins/armada-supervision.js"))
+})
+
 test("scaffold prunes stale omo-slim artifacts on re-scaffold", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-prune-"))
   mkdirSync(join(dir, ".opencode"), { recursive: true })

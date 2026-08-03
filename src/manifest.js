@@ -47,6 +47,12 @@ export function parseManifestYaml(text) {
   for (const f of boolFields) {
     if (p[f] !== undefined && typeof p[f] !== "boolean") throw new Error(`armada.yaml: schema violation: project.${f} must be a boolean`)
   }
+  if (p.supervision !== undefined && (typeof p.supervision !== "object" || Array.isArray(p.supervision))) {
+    throw new Error("armada.yaml: schema violation: project.supervision must be an object")
+  }
+  if (p.supervision?.plugin !== undefined && typeof p.supervision.plugin !== "boolean") {
+    throw new Error("armada.yaml: schema violation: project.supervision.plugin must be a boolean")
+  }
   const stack = p.stack ?? {}
   const seenRoles = new Set()
   const team = raw.team.map((t) => {
@@ -75,6 +81,9 @@ export function parseManifestYaml(text) {
       useAgentBrowser: p.useAgentBrowser ?? false,
       headless: p.headless ?? false,
       requirementsFile: p.requirementsFile ?? "armada/REQUIREMENTS.md",
+      supervision: {
+        plugin: p.supervision?.plugin ?? false,
+      },
       stack: {
         frontend: stack.frontend ?? null,
         backend: stack.backend ?? null,
