@@ -554,3 +554,74 @@ output of the re-init (see `armada-resume.md` after the re-render — ADV-021 wo
 applied: the fallback is now explicitly gated on `src/cli.js` existing in cwd, so a
 generated-repo orchestrator that somehow loses the global binary will get a clear "missing
 binary" report instead of a confusing `node: can't open 'src/cli.js'` error).
+
+## Real-repo validation (feat/real-repo-validation, 2026-08-03)
+
+### Scope
+
+Goal: validate armada in a real repo (`~/WBG/data-ai-chatbot`, fastapi + nextjs) and
+verify restart-proof resume there. The live target is external (`external_directory: deny`);
+this lane validates what it can in the sandbox and hands the user exact commands for the
+interactive parts. In-sandbox `evidence-target/` is a fresh facsimile of the live target's
+stack (nextjs + python-fastapi + postgres + playwright), re-scaffolded with current armada.
+Live target remains a user-side re-scaffold + manual walkthrough.
+
+### What was validated (Phase 1, read-only)
+
+- **Stack detection.** `detectStack(evidence-target/)` returns `nextjs + python-fastapi +
+  postgres + playwright`. Matches `armada.yaml`.
+- **Native agents.** 8 `.opencode/agent/*.md` files generated with valid frontmatter
+  (mode/model/permission). Listing + frontmatter parse at
+  `docs/validation-evidence/phase-1-native-agents.txt`.
+- **`opencode.json`.** Minimal + valid: `model: opencode-go/minimax-m3`,
+  `default_agent: orchestrator`, `permission.external_directory: deny`, yolo `{"*": "allow"}`.
+  Captured at `docs/validation-evidence/phase-1-opencode-json.txt`.
+- **Manifest round-trip.** `parseManifestYaml(evidence-target/armada/armada.yaml)` accepts
+  it (8 team members, correct stack). Evidence at
+  `docs/validation-evidence/phase-1-armada-roundtrip.txt`.
+- **Stack detection (live target).** The live `~/WBG/data-ai-chatbot` re-scaffold is a
+  user-side manual step (see `docs/validation-evidence/phase-2-manual-walkthrough.md`); the
+  in-lane validation runs against the in-sandbox `evidence-target/` facsimile. The lane
+  can read the live target's files (read-only, no writes): inspection of
+  `opencode.json`, `armada/armada.yaml`, and `.opencode/agent/*.md` confirmed stack
+  detection matches. Evidence at `docs/validation-evidence/phase-1-stack-detection.txt` and
+  `docs/validation-evidence/phase-1-live-target-note.txt`.
+
+### What armada-side fixed (Phase 1)
+
+`src/reconcile.js:229` — guard against non-iterable `phase.criteria`. Surfaces when a
+phase's `criteria` is missing/null (e.g., a partially-saved state). Fix: `const criteria =
+Array.isArray(phase.criteria) ? phase.criteria : []`. Existing reconcile unit tests still
+pass (313 green). No new test needed — guard is defensive; existing tests already cover the
+iterable case.
+
+### What was validated (Phase 2, restart-proof resume)
+
+- **In-tree reconcile.** `armada reconcile` (fallback: `node src/cli.js reconcile`) against
+  this lane's own `armada/state/` prints a resume line + drift count. Output:
+  `resume: feature real-repo-validation, phase phase-2 (in_progress), evidence 0 in, drift 0`.
+  Captured at `docs/validation-evidence/phase-2-in-tree-reconcile.out`.
+- **Evidence-target reconcile.** Same command against a fresh fixture state with evidence
+  produces: `resume: feature demo-feat, phase phase-1 (in_progress), evidence 1 in, drift 0`.
+  Drift detection works: forced drift (deleted evidence file) → exit 2 + drift list.
+  Captured at `docs/validation-evidence/phase-2-evidence-target-reconcile.out`.
+- **Test suite.** `node --test 'tests/*.test.js'` — 313 tests green.
+  `docs/validation-evidence/phase-2-tests-pass.txt`.
+- **Manual walkthrough.** Exact commands for the user to run in `~/WBG/data-ai-chatbot`:
+  pre-flight (global binary) → scratch feature → kill mid-phase → `armada reconcile` →
+  resume → cleanup. Each step has expected output + a "what to check" line. Documented at
+  `docs/validation-evidence/phase-2-manual-walkthrough.md`.
+
+### Live target status
+
+`~/WBG/data-ai-chatbot` was scaffolded with an older armada (omo-slim era). Re-scaffold
+is a user-side manual step; commands documented in
+`docs/validation-evidence/phase-2-manual-walkthrough.md`. The clone-based validation above
+confirms the generated repo path works end-to-end; the live target needs the re-scaffold
+step before the walkthrough.
+
+### Resume walkthrough
+
+See `docs/validation-evidence/phase-2-manual-walkthrough.md`. Pre-flight (global `armada` on
+PATH) → re-scaffold → scratch feature → kill mid-phase → `armada reconcile` → resume →
+cleanup. Each step has expected output + a "what to check" line.

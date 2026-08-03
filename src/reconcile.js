@@ -94,6 +94,10 @@ function evidenceShowsFailure(content) {
  * Check evidence for a criterion. Returns a drift object or null.
  */
 function checkEvidence(kind, ref, repoRoot, fs) {
+  if (!ref) {
+    return { kind: "evidence-missing", detail: "criterion has no evidence.ref" }
+  }
+
   const fullPath = join(repoRoot, ref)
 
   if (!fs.existsSync(fullPath)) {
@@ -135,25 +139,30 @@ function checkEvidence(kind, ref, repoRoot, fs) {
 function findCurrentPhase(phases) {
   // Prefer in_progress
   for (const p of phases) {
+    if (!p || typeof p !== "object") continue
     if (p.status === "in_progress") return p
   }
   // First pending with deps met
   for (const p of phases) {
+    if (!p || typeof p !== "object") continue
     if (p.status !== "pending") continue
     const depsMet = p.dependsOn.every(
-      (depId) => phases.find((dp) => dp.id === depId)?.status === "passed"
+      (depId) => phases.find((dp) => dp && dp.id === depId)?.status === "passed"
     )
     if (depsMet) return p
   }
   // All phases passed — return last
-  return phases[phases.length - 1] || null
+  for (let i = phases.length - 1; i >= 0; i--) {
+    if (phases[i] && typeof phases[i] === "object") return phases[i]
+  }
+  return null
 }
 
 /**
  * All phases passed?
  */
 function allPhasesPassed(phases) {
-  return phases.length > 0 && phases.every((p) => p.status === "passed")
+  return phases.length > 0 && phases.every((p) => p && p.status === "passed")
 }
 
 // ---- main export -----------------------------------------------------------
@@ -224,9 +233,11 @@ export function reconcile(stateDir, repoRoot, opts = {}) {
   const PHASE_STATUS_ORDER = ["passed", "in_progress", "pending"]
 
   for (const phase of phases) {
+    if (!phase || typeof phase !== "object") continue
     const contractCriteria = phaseCriteria.get(phase.id) || []
 
-    for (const crit of phase.criteria) {
+    const criteria = Array.isArray(phase.criteria) ? phase.criteria : []
+    for (const crit of criteria) {
       // Evidence drift checks
       if (crit.evidence) {
         const drift = checkEvidence(crit.evidence.kind, crit.evidence.ref, repoRoot, fs)
@@ -277,8 +288,15 @@ export function reconcile(stateDir, repoRoot, opts = {}) {
     } else {
       // All criteria in current phase ticked — check next phase
       const phaseIdx = phases.indexOf(currentPhase)
-      if (phaseIdx < phases.length - 1) {
-        const nextPhase = phases[phaseIdx + 1]
+      // Find next non-null phase after current
+      let nextPhase = null
+      for (let i = phaseIdx + 1; i < phases.length; i++) {
+        if (phases[i] && typeof phases[i] === "object") {
+          nextPhase = phases[i]
+          break
+        }
+      }
+      if (nextPhase) {
         const nextContractCriteria = phaseCriteria.get(nextPhase.id) || []
         const nextUnchecked = nextContractCriteria.find((c) => !c.ticked)
         nextAction = nextUnchecked

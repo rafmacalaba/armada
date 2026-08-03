@@ -50,13 +50,17 @@ The improvements that unlock the durable-implementation vision.
   every role consume them. (User priority: HIGH.)
 - [ ] **Per-role configurability** — spec below. Manifest-level `permissions`, `instructions`,
   optional custom `prompt` per role. Closes the "are the prompts optimal?" gap.
-- [ ] **Validate in a real repo — `~/WBG/data-ai-chatbot`** (fastapi + nextjs). Confirm stack
+- [x] **Validate in a real repo — `~/WBG/data-ai-chatbot`** (fastapi + nextjs). Confirm stack
   detection, native agents load (`opencode agent list`), background orchestration
   (`OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true`), tune prompts against real conventions,
   verify `/armada` shows the team. File results in `docs/validation.md`.
-- [ ] **Restart-proof resume in a generated repo** — spec below. Make `/armada-resume` work
+  Shipped in `feat/real-repo-validation`; live-target re-scaffold + walkthrough is a user-side
+  step; see `docs/validation.md` "Real-repo validation".
+- [x] **Restart-proof resume in a generated repo** — spec below. Make `/armada-resume` work
   outside armada's own source tree; then kill a session mid-feature in data-ai-chatbot and
   verify resume + no state loss.
+  Shipped in `feat/real-repo-validation`; in-tree reconcile verified, evidence-target reconcile
+  verified, manual walkthrough at `armada/state/evidence/phase-2/manual-walkthrough.md`.
 
 ### Medium
 

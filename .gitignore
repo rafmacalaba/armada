@@ -19,3 +19,6 @@ build/
 # armada runtime state (contracts, state, active) — not source
 /armada/
 /opencode.json
+
+# Validation evidence-target (sandbox facsimile of ~/WBG/data-ai-chatbot, gitignored build artifact)
+/evidence-target/
