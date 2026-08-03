@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, chmodSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { execFile } from "node:child_process"
+import YAML from "yaml"
 
 const CLI = join(process.cwd(), "src/cli.js")
 
@@ -31,4 +32,8 @@ export function runCli(args, opts = {}) {
     execFile(process.execPath, [CLI, ...args], { cwd: opts.cwd || process.cwd(), env },
       (err, stdout, stderr) => resolve({ code: err?.code ?? 0, stdout, stderr }))
   })
+}
+
+export function parseFrontmatter(frontmatterYaml) {
+  return YAML.parse(frontmatterYaml)
 }

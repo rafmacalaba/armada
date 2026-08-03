@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
-import { buildTeam, renderSlimJsonc, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand } from "../src/generator.js"
+import { buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand } from "../src/generator.js"
 import { parseManifestYaml } from "../src/manifest.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -134,21 +134,41 @@ test("renderManifestYaml emits headless flag", () => {
   assert.match(yaml, /headless: true/)
 })
 
-test("slim jsonc is valid JSONC with preset", () => {
+test("renderAgentFile emits native frontmatter + body", () => {
   const team = buildTeam(baseManifest)
-  const out = renderSlimJsonc(baseManifest, team)
-  assert.match(out, /"preset": "balanced"/)
-  assert.match(out, /"backgroundJobs"/)
-  // no template placeholders left dangling
-  assert.ok(!/\{[a-z_]+\}/.test(out), "no dangling placeholders")
+  const qa = team.find((a) => a.role === "qa")
+  const out = renderAgentFile(qa, "You are the qa agent for {project_name}.")
+  assert.match(out, /^---\n/)
+  assert.match(out, /\nmode: subagent\n/)
+  assert.match(out, /model: opencode\/mimo-v2\.5-free\n/)
+  assert.match(out, /permission:/)
+  assert.match(out, /\n---\n\nYou are the qa agent/)
 })
 
-test("slim jsonc marks orchestrator with armada-orchestrator displayName", () => {
+test("renderAgentFile orchestrator is primary with color, no displayName", () => {
   const team = buildTeam(baseManifest)
-  const out = renderSlimJsonc(baseManifest, team)
-  const stripped = out.replace(/^\s*\/\/.*$/gm, "").trim()
-  const cfg = JSON.parse(stripped)
-  assert.strictEqual(cfg.presets.balanced.orchestrator.displayName, "armada-orchestrator")
+  const orch = team.find((a) => a.role === "orchestrator")
+  const out = renderAgentFile(orch, "You are the orchestrator.")
+  assert.match(out, /mode: primary\n/)
+  assert.match(out, /color: "#00bcd4"/)
+  assert.doesNotMatch(out, /displayName/)
+})
+
+test("renderOpenCodeJson has no agent block, sets default_agent", () => {
+  const team = buildTeam(baseManifest)
+  const cfg = renderOpenCodeJson(baseManifest, team)
+  assert.strictEqual(cfg.model, modelFor("orchestrator", "balanced"))
+  assert.strictEqual(cfg.permission.external_directory, "deny")
+  assert.strictEqual(cfg.default_agent, "orchestrator")
+  assert.strictEqual(cfg.agent, undefined, "agent block removed")
+})
+
+test("renderOpenCodeJson model follows budget tier", () => {
+  const m = structuredClone(baseManifest)
+  m.project.budget = "free"
+  const cfg = renderOpenCodeJson(m, buildTeam(m))
+  assert.strictEqual(cfg.model, modelFor("orchestrator", "free"))
+  assert.strictEqual(cfg.default_agent, "orchestrator")
 })
 
 test("renderOpenCodeJson uses orchestrator model + deny external_directory", () => {
@@ -158,41 +178,6 @@ test("renderOpenCodeJson uses orchestrator model + deny external_directory", () 
   assert.strictEqual(cfg.permission.external_directory, "deny")
   assert.strictEqual(cfg.permission.edit, undefined)
   assert.strictEqual(cfg.permission.bash, undefined)
-})
-
-test("renderOpenCodeJson model follows budget tier", () => {
-  const m = structuredClone(baseManifest)
-  m.project.budget = "free"
-  const team = buildTeam(m)
-  const cfg = renderOpenCodeJson(m, team)
-  assert.strictEqual(cfg.model, modelFor("orchestrator", "free"))
-})
-
-test("renderOpenCodeJson includes agent block so team works without plugin's config hook", () => {
-  const team = buildTeam(baseManifest)
-  const cfg = renderOpenCodeJson(baseManifest, team)
-  assert.ok(cfg.agent, "agent block must be present")
-  // orchestrator is primary
-  assert.strictEqual(cfg.agent.orchestrator.mode, "primary")
-  assert.strictEqual(cfg.agent.orchestrator.model, modelFor("orchestrator", "balanced"))
-  assert.ok(cfg.agent.orchestrator.permission, "orchestrator permission block present")
-  // every other role is subagent and has a model + permission block
-  for (const role of ["backend-dev", "frontend-dev", "qa", "adversary", "security", "docs", "architect"]) {
-    assert.ok(cfg.agent[role], `${role} agent present`)
-    assert.strictEqual(cfg.agent[role].mode, "subagent")
-    assert.ok(cfg.agent[role].model, `${role} has model`)
-    assert.ok(cfg.agent[role].permission, `${role} has permission block`)
-  }
-})
-
-test("renderOpenCodeJson agent block omits disabled team entries", () => {
-  const m = structuredClone(baseManifest)
-  m.team = m.team.map((t) => ({ ...t, enabled: t.role !== "architect" && t.role !== "security" }))
-  const team = buildTeam(m)
-  const cfg = renderOpenCodeJson(m, team)
-  assert.ok(cfg.agent.orchestrator, "orchestrator enabled")
-  assert.ok(!cfg.agent.architect, "disabled architect absent")
-  assert.ok(!cfg.agent.security, "disabled security absent")
 })
 
 test("AGENTS.md playbook mentions ledger and roles", () => {
