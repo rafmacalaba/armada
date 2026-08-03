@@ -32,6 +32,20 @@ Small, low-risk, high-leverage. Do first.
 
 The improvements that unlock the durable-implementation vision.
 
+- [ ] **PR-first finish — never local merge or direct push after a feature lane.** After a
+  feature implementation runs, the lane's work must end in a **pull request** — not a local
+  `git merge`, not a direct push to master, not "done" without a PR. The fleet keeps finishing
+  lanes with local merges/pushes and skipping the PR step; that breaks the reviewed-delivery
+  rule (`docs/armada-improves-armada.md` Finish section). Spec below. Live symptom: lanes end
+  without `gh pr create --base master`, so work lands unreviewed.
+- [ ] **Lane drive — TUI-ready handshake + auto-open visible terminal** — spec below. Drive a
+  lane without swallowing the prompt (poll `tmux capture-pane` for the TUI input bar, verify the
+  drive prompt registered, resend once) and auto-open a visible terminal attached to the
+  session. **Use wezterm (https://github.com/wezterm/wezterm) before anything else if possible** —
+  it is the one cross-platform (macOS/Linux/Windows) terminal that can host an attached tmux
+  session; prefer it when installed (or via `--term wezterm`), fall back to per-OS defaults
+  (Terminal.app/iTerm, x-terminal-emulator, Windows Terminal), `--no-open` for headless. Live
+  lane: `feat/lane-drive` in `sandbox/lane-drive`.
 - [ ] **Skills integration** — spec below. Ships fleet skills into generated repos and lets
   every role consume them. (User priority: HIGH.)
 - [ ] **Per-role configurability** — spec below. Manifest-level `permissions`, `instructions`,
@@ -143,14 +157,239 @@ serializes only role/model/fallback/enabled (`src/generator.js:503`).
 exists inside armada's own source tree. A generated repo (e.g. data-ai-chatbot) has no
 `src/cli.js`; the orchestrator there cannot resume from `armada/state/` on its own.
 
-- [ ] **CLI reachability.** Make reconcile a subcommand of the installed/global `armada` binary
+- [x] **CLI reachability.** Make reconcile a subcommand of the installed/global `armada` binary
   (`armada reconcile`), callable from any armada-armed repo. `/armada-resume` command body uses
-  `armada reconcile` (global) with `node src/cli.js reconcile` as the in-tree fallback.
+  `armada reconcile` (global) with `node src/cli.js reconcile` as the in-tree fallback. Merged
+  2026-08-03 (feat/resume-reachable).
 - [ ] **Verify in a generated repo.** In `~/WBG/data-ai-chatbot`: init, open a feature, kill the
   session mid-phase, `armada reconcile` prints the resume line + drift list, resume completes,
   no state loss.
-- [ ] **Tests.** CLI e2e with a fake `armada` binary on PATH (existing `makeBin` pattern);
-  command renderer emits the new body; reconcile engine regression stays green.
+- [x] **Tests.** CLI e2e with a fake `armada` binary on PATH (existing `makeBin` pattern);
+  command renderer emits the new body; reconcile engine regression stays green. Merged
+  2026-08-03 (feat/resume-reachable).
+
+### PR-first finish — no local merge, no direct push after a feature lane (HIGH)
+
+A feature lane is done only when its work is a **reviewed pull request**, never a local
+`git merge` or a direct push to master. The docs already say this (`docs/armada-improves-armada.md`
+Finish: "never `git merge` locally, never push master directly… every armada feature lands as a
+reviewed PR"), but the fleet keeps finishing lanes without the PR step — the orchestrator ends
+with tests green and either merges locally or calls it done, so work lands unreviewed. Make
+PR-first the enforced final gate, not a documented wish.
+
+- [ ] **PR is a phase/final gate in the contract.** Contracts that build armada itself get a
+  final criterion: "work lands as `gh pr create --base master` from the lane branch — never
+  `git merge` locally, never push master." The orchestrator prompt adds a hard rule: when a
+  feature's final criteria are met, the last step before reporting done is creating the PR (or
+  explicitly flagging "PR blocked: <reason>" if the remote isn't reachable). No "done" without
+  a PR URL or a stated blocker.
+- [ ] **Evidence is the PR.** The `docs/armada-improves-armada.md` Finish section changes so the
+  orchestrator/qa's final evidence includes the PR link. `/armada-status` and the fleet-status
+  file report the PR URL once opened.
+- [ ] **Guard against local merge/push.** A grep/script test (or orchestrator hard rule) that no
+  armada-armed repo ends a feature lane with a local `git merge` into master or a direct `git
+  push origin master`. If a human merges, that's theirs — the fleet never does it.
+- [ ] **Docs + TODO reflect the rule.** `docs/armada-improves-armada.md` and `AGENTS.md` already
+  carry it; tighten the orchestrator prompt and add the tracker note so the PR URL is visible in
+  the fleet dashboard (job-visibility spec below).
+- [ ] **Tests.** Prompt test asserts the PR-first hard rule exists; docs grep test that the
+  Finish section says "PR" not "merge locally"; e2e that a completed lane prints a PR URL or a
+  blocker before finishing.
+- [ ] **Stacked PRs (GitHub-native).** GitHub ships stacked PRs — a chain of dependent PRs where
+  each targets the branch below it, mergeable bottom-up (docs: about-stacked-prs,
+  stacked-prs-quickstart). The `gh stack` extension (public preview) manages the local flow:
+  `gh extension install github/gh-stack`, then `gh stack init/add/submit/sync/rebase/merge`
+  (reference: stacked-prs-cli-commands). For armada's parallel lanes (each its own branch on
+  master), this is a natural fit when lanes depend on each other — e.g. lane-drive builds on
+  resume-reachable, which already merged; a future chain would be
+  `feat/lane-drive → feat/fleet-tracker`, each base = the branch below. Considerations:
+  - Armada's lanes today are independent branches off master (parallel, not dependent). Stacking
+    only applies when lane B depends on lane A's unmerged code — otherwise independent PRs stay
+    independent.
+  - `gh stack submit --auto` opens a PR per branch + links them into a stack; `gh stack merge`
+    merges bottom-up in one all-or-nothing op (cannot bypass branch protection).
+  - PR-first finish spec above gains: when lanes are dependent, open them as a stack (`gh stack
+    init` + `submit`) instead of sequential PRs; when independent, plain `gh pr create` each.
+    The orchestrator PR gate says "stacked when dependent, separate when not".
+  - Fleet-agent note: GitHub advertises a `gh-stack` skill for agents (agents can create/manage
+    stacks programmatically) — evaluate wiring it into the orchestrator's PR-first step.
+
+### Lane drive — TUI-ready handshake + auto-open visible terminal (HIGH)
+
+Driving a lane is manual + racy: `tmux new-session -d` → `sleep` → `send-keys` swallows the
+drive prompt if the TUI isn't up yet, and the lane is invisible until someone attaches. Make
+lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/lane-drive`.
+
+- [ ] **TUI-ready handshake.** A drive script/command polls `tmux capture-pane` until the opencode
+  TUI's input bar is visible (footer shows `tab agents` / `ctrl+p`), with a timeout; then sends
+  the drive prompt; verifies it registered (pane flips to `thinking`); resends once on miss;
+  exits non-zero with the pane tail on timeout. Idempotent session names (never clobber an
+  existing session).
+- [ ] **Auto-open visible terminal — wezterm first.** Open a visible terminal attached to the
+  lane session. **Preferred: wezterm** (https://github.com/wezterm/wezterm) — the one terminal
+  that's truly cross-platform (macOS/Linux/Windows) and can host an attached tmux session. Use it
+  whenever it's installed or explicitly requested (`--term wezterm`, `wezterm start -- tmux
+  attach -t <name>`). Fall back per-OS: macOS Terminal.app/iTerm, Linux
+  `x-terminal-emulator`/`gnome-terminal`/`konsole`, Windows Terminal. `--no-open` (headless/CI)
+  prints the `tmux attach -t <name>` hint instead — never fails the drive.
+- [ ] **Refactor to wezterm as the baseline** — if the wezterm-first path proves out, make
+  wezterm the default terminal recommendation in docs and treat per-OS emulators as fallback
+  only (see the fleet-terminology spec below for the naming direction).
+- [ ] **Tests.** Terminal-opening logic is a pure module (OS detect + command builder) with unit
+  tests; the handshake is tested against a fake `tmux` binary on PATH (`makeBin` pattern) or
+  marked integration-only if unfakeable.
+- [ ] **Docs.** `docs/armada-improves-armada.md` + `docs/sandbox.md` updated to the new drive step.
+
+### Fleet terminology — retire "Lane A" / "Lane B" (IDEATION, HIGH)
+
+The repo names the two self-improvement modes **Lane A (audit)** and **Lane B (feature)**. The
+metaphor is generic and the naming doesn't echo the armada/fleet identity the tool actually
+ships. Ideate a coined set and refactor docs + code to it.
+
+Candidate vocabularies (pick or blend):
+
+- **Ships / voyages.** A lane → a **ship** (or **vessel**); the worktree it runs in → its
+  **harbor/slip** (`sandbox/<name>`); driving it → **casting off**; the run → a **voyage**;
+  completing a lane → **docking**; a killed-then-resumed run → **returning to port**; the
+  orchestrator → **captain**; the fleet → **the armada** (already). Lane A → **inspection/
+  patrol voyage**; Lane B → **construction voyage**.
+- **Deployments / missions.** A lane → a **mission**; the worktree → the **launchpad**; driving
+  → **launching**; the audit → a **patrol**; the feature → a **build mission**.
+- **Regiments / patrols.** A lane → a **patrol**; feature work → **deployment**; audit →
+  **inspection**. Weaker fit; armada/fleet metaphor already saturates the domain.
+
+Suggested target (blend of the top candidates):
+
+- `Lane B` → **voyage** (a feature-implementation run)
+- `Lane A` → **patrol** (a recurring audit run)
+- `sandbox/<name>` → **dock** (docs still say "sandbox"; `dock` is a drop-in)
+- `drive the contract` → **set sail** (or keep "drive" — less jokey)
+- tmux session name → **ship name** (already the feature name)
+
+Refactor scope:
+
+- [ ] **Docs.** `docs/armada-improves-armada.md` (two-lane skeleton, Lane A / Lane B sections),
+  `docs/sandbox.md`, `docs/using-armada.md`, `README.md`, `AGENTS.md` — swap the coined terms,
+  keep a one-line glossary for the old names.
+- [ ] **Code.** Any user-facing strings ("lane", "Lane B") in `src/` (commands, help text,
+  scaffold output) and the orchestrator prompt (`agents/orchestrator/prompt.template.md`).
+  Keep CLI flags/commands stable (`armada feature`, worktree branches) — renaming the *concept*,
+  not the plumbing.
+- [ ] **Decide, don't bikeshed.** Pick the term set in one brainstorming pass, then refactor
+  mechanical. If the fleet itself builds this, it's a small docs+strings contract.
+- [ ] **Tests.** Grep-based test that no doc or generated artifact still says "Lane A"/"Lane B"
+  after the refactor (or a documented glossary exemption).
+
+### Team role names — armada terms for the roster (IDEATION, HIGH)
+
+The 8-role roster is plain-engineering: `orchestrator`, `backend-dev`, `frontend-dev`, `qa`,
+`adversary`, `security`, `docs`, `architect`. Clear, but it reads like a generic agent library,
+not an armada. Pairing this with the fleet-terminology spec above, ideate coined role names so
+the whole product — roster, lanes, worktree — speaks one language. Roles are the product
+surface (init output, `/armada`, agent browser), so this is user-visible, not just docs.
+
+Candidate vocabularies (pick or blend):
+
+- **Navy rank / function.** orchestrator → **captain**; backend-dev → **engineer** (or **first
+  mate** for a co-owner); frontend-dev → **navigator** (or **helmsman**); qa → **harbor master**;
+  adversary → **boarding party** (hostile inspection); security → **sentry** (or **armorer**);
+  docs → **scribe**; architect → **master builder** (or **naval architect**).
+- **Ship's crew.** orchestrator → **captain**; backend-dev → **engineer**; frontend-dev →
+  **helmsman**; qa → **inspector**; adversary → **ship's doctor** (no — adversarial, so more
+  like **rival captain**); security → **watchman**; docs → **chronicler**; architect → **naval
+  architect** (already armada-flavored).
+- **Fleet operations.** orchestrator → **commander**; workers → **crew**; qa → **dockmaster**;
+  adversary → **raider**; security → **coast guard**; docs → **cartographer**; architect →
+  **planner**.
+
+Suggested target (navy-rank blend — strongest echo of "armada"):
+
+- `orchestrator` → **captain** (role name AND the `default_agent`; `mode: primary`)
+- `backend-dev` → **engineer**
+- `frontend-dev` → **navigator**
+- `qa` → **dockmaster** (owns gates/evidence, like a harbor check before a ship sails)
+- `adversary` → **raider** (hostile attack pass on the build)
+- `security` → **sentry**
+- `docs` → **scribe**
+- `architect` → **naval architect**
+
+**The coined name is the AESTHETIC / UI name only — a display-layer abstraction.** Role keys,
+file names, manifest entries, frontmatter, prompt template dirs, `AGENTS.md` roster — all
+plumbing — stay exactly as they are (`orchestrator`, `backend-dev`, …). Only what a user *sees*
+changes: init output, `/armada` status, agent-browser labels, help text, `armada models` table.
+This is a pure display mapping, so it is LOW RISK: no manifest renames, no alias map, no
+round-trip breakage, no dogfood/no-clobber impact. The internal identity stays
+`orchestrator`; the UI calls it *captain*. Think of it like a CSS display name — the DOM id
+doesn't move.
+
+Refactor scope (all display-layer only):
+
+- [ ] **Display-name map.** A single `src/role-display.js` (or a field on each CATALOG entry,
+  e.g. `display: "captain"`) mapping `role key -> display name`. Pure, zero-I/O, unit-tested.
+- [ ] **UI surface.** Use the display map in: init summary output, `/armada` status renderer,
+  `armada models` table, agent-browser name, `help`/command text. Everything user-facing.
+- [ ] **Docs glossary.** One-line table in `docs/using-armada.md` / README: `orchestrator`
+  (captain) etc., noting the display name is cosmetic and the key is the stable identifier.
+- [ ] **Prompts.** `agents/<role>/prompt.template.md` openers can reference the display name in
+  prose ("You are the captain …") while the frontmatter `name:`/`model:` keys stay unchanged.
+  Optional — prose only, never the identifier.
+- [ ] **Decision rule.** One brainstorming pass to lock the display set, then mechanical. The
+  fleet can build this as a small docs+display-map contract.
+- [ ] **Tests.** Display map covers all 8 roles; every UI surface renders through it (grep test
+  that init/`/armada`/`models` output never prints a bare role key where a display name exists);
+  no change to manifest/round-trip/catalog-shape tests.
+
+### Job visibility tracker — per-lane progress extension (IDEATION, HIGH)
+
+Today each lane's progress lives in `armada/state/active.json` inside its own worktree — a human
+must `tmux attach` into each session and read state files per lane to see anything. With several
+parallel lanes (resume-reachable, reverify-models, lane-drive), there is no single view of "what
+is every fleet doing right now". Goal: an opencode extension (plugin + command) that tracks each
+tmux lane run and gives one dashboard of all lanes' progress.
+
+Design sketch:
+
+- **Per-lane run state** (extension-owned, outside each worktree). One tracker store, e.g.
+  `~/.armada/runs/<session>.json`, holding per run: session name, lane/branch, contract path,
+  phase statuses, last `nextAction`, last evidence refs, last heartbeat, tmux pane tail snapshot,
+  elapsed + cost if available. Written by the orchestrator on state transitions (same triggers as
+  `armada/state/active.json` today) AND by a heartbeat poller so a wedged/idle lane is visible
+  even if the orchestrator never writes again.
+- **Heartbeat from the driver.** The lane-drive script (`src/drive.js`) records run start + owns
+  the tracker file for its session; the extension (or a `tool.execute.before`/`session.idle`
+  hook) updates last-activity. Killed session → heartbeat stalls → dashboard shows STALLED.
+- **`/armada-fleet` command.** One read-only view rendered in-chat (and/or a TUI dashboard):
+  table of every active lane with phase, status, nextAction, age, cost. Also a `armada fleet`
+  CLI subcommand for headless. The extension is opt-in like the supervision plugin — same
+  one-file pattern, `armada init --fleet-tracker` (or `armada.yaml` `supervision.fleet: true`).
+- **Kill detection.** A `session.idle`/`session.closed` hook marks the lane's run COMPLETE or
+  STALLED. Resume (via `/armada-resume`) re-attaches the run to its tracker entry instead of
+  starting a new one.
+- **Cross-lane, cross-repo.** Tracker keyed by session name; works whether lanes are armada
+  worktrees or external repos (`~/WBG/data-ai-chatbot`), since the store lives in `~/.armada/`.
+
+Open questions to ideate before building:
+
+- Dashboard surface: in-chat table vs a terminal TUI (`blessed`/`ink`?) vs both. Keep zero-dep
+  (plain table in chat + `armada fleet --json`) unless a TUI is clearly worth a dependency.
+- Heartbeat cadence + staleness threshold (e.g. 2 min idle → STALLED).
+- Whether the tracker should also capture subagent-level activity (per-agent turn state) or stay
+  at lane/phase granularity. Start lane/phase; subagent detail later.
+- Reuse the lane-drive wezterm auto-open to pop the dashboard terminal, not just the lane.
+
+Refactor scope (draft):
+
+- [ ] **Store module.** `src/fleet-tracker.js` (pure: schema, diff, staleness calc) + I/O in
+  scaffold style; tests for schema + staleness.
+- [ ] **Plugin (opt-in).** One `.opencode/plugins/armada-fleet.js` file rendered by the generator
+  (mirror `renderArmadaSupervisionPlugin`): session.created heartbeat start, session.idle
+  heartbeat tick + stall marking, session.closed finalize. Rendered only with the new flag.
+- [ ] **`/armada-fleet` command + `armada fleet` CLI.** Renderer + CLI subcommand reading the
+  store, printing the dashboard table / JSON.
+- [ ] **Wire lane-drive.** `bootLane` records run start into the store; `--no-track` disables.
+- [ ] **Tests.** Store schema/staleness unit tests; command renderer emits valid descriptor;
+  fake-`tmux` e2e that a drive boot writes a run entry; no-clobber + round-trip preserved.
+- [ ] **Docs.** `docs/using-armada.md` + `docs/armada-improves-armada.md` — fleet dashboard usage.
 
 ---
 
