@@ -2,6 +2,11 @@
 
 Goal: prove opencode-armada works end-to-end in a real repo, then document the result.
 
+> **Layout note:** armada is now native (no plugin). Generated teams are `.opencode/agent/*.md`
+> files with a minimal `opencode.json` (`default_agent`, `external_directory: deny`). Entries
+> dated 2026-08-01 below describe the earlier omo-slim plugin layout — they are historical
+> records, not current behavior.
+
 ## Target repo
 
 `~/WBG/data-ai-chatbot` — Python FastAPI backend + React/Next.js frontend.
@@ -19,7 +24,7 @@ Goal: prove opencode-armada works end-to-end in a real repo, then document the r
 2. **Scaffold** (dry-run first once `--dry-run` exists, else real)
    - Confirm `opencode.json`, `AGENTS.md`, `REQUIREMENTS.md` are NOT overwritten (they don't
      exist yet, so they'll be created).
-   - Confirm `.opencode/oh-my-opencode-slim.jsonc` + prompt files are written.
+   - Confirm `.opencode/agent/<role>.md` native agent files are written for all 8 roles.
 
 3. **Load in opencode**
    - `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode`
@@ -33,7 +38,7 @@ Goal: prove opencode-armada works end-to-end in a real repo, then document the r
 5. **Record findings**
    - Model ID availability on the user's actual providers
    - Prompt quality against the repo conventions
-   - Any omo-slim schema drift
+   - Any agent frontmatter schema drift
    - Update TODO.md and close the "Next" section when done.
 
 ## Result
@@ -274,3 +279,37 @@ orchestrator append prompt lean).
   on any other repo.
 
 74/74 tests.
+
+---
+
+## Native mode — omo-slim dependency removed (2026-08-02)
+
+Generated teams are now fully native opencode agents (`.opencode/agent/*.md` + minimal
+`opencode.json`); the omo-slim plugin is gone. Validated end-to-end:
+
+- **Native independence:** with a clean HOME (zero global config/plugin), `opencode agent list`
+  loads all 8 armada agents from `.opencode/agent/` — orchestrator primary, zero omo-slim
+  agents. Regression test asserts generated artifacts never reference omo-slim.
+- **CLI:** `armada new` (fresh repo) + `armada init` (existing repo) + `--from-armada` +
+  `--budget free/power` all produce the native layout; `--budget` selects per-role models.
+- **Runtime trivial tasks** (`opencode run --auto --agent orchestrator`): existing repo →
+  orchestrator dispatched backend-dev as a background subagent, test written + run, pass,
+  exit 0. Fresh repo → SDK boundary blocked the orchestrator's own edit, delegated, exit 0.
+- **TUI** (tmux pty): boots directly into **Orchestrator · Hy3** (`default_agent`), tab
+  agent-switcher works, `/armada` command registers + executes reading `.opencode/agent/`.
+- **Validation-driven fixes:** `color: cyan` was invalid in opencode 1.18.11's agent schema
+  (config failed to load) → `#00bcd4`; `--budget` only changed the project model, leaving agent
+  frontmatter on balanced → now recomputes per-role models.
+
+159/159 tests.
+
+---
+
+## Agent frontmatter — opencode 1.18.11 schema (2026-08-02)
+
+- `color` must be `#rrggbb` or a theme token (`primary/secondary/accent/success/warning/error/
+  info`) — a CSS color name like `cyan` invalidates the whole config. Armada emits `#00bcd4`
+  for the orchestrator.
+- There is **no `displayName`** in native agents; the orchestrator keeps its internal name and
+  uses `color` for TUI distinction. `default_agent: "orchestrator"` in `opencode.json` boots the
+  TUI straight into it.
