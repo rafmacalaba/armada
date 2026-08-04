@@ -23,7 +23,7 @@ import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache
 import { parseManifestYaml, validateRequirementsFile } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 import { runNew } from "./new-command.js"
-import { createFeature, listFeatures, closeFeature, setActiveContract, readActive, readFeatureEntry } from "./feature-commands.js"
+import { createFeature, createWorktreeFeature, listFeatures, closeFeature, setActiveContract, readActive, readFeatureEntry } from "./feature-commands.js"
 import { main as reconcileMain } from "./reconcile-cli.js"
 import { renderInitSummary } from "./init-summary.js"
 import { applyPreset } from "./preset-command.js"
@@ -720,19 +720,31 @@ async function featureCmd(args) {
 
   switch (sub) {
     case "new": {
-      const name = rest[0]
+      const name = rest.find((a) => !a.startsWith("--"))
       if (!name) {
         console.error("feature new: name is required")
         process.exitCode = 1
         return 1
       }
+      const useWorktree = rest.includes("--worktree")
       try {
-        const paths = createFeature(resolve(target), name)
-        console.log(`feature "${name}" created`)
-        console.log(`  contract: ${paths.contractPath}`)
-        console.log(`  entry:    ${paths.entryPath}`)
-        console.log(`  index:    ${paths.indexPath}`)
-        console.log(`  active:   ${paths.activePath}`)
+        if (useWorktree) {
+          const paths = createWorktreeFeature(resolve(target), name)
+          console.log(`feature "${name}" created (worktree)`)
+          console.log(`  worktree: ${paths.worktreePath}`)
+          console.log(`  branch:   ${paths.branch}`)
+          console.log(`  contract: ${paths.contractPath}`)
+          console.log(`  entry:    ${paths.entryPath}`)
+          console.log(`  index:    ${paths.indexPath}`)
+          console.log(`  active:   ${paths.activePath}`)
+        } else {
+          const paths = createFeature(resolve(target), name)
+          console.log(`feature "${name}" created`)
+          console.log(`  contract: ${paths.contractPath}`)
+          console.log(`  entry:    ${paths.entryPath}`)
+          console.log(`  index:    ${paths.indexPath}`)
+          console.log(`  active:   ${paths.activePath}`)
+        }
       } catch (err) {
         logError(err)
         process.exitCode = 1
@@ -747,18 +759,27 @@ async function featureCmd(args) {
           console.log("No features registered.")
           return 0
         }
-        // Print aligned table
+        // Sort by name for deterministic output
+        features.sort((a, b) => a.name.localeCompare(b.name))
+
+        // Print aligned table — 5 columns: NAME STATUS CONTRACT WORKTREE BRANCH
         const nameWidth = Math.max(8, ...features.map((f) => f.name.length))
         const statusWidth = Math.max(6, ...features.map((f) => f.status.length))
         const contractWidth = Math.max(8, ...features.map((f) => f.contract.length))
+        const worktreeWidth = Math.max(8, ...features.map((f) => (f.worktree || "-").length))
+        const branchWidth = Math.max(6, ...features.map((f) => (f.branch || "-").length))
 
         const padName = "NAME".padEnd(nameWidth)
         const padStatus = "STATUS".padEnd(statusWidth)
         const padContract = "CONTRACT".padEnd(contractWidth)
-        console.log(`${padName}  ${padStatus}  ${padContract}`)
-        console.log(`${"-".repeat(nameWidth)}  ${"-".repeat(statusWidth)}  ${"-".repeat(contractWidth)}`)
+        const padWorktree = "WORKTREE".padEnd(worktreeWidth)
+        const padBranch = "BRANCH".padEnd(branchWidth)
+        console.log(`${padName}  ${padStatus}  ${padContract}  ${padWorktree}  ${padBranch}`)
+        console.log(`${"-".repeat(nameWidth)}  ${"-".repeat(statusWidth)}  ${"-".repeat(contractWidth)}  ${"-".repeat(worktreeWidth)}  ${"-".repeat(branchWidth)}`)
         for (const f of features) {
-          console.log(`${f.name.padEnd(nameWidth)}  ${f.status.padEnd(statusWidth)}  ${f.contract.padEnd(contractWidth)}`)
+          const wt = f.worktree || "-"
+          const br = f.branch || "-"
+          console.log(`${f.name.padEnd(nameWidth)}  ${f.status.padEnd(statusWidth)}  ${f.contract.padEnd(contractWidth)}  ${wt.padEnd(worktreeWidth)}  ${br.padEnd(branchWidth)}`)
         }
       } catch (err) {
         logError(err)
@@ -768,15 +789,19 @@ async function featureCmd(args) {
       return 0
     }
     case "close": {
-      const name = rest[0]
+      const name = rest.find((a) => !a.startsWith("--"))
       if (!name) {
         console.error("feature close: name is required")
         process.exitCode = 1
         return 1
       }
+      const removeWorktree = rest.includes("--remove")
       try {
-        const result = closeFeature(resolve(target), name)
+        const result = closeFeature(resolve(target), name, { removeWorktree })
         console.log(`shipped: "${name}"`)
+        if (result.removedWorktree) {
+          console.log(`  worktree removed: sandbox/${name}`)
+        }
         console.log(`  shippedAt: ${result.entry.shippedAt}`)
       } catch (err) {
         logError(err)
