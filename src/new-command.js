@@ -220,5 +220,5 @@ export async function runNew(opts = {}) {
   console.log(`  cd ${name}`)
   if (postInstall) console.log(`  ${postInstall}`)
   console.log("  opencode")
-  console.log("  /armada")
+  console.log("  armada status")
 }

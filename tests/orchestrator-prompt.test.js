@@ -4,13 +4,6 @@ import { join } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { fillPrompt, PROMPT_SOURCE, scaffold } from "../src/scaffold.js"
-import {
-  renderArmadaStatusCommand,
-  renderArmadaResumeCommand,
-  renderArmadaScoutCommand,
-  renderArmadaFleetCommand,
-  renderArmadaCommand,
-} from "../src/generator.js"
 import { agentNameFor } from "../src/role-display.js"
 import { ROLES } from "../src/model-catalog.js"
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs"
@@ -95,31 +88,6 @@ test("orchestrator prompt: PR-first hard rule (rule 6)", () => {
     "PR must target master base")
 })
 
-test("armada-status / armada-resume command renderers reference correct sources", () => {
-  // armada-status reads the state index directly.
-  const status = renderArmadaStatusCommand()
-  assert.ok(
-    status.includes("armada/state/active.json") || status.includes("armada/state/features/index.json"),
-    "armada-status must reference armada/state/active.json or the features index"
-  )
-  assert.ok(
-    !/read \.opencode\/fleet-status\.md/i.test(status),
-    "armada-status must not read .opencode/fleet-status.md as the primary state"
-  )
-  // armada-resume calls the engine (no direct state reads).
-  const resume = renderArmadaResumeCommand()
-  assert.ok(
-    resume.includes("armada reconcile"),
-    "armada-resume must prefer the global armada binary"
-  )
-  assert.ok(
-    resume.includes("node src/cli.js reconcile"),
-    "armada-resume must call node src/cli.js reconcile"
-  )
-  assert.ok(resume.includes("resume line"), "armada-resume must mention resume line")
-  assert.ok(resume.includes("drift list"), "armada-resume must mention drift list")
-})
-
 test("orchestrator prompt: delegation targets ship names", () => {
   const prompt = orchestratorPrompt()
 
@@ -144,23 +112,6 @@ test("orchestrator prompt: delegation targets ship names", () => {
 
   assert.doesNotMatch(prompt, /\{[a-z_]+\}/,
     "prompt must contain no dangling {placeholder} tokens")
-})
-
-test("command renderers: ship-named agent", () => {
-  const cmds = [
-    renderArmadaStatusCommand(),
-    renderArmadaScoutCommand(),
-    renderArmadaResumeCommand(),
-    renderArmadaFleetCommand(),
-  ]
-  for (const c of cmds) {
-    assert.match(c, /^agent: commodore$/m,
-      "command frontmatter must have 'agent: commodore'")
-  }
-
-  const generic = renderArmadaCommand()
-  assert.doesNotMatch(generic, /^agent:/m,
-    "generic armada command must not have an agent: line")
 })
 
 test("generated agents have no dangling {placeholder} or bare role names (scaffold e2e)", () => {

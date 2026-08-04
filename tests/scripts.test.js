@@ -100,9 +100,9 @@ test("DEF-034: e2e directory has no test files", () => {
 })
 
 test("DEF-034: git ls-files shows migration targets in tests/", () => {
-  const result = spawnSync("git", ["ls-files", "tests/cli-wiring.test.js", "tests/reconcile-cli.test.js", "tests/validation.test.js", "tests/armada-resume-command.test.js", "tests/armada-resume-roundtrip.test.js"], { encoding: "utf8", cwd: join(__dirname, "..") })
+  const result = spawnSync("git", ["ls-files", "tests/cli-wiring.test.js", "tests/reconcile-cli.test.js", "tests/validation.test.js"], { encoding: "utf8", cwd: join(__dirname, "..") })
   const lines = result.stdout.trim().split("\n").filter(Boolean)
-  assert.strictEqual(lines.length, 5, `expected 5 files tracked in tests/, got ${lines.length}: ${result.stdout}`)
+  assert.strictEqual(lines.length, 3, `expected 3 files tracked in tests/, got ${lines.length}: ${result.stdout}`)
 })
 
 test("DEF-034: git ls-files shows nothing from e2e/", () => {

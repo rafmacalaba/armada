@@ -91,11 +91,8 @@ the final phase completes.
 
 ## Fleet commands
 
-- `/armada` — team status, roles, regenerate.
-- `/armada-status` — read `armada/state/active.json` + `armada/state/features/index.json`,
-  report active feature, pending phases, next action.
-- `/armada-scout` — dispatch a read-only investigation (xebec/bark), no writes.
-- `/armada-resume` — run `node src/cli.js reconcile`, print the resume line and drift list.
+Use the CLI: `armada status`, `armada scout <area>`, `armada reconcile`, `armada fleet [session]`.
+Read `armada/state/active.json` directly when needed.
 
 ## Cost discipline
 

@@ -29,7 +29,7 @@ export function renderInitSummary(manifest) {
   lines.push(
     "Next steps:",
     "  1. opencode",
-    "  2. /armada  -> team status",
+    "  2. armada status (CLI)  -> fleet status",
     "  3. 'ping all agents'  -> verify roster",
   )
 
