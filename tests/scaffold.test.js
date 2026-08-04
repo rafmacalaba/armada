@@ -72,6 +72,7 @@ test("scaffold writes all expected files", () => {
   const expected = [
     "armada/armada.yaml",
     "armada/REQUIREMENTS.md",
+
     ...ROLES.map((r) => `.opencode/agent/${agentNameFor(r)}.md`),
   ]
   for (const f of expected) {
@@ -93,6 +94,7 @@ test("scaffold writes all expected files", () => {
   const orch = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
   assert.match(orch, /^---\n/m)
   assert.match(orch, /mode: primary/)
+
 
   rmSync(dir, { recursive: true, force: true })
 })
@@ -444,11 +446,11 @@ test("scaffold throws when custom prompt template is missing", () => {
 })
 
 // -- Phase 4: fleet tracker plugin scaffold --
-test("fleet plugin not written by default", () => {
+test("fleet plugin written by default", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-flt-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
-  assert.ok(!existsSync(join(dir, ".opencode/plugins/armada-fleet.js")), "no fleet plugin by default")
+  assert.ok(existsSync(join(dir, ".opencode/plugins/armada-fleet.js")), "fleet plugin written by default")
   rmSync(dir, { recursive: true, force: true })
 })
 

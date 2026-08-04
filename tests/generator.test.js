@@ -400,12 +400,12 @@ test("renderArmadaScoutCommand is read-only, dispatches investigation", () => {
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
 })
 
-test("renderArmadaResumeCommand prefers armada reconcile with in-tree fallback", () => {
+test("renderArmadaResumeCommand prefers armada reconcile with no in-tree fallback", () => {
   const md = renderArmadaResumeCommand()
   assert.match(md, /^---\n/)
   assert.match(md, /description:/)
   assert.match(md, /armada reconcile/)
-  assert.match(md, /node src\/cli\.js reconcile/)
+  assert.doesNotMatch(md, /node src\/cli\.js/)
   assert.match(md, /resume line/)
   assert.match(md, /drift list/)
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
@@ -424,12 +424,12 @@ test("renderArmadaResumeCommand is byte-identical after manifest round-trip", ()
   assert.strictEqual(cmd1, cmd2, "command output must be byte-identical after round-trip")
 })
 
-test("renderArmadaFleetCommand returns frontmatter with commodore agent and fleet fallback", () => {
+test("renderArmadaFleetCommand returns frontmatter with commodore agent and no in-tree fallback", () => {
   const md = renderArmadaFleetCommand()
   assert.match(md, /^---\n/)
   assert.match(md, /agent: commodore/)
   assert.match(md, /armada fleet/)
-  assert.match(md, /node src\/cli\.js fleet/)
+  assert.doesNotMatch(md, /node src\/cli\.js/)
 })
 
 test("renderArmadaVoyageCommand returns frontmatter with commodore agent and voyage launch body", () => {

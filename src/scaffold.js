@@ -422,8 +422,8 @@ export function scaffold(manifest, stack, opts = {}) {
     write(".opencode/plugins/armada-supervision.js", renderArmadaSupervisionPlugin(team))
   }
 
-  // 7c. Opt-in fleet tracker plugin.
-  if (manifest.project.supervision?.fleet) {
+  // 7c. Fleet tracker plugin — installed by default (use --no-fleet-tracker to skip).
+  if (manifest.project.supervision?.fleet !== false) {
     write(".opencode/plugins/armada-fleet.js", renderArmadaFleetPlugin())
   }
 

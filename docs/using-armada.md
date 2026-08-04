@@ -143,6 +143,11 @@ delegates everything else.
    It escalates to you for: contract approval, a real decision it can't make, or a permission
    override. Everything else it resolves itself.
 
+> **Question UI.** When the orchestrator asks you anything (clarifications, choices, approvals),
+> it uses the harness's native question tool — opencode's `question` tool, or the equivalent in
+> codex / claude code. The CLI's `armada init` questionnaire is the fallback for terminal-only
+> contexts where the harness UI is unavailable.
+
 **`--yolo` changes permissions, not this conversation.** Autonomous mode auto-approves *tool*
 permission prompts — but the *product decision* (what to build) is still co-written with you,
 one question at a time, explicit approval before building. This is the recommended way to run:
@@ -473,6 +478,9 @@ node /path/to/opencode-armada/src/cli.js init --from-armada armada/armada.yaml
 # OR let the scaffolder generate the manifest from presets + stack detection
 node /path/to/opencode-armada/src/cli.js init --stack <stack> --budget balanced
 ```
+
+armada source-checkout contributors: `npm link` exposes the `armada` binary on PATH so the
+generated `/armada-*` slash commands work without a source-relative fallback.
 
 What you get:
 
