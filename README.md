@@ -112,7 +112,7 @@ gates and review the PR.
 
 Every phase transition is written to `armada/state/` — so the session is **restart-proof**. Kill
 opencode mid-feature and reopen: the orchestrator reads state and reports *"resume: feature X,
-phase 2, evidence in, next action Y"* (or `/armada-resume`). Per-feature contracts live in
+phase 2, evidence in, next action Y"* (or run `armada reconcile`). Per-feature contracts live in
 `armada/state/features/`, tracked by `armada feature new/list/close`.
 
 The orchestrator is armada's primary agent (`mode: primary`) and the repo's `default_agent`, so
@@ -121,8 +121,8 @@ the TUI boots straight into it. Its prompt is self-contained — nothing is appe
 Everything in the setup-time options below (`--headless`, `--requirements`, `--budget`, …) is a
 **setup-time option** on step 1. After that, the fleet runs as native opencode agents with a small,
 reproducible runtime footprint: the **state area** (`armada/state/`, written by the fleet at every
-phase transition) and **in-session commands** (`/armada`, `/armada-status`, `/armada-scout`,
-`/armada-resume`).
+phase transition) and the **CLI** (`armada status`, `armada scout <area>`, `armada reconcile`,
+`armada fleet [session]`).
 
 ---
 
@@ -216,7 +216,7 @@ starter copy, and the team install. No git clone → template copy → `armada i
 # from your repo root
 npx opencode-armada init            # interactive questionnaire — or: bunx opencode-armada init
 opencode                            # start opencode
-# /armada                          # team status
+armada status                       # team status (in another terminal)
 # "ping all agents"                # verify the roster is online
 ```
 
@@ -261,11 +261,6 @@ your-repo/
     │   ├── backend-dev.md
     │   ├── frontend-dev.md
     │   └── qa.md / adversary.md / security.md / docs.md / architect.md
-    └── commands/                     # in-session commands
-        ├── armada.md                 # /armada — team status
-        ├── armada-status.md          # /armada-status — read the state area
-        ├── armada-scout.md           # /armada-scout — read-only investigation
-        └── armada-resume.md          # /armada-resume — restart-proof resume
 ```
 
 When browser/e2e testing is enabled, `.devcontainer/` (opencode + agent-browser + chromium)
@@ -295,6 +290,10 @@ is also scaffolded.
 | `armada feature list` | list all features from the state index |
 | `armada feature close <name>` | close a feature (evidence-gated — refuses until criteria pass) |
 | `armada feature status [name]` | show a feature's phase graph + evidence |
+| `armada status [--json]` | active feature + next action from `armada/state` (table; `--json` for machine output) |
+| `armada scout <area>` | print an investigation brief for a code area |
+| `armada reconcile [--json] [--state-dir <path>] [--repo <path>]` | resume after an interrupted session (drift list) |
+| `armada fleet [session] [--json] [--open]` | per-lane progress dashboard |
 | `armada models [budget]` | show curated model catalog (first-choice model tagged `(Recommended)`) |
 | `armada models --refresh --cache <path>` | merge live provider models (cache to path) |
 | `armada models --list-openrouter` | show live model list from the OpenRouter API |

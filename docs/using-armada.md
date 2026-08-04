@@ -11,7 +11,7 @@ on **anything else**.
 ## Why this works
 
 - **No infra to set up.** The scaffold produces `.opencode/`, `opencode.json`,
-  the 8 role prompts, and the `/armada` command in one shot.
+  the 8 role prompts, and the fleet CLI (`status`/`scout`/`reconcile`/`fleet`) in one shot.
 - **Opinionated team by default.** The `balanced` preset is sane for most
   projects: free workers, paid reviewers where they matter.
 - **Contract-driven.** `armada/REQUIREMENTS.md` is the source of truth; phases
@@ -57,7 +57,7 @@ Opening `opencode` inside a scaffolded project **is** the trigger. The orchestra
 primary agent (`.opencode/agent/orchestrator.md`) whose prompt is the full self-contained
 delivery protocol; `opencode.json` sets `default_agent: "orchestrator"` so the TUI boots
 straight into it. No separate "start armada" step — the protocol is live when the session opens.
-`/armada` only reports status.
+`armada status` reports where the fleet is.
 
 The orchestrator dispatches the team in **parallel** as opencode-native background subagents:
 independent phases, and `backend-dev ∥ frontend-dev` within a phase.
@@ -135,31 +135,30 @@ list lags.
 
 ### Fleet commands
 
-Every scaffold ships five in-session commands under `.opencode/commands/`:
+Run these in your terminal, not the opencode TUI:
 
 | Command | What it does |
-|---|---|
-| `/armada` | Team status, roles, how to regenerate |
-| `/armada-status` | Read `.opencode/fleet-status.md` — active phases, last update, next action |
-| `/armada-scout` | Dispatch a read-only investigation (adversary/architect), no writes, no PR |
-| `/armada-resume` | Read `.opencode/fleet-status.md`, summarize pending phases, ask the next action |
-| `/armada-fleet` | Per-dock progress dashboard (same store as the `armada fleet` CLI) |
+|---------|--------------|
+| `armada status [--json]` | Active features, status, next action |
+| `armada scout <area>` | Print investigation brief for a code area |
+| `armada reconcile` | Resume after an interrupted session (drift list) |
+| `armada fleet [session]` | Per-lane progress dashboard |
 
 **Fleet status file (`.opencode/fleet-status.md`):** written by the orchestrator so a killed
 session can be resumed. Format: YAML frontmatter (`active_phases`, `last_update`, `next_action`)
 plus a short markdown body — one line per active phase (phase, evidence in, status). The
-orchestrator reads it on session start (hard rule 3) and on `/armada-status` / `/armada-resume`.
+orchestrator reads it on session start (hard rule 3) and on `armada status` / `armada reconcile`.
 
 ### Resume after a crash
 
 A killed session — crash, power loss, `SIGKILL`, closed laptop — resumes from state, not from
 memory. `armada/state/` is written at every phase transition, so the next session reconciles
-and carries on. Run `/armada-resume` in the TUI whenever you reopen opencode after an
-interruption, **before** dispatching anything new: it reports where the fleet stopped and what
-is outstanding. It is read-only — reconcile never mutates state.
+and carries on. Run `armada reconcile` whenever you reopen opencode after an interruption,
+**before** dispatching anything new: it reports where the fleet stopped and what is outstanding.
+It is read-only — reconcile never mutates state.
 
-`/armada-resume` wraps the same engine as `armada reconcile`. It prints one resume line naming
-the active feature (`<slug>`), the current phase (`<phase-id>`), and the next action, followed
+`armada reconcile` prints one resume line naming the active feature (`<slug>`), the current
+phase (`<phase-id>`), and the next action, followed
 by one line per evidence drift. Output format per the contract spec (`armada/REQUIREMENTS.md`,
 Phase 1):
 
@@ -180,7 +179,7 @@ and the one-line fix per kind:
 | `evidence-failed` | The evidence command for a criterion exited non-zero | Fix the cause, re-run the command until it exits 0 |
 | `criterion-unticked` | A criterion on a passed phase is unchecked in the contract | Finish the work, tick the box, re-verify; re-open the phase if work regressed |
 
-The same engine as a CLI:
+Usage:
 
 ```
 armada reconcile [--json] [--state-dir <path>] [--repo <path>]
@@ -365,7 +364,6 @@ What you get:
 
 ```
 .opencode/agent/<role>.md                # 8 native agents (mode/model/permission in frontmatter)
-.opencode/commands/armada.md             # /armada slash command
 opencode.json                            # model + default_agent + external_directory deny
 AGENTS.md                                # team rulebook
 armada/armada.yaml                       # source of truth
@@ -469,12 +467,11 @@ Interactive:
 
 ```bash
 OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode
-# then: /armada
+# then: armada status  # where the fleet is (in another terminal)
 ```
 
-Then either describe the goal in plain language (the orchestrator will read the
-contract, dispatch phases, and reconcile results) or run an explicit
-`/armada <phase>` to steer a specific phase.
+Then describe the goal in plain language — the orchestrator reads the contract, dispatches
+phases, and reconciles results. `armada status` shows where the fleet is.
 
 Headless / CI-safe:
 

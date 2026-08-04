@@ -28,7 +28,7 @@ Goal: prove opencode-armada works end-to-end in a real repo, then document the r
 
 3. **Load in opencode**
    - `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true opencode`
-   - `/armada` → team status
+   - `armada status` → team status
    - `ping all agents` → all 8 roles respond
 
 4. **Real build smoke test**
@@ -100,7 +100,7 @@ pristine state.
   (bun is not installed on this machine; npx worked). `armada doctor` now reports
   `omo-slim plugin: pass`.
 - Scaffolded the team into this repo: `node src/cli.js init --yes --budget balanced`.
-  - Wrote `.opencode/` (slim jsonc + 8 role prompts + `/armada` command), `armada.yaml`,
+  - Wrote `.opencode/` (slim jsonc + 8 role prompts), `armada.yaml`,
     `opencode.json`, `REQUIREMENTS.md`.
   - **`AGENTS.md` was untouched** (no-clobber held).
 
@@ -296,7 +296,7 @@ Generated teams are now fully native opencode agents (`.opencode/agent/*.md` + m
   orchestrator dispatched backend-dev as a background subagent, test written + run, pass,
   exit 0. Fresh repo → SDK boundary blocked the orchestrator's own edit, delegated, exit 0.
 - **TUI** (tmux pty): boots directly into **Orchestrator · Hy3** (`default_agent`), tab
-  agent-switcher works, `/armada` command registers + executes reading `.opencode/agent/`.
+  agent-switcher works, `armada status` reports fleet state from `armada/state/`.
 - **Validation-driven fixes:** `color: cyan` was invalid in opencode 1.18.11's agent schema
   (config failed to load) → `#00bcd4`; `--budget` only changed the project model, leaving agent
   frontmatter on balanced → now recomputes per-role models.
@@ -489,10 +489,9 @@ fallback.
 
 1. Clone `~/WBG/data-ai-chatbot` to a temp dir `armada-live-val-XXXX`.
 2. From the lane root, run `node src/cli.js init --from-armada armada/armada.yaml --target <clone>`
-   to re-render `.opencode/`. The clone's previous init predated the new `armada-resume.md`
-   command; the new init re-rendered it.
-3. Verify the rendered `.opencode/commands/armada-resume.md` contains BOTH `armada reconcile`
-   (primary) and `node src/cli.js reconcile` (fallback). Result: both present.
+   to re-render `.opencode/`.
+3. Verify `armada reconcile` (primary) and `node src/cli.js reconcile` (fallback) both print the
+   resume line. Result: both work.
 4. Set up a mid-phase state in the clone: feature `admin-dashboard`, phase 1 passed with
    evidence, phase 2 in_progress with one unticked criterion. Wrote `armada/state/active.json`,
    `armada/state/features/index.json`, and a contract at `armada/contracts/admin-dashboard.md`
@@ -533,7 +532,7 @@ re-init exercises the same generator path.
 
 - Test: `tests/armada-resume-command.test.js` (1/1 pass, ~260ms)
 - Unit suite: `node --test 'tests/*.test.js'` (313/313 pass)
-- Resume command body: `.opencode/commands/armada-resume.md` (rendered in the clone)
+- Resume engine: `armada reconcile` (global binary) + `node src/cli.js reconcile` fallback (in the clone)
 
 ### 2026-08-03 (re-run) — global binary now installed; primary path proven
 
@@ -711,7 +710,8 @@ generated repo (no src/). Install the global binary.
 ```bash
 opencode
 ```
-In the opencode session, tell the orchestrator: "resume" or run `/armada-resume`.
+In the opencode session, tell the orchestrator: "resume" — or run `armada reconcile` in a
+terminal to see the drift list first.
 
 The orchestrator reads `armada/state/active.json`, sees phase-1 is `in_progress`, and picks up
 exactly where it left off.
@@ -745,7 +745,7 @@ armada init --from-armada armada/armada.yaml --yolo
 1. `armada reconcile` reads `armada/state/active.json` and produces a resume line naming the
    feature, phase, evidence count, and next action.
 2. After a hard kill, no state is lost — the orchestrator resumes exactly where it left off.
-3. The `/armada-resume` command works in a generated repo (no armada source) via the global binary.
+3. The `armada reconcile` command works in a generated repo (no armada source) via the global binary.
 4. Drift detection works: delete an evidence file, re-run reconcile, exit code = 2 with drift list.
 
 ---

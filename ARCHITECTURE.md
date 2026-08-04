@@ -258,9 +258,9 @@ What the graph encodes:
 
 - **`armada feature new/list/close`** — per-feature contracts + state index. `close` is
   evidence-gated: it refuses until every criterion has a passing test or citation.
-- **`/armada-status`** — reads `armada/state/active.json` + the features index.
-- **`/armada-resume`** — the human-facing restart wrapper.
-- **`/armada-scout`** — dispatch a read-only investigation (adversary/architect), no writes.
+- **CLI `armada status [--json]`** — reads `armada/state/active.json` + the features index.
+- **CLI `armada reconcile`** — the human-facing restart wrapper (resume line + drift list).
+- **CLI `armada scout <area>`** — print an investigation brief for a code area, no writes.
 - **`armada doctor`** — checks the harness: opencode, providers, openrouter auth, background
   dispatch, supervision-plugin presence.
 - **`npm run test:smoke`** — live OpenRouter smoke against the cheapest model (opt-in).

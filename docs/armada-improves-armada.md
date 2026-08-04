@@ -31,7 +31,7 @@ Opening `opencode` inside a scaffolded dock **is** the trigger. The orchestrator
 primary agent (`.opencode/agent/orchestrator.md`) whose prompt is the full self-contained
 delivery protocol; `opencode.json` sets `default_agent: "orchestrator"` so the TUI boots
 straight into it. There is no separate "start armada" step — the protocol is live the moment the
-session opens. `/armada` only reports status.
+session opens. `armada status` reports where the fleet is.
 
 The orchestrator dispatches the team in **parallel** as opencode-native background subagents:
 independent phases, and `backend-dev ∥ frontend-dev` within a phase.
@@ -262,7 +262,7 @@ manually (see `8e0fab3`).
   have agents write repo-relative files.
 - **State:** the fleet tracks features in `armada/state/` (per-feature contracts, phase graph,
   evidence, next action) so a killed session resumes — `armada reconcile` prints the resume
-  line, `/armada-resume` picks it up. See `TODO.md` "session-based armada".
+  line. See `TODO.md` "session-based armada".
 
 ## See also
 
