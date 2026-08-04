@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync, mkdirSync, chmodSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { execFile } from "node:child_process"
+import { execFile, spawnSync } from "node:child_process"
 import YAML from "yaml"
 
 const CLI = join(process.cwd(), "src/cli.js")
@@ -13,6 +13,23 @@ export function makeTempRepo(files = {}) {
     mkdirSync(join(dir, rel.split("/").slice(0, -1).join("/")), { recursive: true })
     writeFileSync(p, content, "utf8")
   }
+  return dir
+}
+
+/**
+ * Create a temp repo with git initialized and an initial commit.
+ * Calls makeTempRepo for the base, then runs git init/commit.
+ * @param {{ [relPath: string]: string }} [files]
+ * @returns {string} dir
+ */
+export function makeTempGitRepo(files = {}) {
+  const dir = makeTempRepo(files)
+  const opts = { cwd: dir, encoding: "utf8" }
+  spawnSync("git", ["init", "-b", "main"], opts)
+  spawnSync("git", ["config", "user.email", "t@t"], opts)
+  spawnSync("git", ["config", "user.name", "t"], opts)
+  spawnSync("git", ["add", "-A"], opts)
+  spawnSync("git", ["commit", "-m", "init"], opts)
   return dir
 }
 
