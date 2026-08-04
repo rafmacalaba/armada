@@ -129,7 +129,7 @@ delegates everything else.
 
 1. **Attach to the orchestrator.** If you launched `opencode` directly, you're already in it.
    If armada is running on a detached ship (a tmux session — e.g. in a `sandbox/` worktree),
-   attach with `tmux attach -t <ship>`. You'll see `Orchestrator · <model>` at the bottom.
+   attach with `armada voyage --print-attach <ship>`. You'll see `Orchestrator · <model>` at the bottom.
 2. **Describe what you want.** Say it in plain language — scope, what "done" means, any
    constraints. You can paste a TODO item, a bug report, or a raw wish.
 3. **Co-write the contract.** The orchestrator reads `armada/REQUIREMENTS.md` (the current
@@ -663,7 +663,7 @@ A heartbeat keeps an entry fresh. Three ways to keep it fresh:
 - `armada.yaml`: `project.supervision.fleet: true` — same as the flag, set at scaffold time.
 
 A dock shows STALLED when no heartbeat has arrived in the last 2 minutes — the ship likely
-died. Re-attach with `tmux attach -t <name>` or restart it with `armada voyage <dock>`.
+died. Re-attach with `armada voyage --print-attach <name>` or restart it with `armada voyage <dock>`.
 
 ## Security ledger
 

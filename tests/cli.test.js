@@ -367,7 +367,7 @@ test("drive boots a lane session and prints success", async () => {
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /session/)
   assert.match(r.stdout, /auto-attach skipped/)
-  assert.match(r.stdout, /tmux attach -t/)
+  assert.doesNotMatch(r.stdout, /tmux attach -t/)
 })
 
 test("drive with nonexistent path exits 1", async () => {
@@ -484,8 +484,8 @@ test("drive auto-open falls back with hint when no terminal available", async ()
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /session/)
   assert.match(r.stdout, /auto-attach skipped/)
-  assert.match(r.stdout, /tmux attach -t/)
-  assert.match(r.stdout, /attach manually/)
+  assert.doesNotMatch(r.stdout, /tmux attach -t/)
+  assert.doesNotMatch(r.stdout, /attach manually/)
 })
 
 // Phase 2: --no-open skips auto-open, prints skip message
@@ -656,7 +656,7 @@ test("voyage boots a lane session and prints success", async () => {
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /session/)
   assert.match(r.stdout, /auto-attach skipped/)
-  assert.match(r.stdout, /tmux attach -t/)
+  assert.doesNotMatch(r.stdout, /tmux attach -t/)
   assert.match(r.stdout, /armada voyage:/)
 })
 
@@ -688,4 +688,18 @@ test("voyage on existing session says already running", async () => {
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /already running|reattach/)
   assert.doesNotMatch(r.stdout, /prompt registered/)
+})
+
+test("voyage --print-attach prints attach command and exits 0", async () => {
+  const lanePath = mkdtempSync(join(tmpdir(), "voyage-printattach-"))
+  const r = await runCli(["voyage", "--print-attach", lanePath])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /tmux attach -t/)
+})
+
+test("drive --print-attach prints attach command and exits 0", async () => {
+  const lanePath = mkdtempSync(join(tmpdir(), "drive-printattach-"))
+  const r = await runCli(["drive", "--print-attach", lanePath])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /tmux attach -t/)
 })
