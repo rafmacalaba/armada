@@ -608,7 +608,9 @@ Repeat until the loop feels mechanical.
 
 ## Upgrading an armed repo
 
-For a repo already scaffolded with an older armada, upgrade in two steps.
+For a repo already scaffolded with an older armada, run **`armada update`**. It brings
+the repo fully current in one shot: re-scaffolds the armada-owned files (`.opencode/`,
+`armada.yaml`) from the manifest AND surgically updates `opencode.json`.
 
 ### 1. Update the binary
 
@@ -617,25 +619,62 @@ npm install -g opencode-armada@latest
 # or bump in your package manager
 ```
 
-### 2. Re-scaffold from the manifest
+### 2. Run `armada update`
 
 ```bash
-armada init --from-armada armada/armada.yaml
+armada update --yes
 ```
 
-Run it from the repo root. It regenerates the armada-owned files from the repo's
-manifest: `.opencode/` (agents, commands, voyage, new display names) and
-`armada.yaml`. `opencode.json` and non-armada files are preserved.
+What it does:
+
+- **Re-scaffolds** `.opencode/` (agents, commands, voyage, display names) and `armada.yaml`
+  from `armada/armada.yaml`. Same output as `armada init --from-armada` for these files.
+- **Merges** only the armada-owned keys into `opencode.json`:
+  `model`, `default_agent`, `permission`, and `provider.openrouter.models`.
+  **Every other key survives byte-for-byte** — your `$schema`, `theme`, `mcp`, `agent`,
+  `keybinds`, etc. are not touched. This is why `armada update` fixes a repo like
+  `data-ai-chatbot` that boots `agent=undefined` and dies on a dead top-level model
+  without disturbing the rest of the config.
+
+Flags:
+
+| Flag | Effect |
+|---|---|
+| `--yes` | Apply the changes without prompting. Use in CI / scripts. |
+| `--dry-run` | Print the planned changes and exit 0. Writes nothing. |
+| `--repo <path>` | Operate on a different repo root (default: cwd). |
+
+The default (no `--yes`, no `--dry-run`) prints the planned changes and asks for
+confirmation on a TTY. If stdin is not a TTY and `--yes` is not given, it falls back
+to a dry-run + warning so scripts never silently clobber a config.
+
+If `armada/armada.yaml` is missing, the command exits non-zero with a clear message
+telling you to run `armada init` first. If `opencode.json` is unparseable, it exits
+non-zero without writing — your file is never overwritten with garbage.
 
 ### 3. Verify
 
 ```bash
 armada --version
-armada voyage --help
 armada doctor
 ```
 
-All three report the new version.
+`armada doctor` reports the new state. Re-run the contract to confirm the merge was
+clean (or use `armada update --dry-run` first as a preview).
+
+### Conservative alternative: re-scaffold only
+
+If you only want to refresh `.opencode/` + `armada.yaml` and **leave `opencode.json`
+untouched**, the older escape hatch still works:
+
+```bash
+armada init --from-armada armada/armada.yaml
+```
+
+`init` never overwrites an existing `opencode.json` (no-clobber). Use `armada update`
+when the `opencode.json` drift is the actual problem; use `armada init --from-armada`
+when the opencode.json in the repo is already correct and you just want the rest
+brought current.
 
 ## See also
 

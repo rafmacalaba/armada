@@ -31,7 +31,11 @@ test("Phase 2 grep: using-armada doc carries the armed-repo upgrade path", () =>
     `${DOC_FILE} must carry a "## Upgrading an armed repo" section`
   )
   assert.ok(
-    doc.includes("upgrade in two steps"),
-    `${DOC_FILE} upgrade section must carry the two-step framing`
+    doc.includes("armada update"),
+    `${DOC_FILE} upgrade section must frame the path as \`armada update\``
+  )
+  assert.ok(
+    doc.includes("in one shot"),
+    `${DOC_FILE} upgrade section must frame \`armada update\` as a one-shot bring-current`
   )
 })
