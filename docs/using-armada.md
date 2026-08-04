@@ -198,6 +198,49 @@ list lags.
   (e.g. `openrouter/~anthropic/claude-sonnet-latest` for the latest alias).
 - **Budget tiers:** `armada init --budget free|balanced|power`.
 
+### Customize a model — end to end
+
+Change a role's model and have it actually run.
+
+1. **Edit the source of truth.** `armada/armada.yaml`, change `team[i].model` (and `fallback` if you want a different fallback). Example:
+
+   ```yaml
+   team:
+     - role: orchestrator
+       model: openrouter/anthropic/claude-sonnet-latest
+       fallback: openrouter/z-ai/glm-5.2
+   ```
+
+2. **Preview the change.**
+
+   ```
+   armada update --dry-run
+   ```
+
+   Confirms which files will be touched and which keys will change.
+
+3. **Apply.**
+
+   ```
+   armada update --yes
+   ```
+
+   Re-renders `.opencode/agent/<role>.md` frontmatter and surgically merges `opencode.json`.
+
+4. **Verify the rendered frontmatter matches.**
+
+   ```
+   grep '^model:' .opencode/agent/commodore.md
+   ```
+
+   Should print the new model ID. If not, `armada update` did not run, or you edited the wrong file.
+
+5. **Restart the opencode TUI.** The new model only takes effect on the next TUI launch. Exit the TUI (`/exit` or `Ctrl+C`), then `cd <repo> && opencode` again. With `armada update --restart`, the command prints a `tmux attach` hint if a session is running.
+
+6. **Confirm in the TUI.** The status bar shows `Orchestrator · <model-id>`. If it still shows the old model, you didn't restart (or you attached to a stale tmux session — detach with `Ctrl+B d` and reattach).
+
+`armada doctor` runs a `model-drift` check that diffs `armada.yaml` against the rendered frontmatters and warns if a file is stale. Run it any time you suspect drift.
+
 ### Fleet commands
 
 Run these in your terminal, not the opencode TUI:

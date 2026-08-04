@@ -3,7 +3,7 @@ import assert from "node:assert"
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { runDoctor } from "../src/doctor.js"
+import { runDoctor, checkModelDrift } from "../src/doctor.js"
 import { makeBin } from "./helpers.js"
 
 const SH = "#!/bin/sh\ncase \"$1\" in\n  --version) echo 1.18.11 ;;\n  auth) echo openrouter ;;\n  *) echo ok ;;\nesac\n"
@@ -209,4 +209,128 @@ test("team roster omits disabled roles", async () => {
   assert.match(roster.detail, /Commodore: opencode-go\/minimax-m3/)
   assert.ok(!roster.detail.includes("Frigate:"), "roster must omit disabled Frigate role")
   assert.ok(!roster.detail.includes("security:"), "roster must omit disabled security role")
+})
+
+test("model-drift pass when all frontmatters match armada.yaml", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-dr-drift-"))
+  mkdirSync(join(dir, "armada"), { recursive: true })
+  mkdirSync(join(dir, ".opencode", "agent"), { recursive: true })
+
+  writeFileSync(join(dir, "armada", "armada.yaml"), [
+    "project:",
+    "  name: test",
+    "  budget: balanced",
+    "team:",
+    "  - role: orchestrator",
+    "    model: opencode-go/minimax-m3",
+    "    enabled: true",
+    "  - role: backend-dev",
+    "    model: opencode-go/deepseek-v4-pro",
+    "    enabled: true",
+  ].join("\n"))
+  writeFileSync(join(dir, ".opencode", "agent", "commodore.md"), [
+    "---",
+    "model: opencode-go/minimax-m3",
+    "mode: Orchestrator",
+    "---",
+    "# prompt",
+  ].join("\n"))
+  writeFileSync(join(dir, ".opencode", "agent", "galleon.md"), [
+    "---",
+    "model: opencode-go/deepseek-v4-pro",
+    "mode: Backend",
+    "---",
+    "# prompt",
+  ].join("\n"))
+
+  const results = await checkModelDrift(dir)
+  assert.strictEqual(results.length, 1)
+  assert.strictEqual(results[0].name, "model-drift")
+  assert.strictEqual(results[0].status, "pass")
+  assert.match(results[0].detail, /all role frontmatters match/)
+})
+
+test("model-drift warn when frontmatter model differs from armada.yaml", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-dr-drift2-"))
+  mkdirSync(join(dir, "armada"), { recursive: true })
+  mkdirSync(join(dir, ".opencode", "agent"), { recursive: true })
+
+  writeFileSync(join(dir, "armada", "armada.yaml"), [
+    "project:",
+    "  name: test",
+    "  budget: balanced",
+    "team:",
+    "  - role: orchestrator",
+    "    model: opencode-go/minimax-m3",
+    "    enabled: true",
+  ].join("\n"))
+  writeFileSync(join(dir, ".opencode", "agent", "commodore.md"), [
+    "---",
+    "model: oldprovider/old-model",
+    "mode: Orchestrator",
+    "---",
+    "# prompt",
+  ].join("\n"))
+
+  const results = await checkModelDrift(dir)
+  assert.strictEqual(results.length, 1)
+  assert.strictEqual(results[0].name, "model-drift")
+  assert.strictEqual(results[0].status, "warn")
+  assert.match(results[0].detail, /armada\.yaml says "opencode-go\/minimax-m3" but/)
+  assert.match(results[0].detail, /commodore\.md says "oldprovider\/old-model"/)
+})
+
+test("model-drift warn when agent file is missing", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-dr-drift3-"))
+  mkdirSync(join(dir, "armada"), { recursive: true })
+  mkdirSync(join(dir, ".opencode", "agent"), { recursive: true })
+
+  writeFileSync(join(dir, "armada", "armada.yaml"), [
+    "project:",
+    "  name: test",
+    "  budget: balanced",
+    "team:",
+    "  - role: backend-dev",
+    "    model: opencode-go/deepseek-v4-pro",
+    "    enabled: true",
+  ].join("\n"))
+  // intentionally no galleon.md file
+
+  const results = await checkModelDrift(dir)
+  assert.strictEqual(results.length, 1)
+  assert.strictEqual(results[0].name, "model-drift")
+  assert.strictEqual(results[0].status, "warn")
+  assert.match(results[0].detail, /galleon\.md not found/)
+})
+
+test("model-drift skips disabled roles", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-dr-drift4-"))
+  mkdirSync(join(dir, "armada"), { recursive: true })
+  mkdirSync(join(dir, ".opencode", "agent"), { recursive: true })
+
+  writeFileSync(join(dir, "armada", "armada.yaml"), [
+    "project:",
+    "  name: test",
+    "  budget: balanced",
+    "team:",
+    "  - role: orchestrator",
+    "    model: opencode-go/minimax-m3",
+    "    enabled: true",
+    "  - role: security",
+    "    model: opencode/big-pickle",
+    "    enabled: false",
+  ].join("\n"))
+  writeFileSync(join(dir, ".opencode", "agent", "commodore.md"), [
+    "---",
+    "model: opencode-go/minimax-m3",
+    "mode: Orchestrator",
+    "---",
+    "# prompt",
+  ].join("\n"))
+  // no frigate.md intentionally, but security is disabled so shouldn't matter
+
+  const results = await checkModelDrift(dir)
+  assert.strictEqual(results.length, 1)
+  assert.strictEqual(results[0].name, "model-drift")
+  assert.strictEqual(results[0].status, "pass")
 })
