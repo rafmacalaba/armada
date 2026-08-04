@@ -217,14 +217,17 @@ export function renderOpenCodeJson(manifest, team) {
 
 // Build `AGENTS.md` playbook content from the manifest + team.
 export function renderAgentsMd(manifest, team, featureName) {
-  const fname = featureName || "default"
-  const ledgersDir = `armada/ledgers/${fname}/`
-  const e2eDir = `armada/e2e/${fname}/`
-  const screenshotsDir = `armada/screenshots/${fname}/`
+  // Phase 2: when project.feature is set, substitute its value into paths.
+  // When absent (lane scaffold case), keep the literal {feature} token.
+  const hasExplicitFeature = manifest.project.feature && typeof manifest.project.feature === "string" && manifest.project.feature.trim()
+  const pathToken = hasExplicitFeature ? manifest.project.feature.trim() : "{feature}"
+  const ledgersDir = `armada/ledgers/${pathToken}/`
+  const e2eDir = `armada/e2e/${pathToken}/`
+  const screenshotsDir = `armada/screenshots/${pathToken}/`
   const pb = { ...DEFAULT_PLAYBOOK, ...(manifest.playbook || {}) }
-  // Resolve {feature} token in playbook file paths
-  const defectFile = (pb.defectLedger.file || "armada/ledgers/{feature}/DEFECTS.md").replace(/\{feature\}/g, fname)
-  const adversarialFile = (pb.adversarialLedger.file || "armada/ledgers/{feature}/ADVERSARIAL_REVIEW.md").replace(/\{feature\}/g, fname)
+  // Resolve {feature} token in playbook file paths — uses pathToken so lane case stays literal
+  const defectFile = (pb.defectLedger.file || "armada/ledgers/{feature}/DEFECTS.md").replace(/\{feature\}/g, () => pathToken)
+  const adversarialFile = (pb.adversarialLedger.file || "armada/ledgers/{feature}/ADVERSARIAL_REVIEW.md").replace(/\{feature\}/g, () => pathToken)
   const enabled = team.filter((a) => a.enabled)
   const roles = enabled
     .map(
