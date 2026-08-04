@@ -136,5 +136,15 @@ export async function runDoctor(opts = {}) {
         : "supervision.fleet is true but .opencode/plugins/armada-fleet.js missing — re-run armada init",
     })
   }
+  if (opts.project?.supervision?.watchdog) {
+    const pluginPath = join(opts.targetDir ?? ".", ".opencode/plugins/armada-watchdog.js")
+    checks.push({
+      name: "watchdog plugin",
+      status: existsSync(pluginPath) ? "pass" : "fail",
+      detail: existsSync(pluginPath)
+        ? ".opencode/plugins/armada-watchdog.js present"
+        : "supervision.watchdog is true but .opencode/plugins/armada-watchdog.js missing — re-run armada init",
+    })
+  }
   return checks
 }

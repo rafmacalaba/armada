@@ -128,6 +128,9 @@ export function parseManifestYaml(text, target) {
   if (p.supervision?.fleet !== undefined && typeof p.supervision.fleet !== "boolean") {
     throw new Error("armada.yaml: schema violation: project.supervision.fleet must be a boolean")
   }
+  if (p.supervision?.watchdog !== undefined && typeof p.supervision.watchdog !== "boolean") {
+    throw new Error("armada.yaml: schema violation: project.supervision.watchdog must be a boolean")
+  }
   if (p.feature !== undefined) {
     if (typeof p.feature !== "string" || p.feature === "") {
       throw new Error("armada.yaml: schema violation: project.feature must be a non-empty string")
@@ -178,6 +181,7 @@ export function parseManifestYaml(text, target) {
       supervision: {
         plugin: p.supervision?.plugin ?? false,
         fleet: p.supervision?.fleet ?? false,
+        watchdog: p.supervision?.watchdog ?? false,
       },
       stack: {
         frontend: stack.frontend ?? null,
@@ -205,6 +209,7 @@ export const MANIFEST_SCHEMA = {
     useAgentBrowser: "boolean",
     headless: "boolean", // non-interactive mode: orchestrator bash allow (CI-safe)
     yolo: "boolean", // autonomous mode: no permission prompts (config allow, boundaries kept)
+    supervision: { plugin: "boolean", fleet: "boolean", watchdog: "boolean" }, // opt-in supervision plugins
     requirementsFile: "string", // per-feature contract (default armada/REQUIREMENTS.md)
   },
   team: "array<{name, role, model, fallback, variant?, enabled}>",

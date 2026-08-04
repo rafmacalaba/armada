@@ -15,6 +15,7 @@ import {
   renderManifestYaml,
   renderArmadaSupervisionPlugin,
   renderArmadaFleetPlugin,
+  renderArmadaWatchdogPlugin,
   renderSecurityFindingsTemplate,
 } from "./generator.js"
 import { ROLES } from "./model-catalog.js"
@@ -414,6 +415,11 @@ export function scaffold(manifest, stack, opts = {}) {
     write(".opencode/plugins/armada-fleet.js", renderArmadaFleetPlugin())
   }
 
+  // 7d. Opt-in watchdog plugin.
+  if (manifest.project.supervision?.watchdog) {
+    write(".opencode/plugins/armada-watchdog.js", renderArmadaWatchdogPlugin())
+  }
+
   // 8. Optional devcontainer.
   if (manifest.project.devcontainer) {
     if (!opts.dryRun) ensure(".devcontainer")
@@ -473,6 +479,7 @@ export function uninstall(manifest, opts = {}) {
   // Opt-in supervision plugin (armada-owned, only removed when present).
   removeFile(".opencode/plugins/armada-supervision.js")
   removeFile(".opencode/plugins/armada-fleet.js")
+  removeFile(".opencode/plugins/armada-watchdog.js")
   removeEmptyDir(".opencode/plugins")
   // Remove armada's native agent files by exact role name; keep any user agent files.
   const agentDir = join(target, ".opencode/agent")

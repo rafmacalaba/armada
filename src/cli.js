@@ -53,6 +53,7 @@ Usage:
   armada init --yolo                         autonomous: no permission prompts (bash allow, edit boundaries kept)
   armada init --supervision-plugin           opt-in thin supervision plugin (.opencode/plugins/)
   armada init --fleet-tracker                opt-in fleet tracker plugin (.opencode/plugins/)
+  armada init --watchdog                      opt-in subagent watchdog plugin (.opencode/plugins/)
   armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
   armada init --target <dir>                 scaffold into a directory (default cwd)
   armada init --from-armada armada/armada.yaml      regenerate from manifest
@@ -310,6 +311,10 @@ async function init(args) {
     manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: false }
     manifest.project.supervision.fleet = true
   }
+  if (args.includes("--watchdog")) {
+    manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: false }
+    manifest.project.supervision.watchdog = true
+  }
   const reqIdx = args.indexOf("--requirements")
   if (reqIdx !== -1 && args[reqIdx + 1] && !args[reqIdx + 1].startsWith("--")) {
     try {
@@ -378,7 +383,7 @@ export function defaultManifest(target = ".") {
       useAgentBrowser: false,
       headless: false,
       yolo: false,
-      supervision: { plugin: false, fleet: false },
+      supervision: { plugin: false, fleet: false, watchdog: false },
       requirementsFile: "armada/REQUIREMENTS.md",
       stack: {},
     },
