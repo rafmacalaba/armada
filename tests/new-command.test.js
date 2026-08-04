@@ -152,7 +152,8 @@ test("new CLI scaffolds agentic-repo best practices", async () => {
   // placeholders filled, year injected
   const agents = readFileSync(join(projDir, "AGENTS.md"), "utf8")
   assert.match(agents, /agentic-app/)
-  assert.doesNotMatch(agents, /\{\w+\}/)
+  // {feature} is an intentional literal token in lane-scaffold paths (Phase 2)
+  assert.doesNotMatch(agents, /\{(?!feature\})\w+\}/)
   const license = readFileSync(join(projDir, "LICENSE"), "utf8")
   assert.match(license, /Copyright \(c\) \d{4} agentic-app/)
 })

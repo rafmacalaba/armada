@@ -236,6 +236,23 @@ test("renderAgentsMd references custom requirements file", () => {
   assert.match(md, /REQUIREMENTS-admin\.md/)
 })
 
+test("renderAgentsMd header uses project name, not feature name", () => {
+  const m = structuredClone(baseManifest)
+  m.project.name = "stable-agents-md"
+  const team = buildTeam(m)
+  const mdA = renderAgentsMd(m, team, "lane-A")
+  const mdB = renderAgentsMd(m, team, "lane-B")
+  const linesA = mdA.split("\n")
+  const linesB = mdB.split("\n")
+  const headerLine = linesA.findIndex((l) => l.startsWith("# "))
+  const headerA = linesA[headerLine]
+  const headerB = linesB[headerLine]
+  assert.strictEqual(headerA, headerB, "header line must be identical regardless of feature name")
+  assert.ok(headerA.includes(m.project.name), "header line must include project name")
+  assert.ok(!headerA.includes("lane-A"), "header line must not include feature name lane-A")
+  assert.ok(!headerB.includes("lane-B"), "header line must not include feature name lane-B")
+})
+
 test("renderManifestYaml emits requirementsFile", () => {
   const m = structuredClone(baseManifest)
   m.project.requirementsFile = "REQUIREMENTS-admin.md"
@@ -630,7 +647,7 @@ test("renderAgentsMd uses per-feature ledger path in defect ledger section", () 
   m.project.name = "my-app"
   const team = buildTeam(m)
   const md = renderAgentsMd(m, team, "my-app")
-  assert.match(md, /armada\/ledgers\/my-app\/DEFECTS\.md/)
+  assert.match(md, /armada\/ledgers\/\{feature\}\/DEFECTS\.md/)
   assert.doesNotMatch(md, /\bDEFECTS\.md\b.*repo root/)
 })
 
@@ -639,8 +656,8 @@ test("renderAgentsMd 'Repository conventions' uses armada/ paths", () => {
   m.project.name = "my-app"
   const team = buildTeam(m)
   const md = renderAgentsMd(m, team, "my-app")
-  assert.match(md, /armada\/e2e\/my-app\//)
-  assert.match(md, /armada\/screenshots\/my-app\//)
+  assert.match(md, /armada\/e2e\/\{feature\}\//)
+  assert.match(md, /armada\/screenshots\/\{feature\}\//)
   assert.doesNotMatch(md, /live under `e2e\/`\./)
   assert.doesNotMatch(md, /live under `screenshots\/`\./)
 })
@@ -651,19 +668,20 @@ test("renderAgentsMd defect ledger title and format use per-feature paths", () =
   const team = buildTeam(m)
   const md = renderAgentsMd(m, team, "my-app")
   // Title sections
-  assert.match(md, /## armada\/ledgers\/my-app\/DEFECTS\.md/)
-  assert.match(md, /## armada\/ledgers\/my-app\/ADVERSARIAL_REVIEW\.md/)
+  assert.match(md, /## armada\/ledgers\/\{feature\}\/DEFECTS\.md/)
+  assert.match(md, /## armada\/ledgers\/\{feature\}\/ADVERSARIAL_REVIEW\.md/)
   // Format block paths
-  assert.match(md, /armada\/screenshots\/my-app\/def-001\.png/)
-  assert.match(md, /armada\/screenshots\/my-app\/adv-001\.png/)
+  assert.match(md, /armada\/screenshots\/\{feature\}\/def-001\.png/)
+  assert.match(md, /armada\/screenshots\/\{feature\}\/adv-001\.png/)
   // Status table path references  
-  assert.match(md, /All defects live in `armada\/ledgers\/my-app\/DEFECTS\.md`/)
-  assert.match(md, /All adversary findings live in `armada\/ledgers\/my-app\/ADVERSARIAL_REVIEW\.md`/)
+  assert.match(md, /All defects live in `armada\/ledgers\/\{feature\}\/DEFECTS\.md`/)
+  assert.match(md, /All adversary findings live in `armada\/ledgers\/\{feature\}\/ADVERSARIAL_REVIEW\.md`/)
 })
 
 test("renderAgentsMd resolves {feature} token in playbook file paths", () => {
   const m = structuredClone(baseManifest)
   m.project.name = "my-app"
+  m.project.feature = "my-app"
   // Override playbook with {feature} token
   m.playbook = {
     defectLedger: { file: "armada/ledgers/{feature}/DEFECTS.md" },
@@ -673,6 +691,53 @@ test("renderAgentsMd resolves {feature} token in playbook file paths", () => {
   const md = renderAgentsMd(m, team, "my-app")
   assert.match(md, /armada\/ledgers\/my-app\/DEFECTS\.md/)
   assert.match(md, /armada\/ledgers\/my-app\/ADVERSARIAL_REVIEW\.md/)
+})
+
+test("renderAgentsMd keeps {feature} token when project.feature is not set", () => {
+  const m = structuredClone(baseManifest)
+  m.project.name = "my-app"
+  const team = buildTeam(m)
+  const md = renderAgentsMd(m, team, "my-app")
+  assert.match(md, /armada\/ledgers\/\{feature\}\//)
+  assert.match(md, /armada\/e2e\/\{feature\}\//)
+  assert.match(md, /armada\/screenshots\/\{feature\}\//)
+  assert.match(md, /armada\/ledgers\/\{feature\}\/DEFECTS\.md/)
+  assert.match(md, /armada\/ledgers\/\{feature\}\/ADVERSARIAL_REVIEW\.md/)
+})
+
+test("renderAgentsMd substitutes {feature} when project.feature is set", () => {
+  const m = structuredClone(baseManifest)
+  m.project.feature = "web-app"
+  const team = buildTeam(m)
+  const md = renderAgentsMd(m, team, "web-app")
+  assert.match(md, /armada\/ledgers\/web-app\//)
+  assert.match(md, /armada\/e2e\/web-app\//)
+  assert.match(md, /armada\/screenshots\/web-app\//)
+  assert.match(md, /armada\/ledgers\/web-app\/DEFECTS\.md/)
+  assert.match(md, /armada\/ledgers\/web-app\/ADVERSARIAL_REVIEW\.md/)
+  assert.doesNotMatch(md, /armada\/ledgers\/\{feature\}\//)
+  assert.doesNotMatch(md, /armada\/e2e\/\{feature\}\//)
+  assert.doesNotMatch(md, /armada\/screenshots\/\{feature\}\//)
+})
+
+test("renderAgentsMd does not interpret $-patterns in project.feature", () => {
+  const m = structuredClone(baseManifest)
+  m.project.feature = "$&"
+  const team = buildTeam(m)
+  const md = renderAgentsMd(m, team, "$&")
+  assert.ok(md.includes("armada/ledgers/$&/DEFECTS.md"), "must contain literal $& in DEFECTS.md path")
+  assert.ok(md.includes("armada/ledgers/$&/ADVERSARIAL_REVIEW.md"), "must contain literal $& in ADVERSARIAL_REVIEW.md path")
+  assert.doesNotMatch(md, /armada\/ledgers\/\{feature\}\//)
+})
+
+test("renderAgentsMd $1 in project.feature is literal not backreference", () => {
+  const m = structuredClone(baseManifest)
+  m.project.feature = "$1"
+  const team = buildTeam(m)
+  const md = renderAgentsMd(m, team, "$1")
+  assert.ok(md.includes("armada/ledgers/$1/DEFECTS.md"), "must contain literal $1 in DEFECTS.md path")
+  assert.ok(md.includes("armada/ledgers/$1/ADVERSARIAL_REVIEW.md"), "must contain literal $1 in ADVERSARIAL_REVIEW.md path")
+  assert.doesNotMatch(md, /armada\/ledgers\/\{feature\}\//)
 })
 
 test("renderArmadaSupervisionPlugin deny list absence confirms per-feature ledger is allow", () => {

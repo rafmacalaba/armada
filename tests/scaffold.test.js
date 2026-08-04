@@ -3,7 +3,7 @@ import assert from "node:assert"
 
 import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
-import { renderArmadaFleetCommand, renderArmadaFleetPlugin } from "../src/generator.js"
+import { renderArmadaFleetCommand, renderArmadaFleetPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
 import { detectStack } from "../src/stack-detect.js"
 import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -808,4 +808,59 @@ test("slugify: special chars handled", () => {
   const r2 = slugify("Müllerstße")
   assert.match(r2, /mu/, "transliterated umlaut")
   assert.match(r2, /ss/, "transliterated eszett")
+})
+
+test("renderAgentsMd: parallel lanes produce identical armada blocks", () => {
+  // Regression: two scaffolds with different feature names must produce
+  // identical AGENTS.md armada blocks, so parallel lanes cannot conflict.
+  const dirA = mkdtempSync(join(tmpdir(), "armada-scaffold-"))
+  const dirB = mkdtempSync(join(tmpdir(), "armada-scaffold-"))
+  try {
+    const manifest = {
+      targetDir: ".",
+      project: {
+        name: "opencode-armada",
+        budget: "balanced",
+        browserTesting: false,
+        devcontainer: false,
+        stack: {
+          frontend: "nextjs",
+          backend: "python-fastapi",
+          database: "postgres",
+          testing: "playwright",
+          srcDirs: ["src"],
+          languages: ["typescript", "python"],
+        },
+      },
+      team: ROLES.map((role) => ({ role, model: modelFor(role, "balanced"), variant: null, enabled: true })),
+      playbook: {},
+    }
+
+    const team = buildTeam(manifest)
+    const contentA = renderAgentsMd(manifest, team, "lane-A")
+    const contentB = renderAgentsMd(manifest, team, "lane-B")
+
+    const extractBlock = (raw) => {
+      const start = "<!-- armada:start -->"
+      const end = "<!-- armada:end -->"
+      const s = raw.indexOf(start)
+      const e = raw.indexOf(end)
+      assert.ok(s !== -1, "armada:start marker missing")
+      assert.ok(e !== -1, "armada:end marker missing")
+      return raw.substring(s, e + end.length)
+    }
+
+    const blockA = extractBlock(contentA)
+    const blockB = extractBlock(contentB)
+
+    assert.strictEqual(blockA, blockB, "armada blocks must be byte-identical")
+
+    // Must contain literal {feature} token, not a concrete feature name
+    assert.ok(blockA.includes("{feature}"), "block must contain {feature} token")
+    assert.ok(!blockA.includes("lane-A"), "block must not contain lane-A")
+    assert.ok(!blockA.includes("lane-B"), "block must not contain lane-B")
+  } finally {
+    rmSync(dirA, { recursive: true, force: true })
+    rmSync(dirB, { recursive: true, force: true })
+  }
 })
