@@ -606,6 +606,37 @@ End-to-end: pick a small side project (a CLI tool, a static site, a one-off
 script) and run through this doc once. Start at step 1, end at `uninstall`.
 Repeat until the loop feels mechanical.
 
+## Upgrading an armed repo
+
+For a repo already scaffolded with an older armada, upgrade in two steps.
+
+### 1. Update the binary
+
+```bash
+npm install -g opencode-armada@latest
+# or bump in your package manager
+```
+
+### 2. Re-scaffold from the manifest
+
+```bash
+armada init --from-armada armada/armada.yaml
+```
+
+Run it from the repo root. It regenerates the armada-owned files from the repo's
+manifest: `.opencode/` (agents, commands, voyage, new display names) and
+`armada.yaml`. `opencode.json` and non-armada files are preserved.
+
+### 3. Verify
+
+```bash
+armada --version
+armada voyage --help
+armada doctor
+```
+
+All three report the new version.
+
 ## See also
 
 - [docs/armada-improves-armada.md](./armada-improves-armada.md) — using armada on *armada itself* (dock worktrees).
