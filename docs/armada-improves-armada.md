@@ -226,6 +226,10 @@ git branch -d feat/<name>
 Rule: a dock is done when its PR is merged by the user — never `git merge` locally, never push
 master directly. Every armada feature lands as a reviewed PR.
 
+- **Evidence = PR URL.** Once `gh pr create` returns, paste the PR URL into the lane's state
+  file (`armada/state/active.json` field `prUrl`) and reference it in the final report. The
+  lane is not done without a PR URL or an explicit `PR blocked: <reason>` in the report.
+
 ### Self-modification rule (learned in the first voyage run)
 
 When a voyage feature touches armada's **own** generators or templates (e.g. the orchestrator

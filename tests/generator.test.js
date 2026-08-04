@@ -311,6 +311,17 @@ test("renderRequirementsMd invites co-writing the contract", () => {
   assert.match(md, /--requirements <file>/)
 })
 
+test("renderRequirementsMd includes PR-first final criterion", () => {
+  const md = renderRequirementsMd(baseManifest)
+  // The PR-first final criterion must be in the Final criteria section.
+  assert.match(md, /## final criteria[\s\S]*gh pr create --base master/i,
+    "Final criteria section must require 'gh pr create --base master'")
+  assert.match(md, /never[^.\n]*git merge/i,
+    "Final criteria must forbid 'git merge' locally")
+  assert.match(md, /never[^.\n]*push master directly/i,
+    "Final criteria must forbid direct push to master")
+})
+
 test("renderRequirementsMd phases declare dependencies for parallel run", () => {
   const md = renderRequirementsMd(baseManifest)
   assert.match(md, /\*\*Depends on:\*\* none/)
@@ -337,6 +348,15 @@ test("renderArmadaStatusCommand reads state index, terse", () => {
   assert.match(md, /pending phases|active feature/i)
   assert.match(md, /orchestrator/i)
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
+})
+
+test("renderArmadaStatusCommand reports PR URL", () => {
+  const md = renderArmadaStatusCommand()
+  // The command must tell the orchestrator to report the PR URL.
+  assert.match(md, /pr\s*url/i,
+    "armada-status must mention 'PR URL' reporting")
+  assert.match(md, /pr\s*pending|prurl/i,
+    "armada-status must mention 'PR pending' or 'prUrl' field")
 })
 
 test("renderArmadaScoutCommand is read-only, dispatches investigation", () => {
