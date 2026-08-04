@@ -37,7 +37,7 @@ import { runUpdate } from "./update.js"
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
 
-export const VERSION = "0.8.0"
+export const VERSION = "0.9.0"
 
 const HELP = `opencode-armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).
