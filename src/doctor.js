@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process"
 import { existsSync, lstatSync, realpathSync } from "node:fs"
 import { join } from "node:path"
-import { displayFor } from "./role-display.js"
+import { displayFor, agentNameFor } from "./role-display.js"
 
 function run(bin, args, env) {
   return new Promise((resolve) => {
@@ -24,6 +24,59 @@ function findOnPath(name, env) {
     } catch {}
   }
   return null
+}
+
+function extractFrontmatterModel(mdContent) {
+  const m = mdContent.match(/^---\n([\s\S]*?)\n---\n/)
+  if (!m) return null
+  const fm = m[1]
+  const modelLine = fm.split("\n").find((l) => /^model:/.test(l))
+  if (!modelLine) return null
+  return modelLine.replace(/^model:\s*/, "").replace(/^["']|["']$/g, "").trim()
+}
+
+export async function checkModelDrift(repoPath) {
+  const fs = await import("node:fs/promises")
+  const path = await import("node:path")
+  const { parseManifestYaml } = await import("./manifest.js")
+  const manifestPath = path.join(repoPath, "armada", "armada.yaml")
+  let manifest
+  try {
+    const text = await fs.readFile(manifestPath, "utf8")
+    manifest = parseManifestYaml(text)
+  } catch (err) {
+    return [{ name: "model-drift", status: "warn", detail: `cannot read ${manifestPath}: ${err.message}` }]
+  }
+  const team = manifest.team || []
+  const checks = []
+  for (const entry of team) {
+    if (entry.enabled === false) continue
+    const fileBase = agentNameFor(entry.role)
+    const agentPath = path.join(repoPath, ".opencode", "agent", `${fileBase}.md`)
+    let fileModel
+    try {
+      const content = await fs.readFile(agentPath, "utf8")
+      fileModel = extractFrontmatterModel(content)
+    } catch {
+      checks.push({
+        name: "model-drift",
+        status: "warn",
+        detail: `role '${entry.role}': .opencode/agent/${fileBase}.md not found`,
+      })
+      continue
+    }
+    if (fileModel !== entry.model) {
+      checks.push({
+        name: "model-drift",
+        status: "warn",
+        detail: `role '${entry.role}': armada.yaml says "${entry.model}" but .opencode/agent/${fileBase}.md says "${fileModel ?? "(none)"}"`,
+      })
+    }
+  }
+  if (checks.length === 0) {
+    checks.push({ name: "model-drift", status: "pass", detail: "all role frontmatters match armada.yaml" })
+  }
+  return checks
 }
 
 export async function runDoctor(opts = {}) {
@@ -152,5 +205,10 @@ export async function runDoctor(opts = {}) {
         : "supervision.watchdog is true but .opencode/plugins/armada-watchdog.js missing — re-run armada init",
     })
   }
+
+  if (opts.targetDir) {
+    checks.push(...(await checkModelDrift(opts.targetDir)))
+  }
+
   return checks
 }

@@ -4,8 +4,9 @@
 // Pure of I/O side effects where reasonable; returns result objects the CLI
 // caller uses to determine exit codes and print summaries.
 
+import { execFile as execFileCb } from "node:child_process"
 import { existsSync, readFileSync, writeFileSync, lstatSync, realpathSync } from "node:fs"
-import { resolve, join, sep } from "node:path"
+import { resolve as resolvePath, join, sep } from "node:path"
 import { isDeepStrictEqual } from "node:util"
 
 import { parseManifestYaml } from "./manifest.js"
@@ -98,7 +99,7 @@ function formatPlan(plan, scaffoldFiles, removedOrphans) {
 export function parseRepoArg(args, cwd) {
   // Check if --repo appears in any form
   const hasRepo = args.some((a) => a === "--repo" || a.startsWith("--repo="))
-  if (!hasRepo) return resolve(cwd)
+  if (!hasRepo) return resolvePath(cwd)
 
   // Find last occurrence position of either form
   let lastPos = args.lastIndexOf("--repo")
@@ -115,11 +116,11 @@ export function parseRepoArg(args, cwd) {
     if (next === undefined || next.startsWith("-")) {
       throw new Error("--repo requires a path argument")
     }
-    return resolve(cwd, next)
+    return resolvePath(cwd, next)
   }
 
   // arg starts with "--repo="
-  return resolve(cwd, arg.slice("--repo=".length))
+  return resolvePath(cwd, arg.slice("--repo=".length))
 }
 
 /**
@@ -159,6 +160,32 @@ export function validateTargetPaths(repo, ocPath, armadaDirPath) {
   checkPath(join(repo, ".opencode/agent"), ".opencode/agent/")
 }
 
+// ---- tmux restart helpers ------------------------------------------------
+
+export async function detectTmuxSession(repoPath, exec = execFileCb) {
+  return new Promise((resolve) => {
+    exec("tmux", ["list-sessions", "-F", "#{session_name}:#{session_path}"], (err, stdout) => {
+      if (err) return resolve(null)
+      const lines = String(stdout).split("\n").filter(Boolean)
+      const abs = resolvePath(repoPath)
+      for (const line of lines) {
+        const idx = line.indexOf(":")
+        if (idx < 0) continue
+        const name = line.slice(0, idx)
+        const p = line.slice(idx + 1)
+        if (!p) continue
+        if (resolvePath(p) === abs) return resolve(name)
+      }
+      resolve(null)
+    })
+  })
+}
+
+export function printRestartGuidance(sessionName) {
+  if (!sessionName) return ""
+  return `\nRestart the TUI to apply the new model:\n  tmux attach -t ${sessionName}\n`
+}
+
 // ---- main -------------------------------------------------------------------
 
 /**
@@ -175,6 +202,7 @@ export async function runUpdate(args, opts = {}) {
 
   const yes = args.includes("--yes")
   const dryRun = args.includes("--dry-run")
+  const restart = args.includes("--restart")
 
   // Parse --repo with last-wins, equals-form support, missing-value error
   let repo
@@ -251,7 +279,7 @@ export async function runUpdate(args, opts = {}) {
   // 8. --dry-run
   if (dryRun) {
     stdout.write(planText + "\n")
-    if (!plan.wouldWriteOpencodeJson && scaffoldFiles.length === 0) {
+    if (!plan.wouldWriteOpencodeJson && scaffoldResult.written.length === 0) {
       stdout.write("armada update: already up to date.\n")
     } else {
       stdout.write("(dry-run) No files written.\n")
@@ -273,6 +301,11 @@ export async function runUpdate(args, opts = {}) {
       writeFileSync(ocPath, JSON.stringify(plan.merged, null, 2) + "\n")
     }
     stdout.write("armada update: done.\n")
+    if (restart) {
+      const session = await detectTmuxSession(repo)
+      const guidance = printRestartGuidance(session)
+      if (guidance) process.stderr.write(guidance + "\n")
+    }
     return { code: 0, plan }
   }
 
@@ -300,6 +333,11 @@ export async function runUpdate(args, opts = {}) {
       writeFileSync(ocPath, JSON.stringify(plan.merged, null, 2) + "\n")
     }
     stdout.write("armada update: done.\n")
+    if (restart) {
+      const session = await detectTmuxSession(repo)
+      const guidance = printRestartGuidance(session)
+      if (guidance) process.stderr.write(guidance + "\n")
+    }
   } else {
     stdout.write("Aborted.\n")
   }
