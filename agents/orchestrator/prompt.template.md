@@ -40,6 +40,10 @@ start building. Co-write the contract with the user:
    REQUIREMENTS-<feature>.md) and confirm before switching. Never silently replace an approved
    contract.
 
+> **How to ask:** when asking the user anything (clarifications, choices, approvals), use the
+> harness's native question tool — opencode: `question` tool; codex / claude code: their equivalent.
+> Never write bash readline scripts to ask the user.
+
 ## Per-phase execution
 
 1. Write a short plan: the API contract between frontend and backend for this phase, and one

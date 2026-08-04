@@ -120,6 +120,12 @@ and iterates until you **explicitly approve**.
 > instead of guessing. It works because the contract is the *end-goal spec*, not a vague wish —
 > and nothing ships until you agree it's right.
 
+### Question policy
+
+armada prefers the harness's native question UI (opencode `question`, codex / claude code
+equivalents) for any user prompt. The CLI's `armada init` questionnaire is the fallback for
+terminal-only contexts where the harness UI is unavailable.
+
 ### 2. The orchestrator runs the loop
 
 Once approved, the orchestrator:
