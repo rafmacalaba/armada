@@ -1,6 +1,7 @@
 // Generator: renders the per-repo config files from the manifest, catalog,
 // detected stack, and the agent/prompt templates. Pure functions — no I/O.
 
+import { isDeepStrictEqual } from "node:util"
 import { ROLES, CATALOG, modelFor, fallbackFor } from "./model-catalog.js"
 import { displayFor } from "./role-display.js"
 import { DEFAULT_PLAYBOOK } from "./manifest.js"
@@ -103,6 +104,17 @@ const BASE_PERMISSIONS = {
   },
 }
 
+// Top-level keys armada owns in opencode.json. mergeOpenCodeJson overwrites only
+// these keys; all other user keys survive verbatim. renderOpenCodeJson emits only
+// these top-level keys. The Set iteration order (model, default_agent, permission,
+// provider) is the canonical merge order — owned keys appended last.
+export const ARMADA_OWNED_KEYS = Object.freeze(new Set([
+  "model",
+  "default_agent",
+  "permission",
+  "provider",
+]))
+
 // routingPrompt: delegation hints embedded in each specialist's prompt so the orchestrator knows when to route to them.
 function routingPrompt(role) {
   if (role === "orchestrator") return ""
@@ -184,6 +196,7 @@ export function renderAgentFile(agent, promptText) {
 // Agents now ship as native `.opencode/agent/<role>.md` files (renderAgentFile);
 // no `agent` block is needed in opencode.json. `default_agent` boots the TUI
 // straight into the orchestrator.
+// Outputs only top-level keys in ARMADA_OWNED_KEYS.
 export function renderOpenCodeJson(manifest, team) {
   const openrouterModels = {}
   for (const a of team) {
@@ -206,7 +219,6 @@ export function renderOpenCodeJson(manifest, team) {
     permission["*"] = "allow"
   }
   return {
-    $schema: "https://opencode.ai/config.json",
     model: modelFor("orchestrator", manifest.project?.budget ?? "balanced"),
     permission,
     default_agent: "orchestrator",
@@ -214,6 +226,83 @@ export function renderOpenCodeJson(manifest, team) {
       ? { provider: { openrouter: { models: openrouterModels } } }
       : {}),
   }
+}
+
+/**
+ * Merge an existing user opencode.json with armada's owned-key defaults.
+ *
+ * @param {object} existing - parsed user opencode.json or {} if absent
+ * @param {object} manifest - parsed armada manifest (yolo + budget)
+ * @param {Array}  team     - built team array (openrouter model map)
+ * @returns {object} a new object preserving all non-owned user keys verbatim,
+ *                   with ARMADA_OWNED_KEYS overwritten from renderOpenCodeJson.
+ *
+ * Rules:
+ * - Non-owned keys (e.g. $schema, theme, mcp, agent, share, keybinds,
+ *   plugin) survive byte-for-byte.
+ * - permission: always sets external_directory: "deny". When yolo,
+ *   sets ["*"]: "allow". When yolo is off, a pre-existing user ["*"] is
+ *   left alone — armada never removes user permission entries.
+ * - provider: armada owns only openrouter.models. Other provider entries
+ *   (anthropic, groq, etc.) survive untouched.
+ * - Byte-stable: if existing already equals the merged result, returns
+ *   existing as-is (same reference, no reordering, no new keys).
+ * - Idempotent: merge(merge(existing, m, t), m, t) === merge(existing, m, t).
+ */
+export function mergeOpenCodeJson(existing, manifest, team) {
+  const defaults = renderOpenCodeJson(manifest, team)
+  const result = {}
+
+  // Pass 1: preserve all non-owned keys in their original iteration order,
+  // skipping prototype-polluting keys (defense in depth).
+  const SKIP_KEYS = new Set(["__proto__", "constructor", "prototype"])
+  for (const key of Object.keys(existing)) {
+    if (!ARMADA_OWNED_KEYS.has(key) && !SKIP_KEYS.has(key)) {
+      result[key] = existing[key]
+    }
+  }
+
+  // Pass 2: owned keys in canonical order (Set iteration order)
+  // model — direct overwrite
+  result.model = defaults.model
+
+  // default_agent — direct overwrite
+  result.default_agent = defaults.default_agent
+
+  // permission — merge: start from user values, overlay armada entries
+  const existingPerm =
+    existing.permission && typeof existing.permission === "object" && !Array.isArray(existing.permission)
+      ? { ...existing.permission }
+      : {}
+  existingPerm.external_directory = defaults.permission.external_directory
+  if (defaults.permission["*"] !== undefined) {
+    existingPerm["*"] = defaults.permission["*"]
+  }
+  result.permission = existingPerm
+
+  // provider — merge: armada owns only openrouter.models
+  if (defaults.provider !== undefined) {
+    const existingProv =
+      existing.provider && typeof existing.provider === "object" && !Array.isArray(existing.provider)
+        ? { ...existing.provider }
+        : {}
+    existingProv.openrouter = {
+      ...(existingProv.openrouter && typeof existingProv.openrouter === "object" && !Array.isArray(existingProv.openrouter)
+        ? existingProv.openrouter
+        : {}),
+      models: defaults.provider.openrouter.models,
+    }
+    result.provider = existingProv
+  } else if (existing.provider !== undefined) {
+    // No armada openrouter models, keep user's provider as-is
+    result.provider = existing.provider
+  }
+
+  // Byte-stable: return existing reference when nothing changed
+  if (isDeepStrictEqual(existing, result)) {
+    return existing
+  }
+  return result
 }
 
 // Build `AGENTS.md` playbook content from the manifest + team.

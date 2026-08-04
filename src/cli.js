@@ -32,6 +32,7 @@ import { startHeartbeat } from "./heartbeat.js"
 import { openTerminal } from "./terminal-open.js"
 import { listRuns, readRun } from "./fleet-tracker.js"
 import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cmd.js"
+import { runUpdate } from "./update.js"
 
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
@@ -59,6 +60,8 @@ Usage:
   armada preset <name> [--target <dir>]      apply a budget preset to armada.yaml
   armada doctor                              environment health check
   armada uninstall [--all] [--dry-run] [--target <dir>]  remove armada-generated artifacts
+  armada update [--yes] [--dry-run] [--repo <path>]
+                          bring an existing repo fully current (re-scaffold + whitelist-only opencode.json merge)
   armada feature new <name>                  create per-feature contract + register
   armada feature list                        list open/in-progress/shipped features
   armada feature close <name>                verify evidence + mark shipped
@@ -132,6 +135,8 @@ export async function main(argv = process.argv.slice(2)) {
       return doctor()
     case "uninstall":
       return uninstallCmd(rest)
+    case "update":
+      return update(rest)
     case "ping":
       console.log("armada ok")
       return 0
@@ -503,6 +508,17 @@ async function uninstallCmd(args) {
   return 0
 }
 
+async function update(args) {
+  // Intercept --help / -h before any arg parsing
+  if (args.includes("--help") || args.includes("-h") || args[0] === "help") {
+    console.log(HELP)
+    return 0
+  }
+  const result = await runUpdate(args, { cwd: process.cwd() })
+  process.exitCode = result.code
+  return result.code
+}
+
 async function reconcileCmd(args) {
   try {
     return await reconcileMain(args, { cwd: process.cwd() })
@@ -515,7 +531,7 @@ async function reconcileCmd(args) {
 
 // Extract a flag value supporting both --flag=value and --flag value forms.
 // Returns the value, or undefined if the flag is absent or the next arg is missing/flag-like.
-function flagValue(args, flag) {
+export function flagValue(args, flag) {
   // Check for --flag=value form
   const eqArg = args.find((a) => a.startsWith(`${flag}=`))
   if (eqArg) return eqArg.slice(flag.length + 1)

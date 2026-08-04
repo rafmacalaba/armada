@@ -290,6 +290,7 @@ is also scaffolded.
 | `armada init --yes` | non-interactive defaults (no TTY) |
 | `armada init --headless` | CI-safe: orchestrator bash allowed, no `ask` prompts |
 | `armada init --requirements <file>` | per-feature contract file (default `REQUIREMENTS.md`) |
+| `armada update [--yes] [--dry-run] [--repo <path>]` | bring an existing repo fully current: re-scaffold + whitelist-only opencode.json merge |
 | `armada feature new <name>` | start a feature: creates the contract + state, sets it active |
 | `armada feature list` | list all features from the state index |
 | `armada feature close <name>` | close a feature (evidence-gated — refuses until criteria pass) |
