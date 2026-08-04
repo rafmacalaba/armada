@@ -570,3 +570,86 @@ test("skills omitted round-trips (stays undefined, not rendered)", () => {
   const parsed = parseManifestYaml(yaml)
   assert.strictEqual(parsed.project.skills, undefined)
 })
+
+// -- Phase: yaml-field-comments --
+
+test("renderManifestYaml emits field comments above every YAML key", () => {
+  const m = makeManifest()
+  m.project.feature = "my-feature"
+  m.project.skills = ["armada-contract"]
+  m.project.headless = true
+  m.project.yolo = true
+  m.playbook = { securityLedger: { file: "ledgers/my-sec.md", shared: "ledgers/shared.md", owner: "security" } }
+  const yaml = renderManifestYaml(m, buildTeam(m))
+
+  // project fields
+  assert.match(yaml, /# Display name of the project \(used in dashboards/)
+  assert.match(yaml, /# Model budget tier: free \| balanced \(default\) \| power/)
+  assert.match(yaml, /# Enable agent-browser for e2e testing/)
+  assert.match(yaml, /# Emit \.devcontainer\/ config for sandboxed dev/)
+  assert.match(yaml, /# Use opencode's agent-browser tool for e2e tests/)
+  assert.match(yaml, /# CI-safe: orchestrator bash set to allow/)
+  assert.match(yaml, /# Autonomous: no permission prompts/)
+  assert.match(yaml, /# Path to the contract file/)
+  assert.match(yaml, /# \(optional\) Active feature name/)
+  assert.match(yaml, /# \(optional\) Skills to load into the orchestrator prompt/)
+  // supervision
+  assert.match(yaml, /# Emit \.opencode\/plugins\/armada-supervision\.js/)
+  assert.match(yaml, /# Emit per-lane fleet dashboard/)
+  assert.match(yaml, /# Emit subagent watchdog plugin/)
+  // stack
+  assert.match(yaml, /# Frontend framework \(nextjs/)
+  assert.match(yaml, /# Backend framework \(express/)
+  assert.match(yaml, /# Database \(postgres/)
+  assert.match(yaml, /# Test runner \(vitest/)
+  assert.match(yaml, /# Source directories the agents should focus on/)
+  assert.match(yaml, /# Primary languages in the codebase/)
+  assert.match(yaml, /# Project instruction files agents should read/)
+  // team fields (sampled — every role gets same comment set)
+  assert.match(yaml, /# Role name: orchestrator/)
+  assert.match(yaml, /# Primary model ID \(provider\/model format\)/)
+  assert.match(yaml, /# Fallback model if primary unavailable \(or null\)/)
+  assert.match(yaml, /# Whether this role is active in the team/)
+  // playbook
+  assert.match(yaml, /# Path to the security findings ledger/)
+  assert.match(yaml, /# \(optional\) Shared ledger path/)
+  assert.match(yaml, /# \(optional\) Owner agent for the ledger/)
+})
+
+test("comments survive parse -> render round-trip", () => {
+  const m = makeManifest()
+  m.project.feature = "my-feature"
+  m.project.skills = ["armada-contract"]
+  m.playbook = { securityLedger: { file: "ledgers/sec.md" } }
+  const yaml1 = renderManifestYaml(m, buildTeam(m))
+  const parsed = parseManifestYaml(yaml1)
+  const yaml2 = renderManifestYaml(parsed, buildTeam(parsed))
+
+  // Comments must be present in both renders
+  for (const comment of [
+    "# Display name of the project",
+    "# Model budget tier",
+    "# Enable agent-browser",
+    "# CI-safe",
+    "# Path to the contract file",
+    "# (optional) Active feature name",
+    "# (optional) Skills to load into the orchestrator prompt",
+    "# Emit .opencode/plugins",
+    "# Frontend framework",
+    "# Source directories",
+    "# Role name:",
+    "# Primary model ID",
+    "# Fallback model",
+    "# Whether this role is active in the team",
+    "# Path to the security findings ledger",
+  ]) {
+    assert.match(yaml1, new RegExp(comment.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&")), `comment missing in first render: ${comment}`)
+    assert.match(yaml2, new RegExp(comment.replace(/[.*+?^${}()|[\]\\\/]/g, "\\$&")), `comment missing in second render: ${comment}`)
+  }
+
+  // Values survive round-trip
+  assert.strictEqual(parsed.project.name, "t")
+  assert.strictEqual(parsed.project.feature, "my-feature")
+  assert.strictEqual(parsed.project.skills.length, 1)
+  assert.strictEqual(parsed.playbook.securityLedger.file, "ledgers/sec.md")
+})

@@ -1023,19 +1023,20 @@ export function renderManifestYaml(manifest, team) {
     .map(
       (a) => {
         const mt = teamByRole[a.role]
-        let lines = `  - role: ${q(a.role)}\n    model: ${q(a.model)}\n    fallback: ${a.fallback === null ? "null" : q(a.fallback)}\n`
-        if (a.variant !== null && a.variant !== undefined) lines += `    variant: ${q(a.variant)}\n`
+        let lines = `  - # Role name: orchestrator, backend-dev, frontend-dev, qa, adversary, security, docs, architect\n    role: ${q(a.role)}\n    # Primary model ID (provider/model format)\n    model: ${q(a.model)}\n    # Fallback model if primary unavailable (or null)\n    fallback: ${a.fallback === null ? "null" : q(a.fallback)}\n`
+        if (a.variant !== null && a.variant !== undefined) lines += `    # (optional) Model variant — e.g. 'thinking' for extended reasoning\n    variant: ${q(a.variant)}\n`
         if (mt?.permissions !== null && mt?.permissions !== undefined) {
+          lines += `    # (optional) Per-role bash/permission overrides\n`
           const permYaml = YAML.stringify(mt.permissions).trim()
           lines += `    permissions:\n${permYaml.split("\n").map((l) => "      " + l).join("\n")}\n`
         }
         if (mt?.instructions !== null && mt?.instructions !== undefined) {
-          lines += `    instructions: ${q(mt.instructions)}\n`
+          lines += `    # (optional) Extra instructions appended to the role's prompt\n    instructions: ${q(mt.instructions)}\n`
         }
         if (mt?.prompt !== null && mt?.prompt !== undefined) {
-          lines += `    prompt: ${q(mt.prompt)}\n`
+          lines += `    # (optional) Path to a custom prompt template (relative to repo root)\n    prompt: ${q(mt.prompt)}\n`
         }
-        lines += `    enabled: ${a.enabled}`
+        lines += `    # Whether this role is active in the team\n    enabled: ${a.enabled}`
         return lines
       }
     )
@@ -1046,25 +1047,43 @@ export function renderManifestYaml(manifest, team) {
 # Regenerate identical config with: armada init --from-armada armada/armada.yaml
 
 project:
+  # Display name of the project (used in dashboards + prompt headers)
   name: ${q(manifest.project.name)}
+  # Model budget tier: free | balanced (default) | power
   budget: ${q(manifest.project.budget)}
+  # Enable agent-browser for e2e testing
   browserTesting: ${manifest.project.browserTesting ?? false}
+  # Emit .devcontainer/ config for sandboxed dev
   devcontainer: ${manifest.project.devcontainer ?? false}
+  # Use opencode's agent-browser tool for e2e tests
   useAgentBrowser: ${manifest.project.useAgentBrowser ?? false}
+  # CI-safe: orchestrator bash set to allow (for opencode run)
   headless: ${manifest.project.headless ?? false}
+  # Autonomous: no permission prompts (strict superset of headless)
   yolo: ${manifest.project.yolo ?? false}
+  # Path to the contract file (default: armada/REQUIREMENTS.md)
   requirementsFile: ${q(manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md")}
-${manifest.project.feature ? `  feature: ${q(manifest.project.feature)}\n` : ""}${manifest.project.skills !== undefined ? `  skills: [${(manifest.project.skills || []).map((s) => q(s)).join(", ")}]\n` : ""}  supervision:
+${manifest.project.feature ? `  # (optional) Active feature name; sets armada/state/features/<name>.json\n  feature: ${q(manifest.project.feature)}\n` : ""}${manifest.project.skills !== undefined ? `  # (optional) Skills to load into the orchestrator prompt\n  skills: [${(manifest.project.skills || []).map((s) => q(s)).join(", ")}]\n` : ""}  supervision:
+    # Emit .opencode/plugins/armada-supervision.js
     plugin: ${manifest.project.supervision?.plugin ?? false}
+    # Emit per-lane fleet dashboard (default: true)
     fleet: ${manifest.project.supervision?.fleet ?? true}
+    # Emit subagent watchdog plugin
     watchdog: ${manifest.project.supervision?.watchdog ?? false}
   stack:
+    # Frontend framework (nextjs, vite, etc.) or null
     frontend: ${str(s.frontend)}
+    # Backend framework (express, fastapi, etc.) or null
     backend: ${str(s.backend)}
+    # Database (postgres, sqlite, etc.) or null
     database: ${str(s.database)}
+    # Test runner (vitest, jest, etc.)
     testing: ${str(s.testing)}
+    # Source directories the agents should focus on
     srcDirs: [${(s.srcDirs || []).map((d) => q(d)).join(", ")}]
+    # Primary languages in the codebase
     languages: [${(s.languages || []).map((l) => q(l)).join(", ")}]
+    # Project instruction files agents should read
     instructions: [${(s.instructions || []).map((i) => q(i)).join(", ")}]
 
 team:
@@ -1076,11 +1095,11 @@ ${teamLines}
     yaml += "\nplaybook:\n"
     yaml += "  securityLedger:\n"
     if (typeof secLedger === "object") {
-      yaml += `    file: ${q(secLedger.file)}\n`
-      if (secLedger.shared) yaml += `    shared: ${q(secLedger.shared)}\n`
-      if (secLedger.owner) yaml += `    owner: ${q(secLedger.owner)}\n`
+      yaml += `    # Path to the security findings ledger\n    file: ${q(secLedger.file)}\n`
+      if (secLedger.shared) yaml += `    # (optional) Shared ledger path\n    shared: ${q(secLedger.shared)}\n`
+      if (secLedger.owner) yaml += `    # (optional) Owner agent for the ledger\n    owner: ${q(secLedger.owner)}\n`
     } else {
-      yaml += `    file: ${q(secLedger)}\n`
+      yaml += `    # Path to the security findings ledger\n    file: ${q(secLedger)}\n`
     }
   }
   return yaml
