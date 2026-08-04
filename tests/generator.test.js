@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
 import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaFleetCommand, renderArmadaSupervisionPlugin, renderArmadaFleetPlugin } from "../src/generator.js"
+import { displayFor } from "../src/role-display.js"
 import { parseManifestYaml } from "../src/manifest.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -141,6 +142,7 @@ test("renderAgentFile emits native frontmatter + body", () => {
   assert.match(out, /^---\n/)
   assert.match(out, /\nmode: subagent\n/)
   assert.match(out, /model: opencode\/mimo-v2\.5-free\n/)
+  assert.match(out, /description: Corvette \u2014 Quality assurance/)
   assert.match(out, /permission:/)
   assert.match(out, /\n---\n\nYou are the qa agent/)
 })
@@ -151,7 +153,20 @@ test("renderAgentFile orchestrator is primary with color, no displayName", () =>
   const out = renderAgentFile(orch, "You are the orchestrator.")
   assert.match(out, /mode: primary\n/)
   assert.match(out, /color: "#00bcd4"/)
+  assert.match(out, /description:.*Commodore.*Delivery lead \/ scheduler/)
   assert.doesNotMatch(out, /displayName/)
+})
+
+test("renderAgentFile every role description starts with displayFor(role)", () => {
+  const team = buildTeam(baseManifest)
+  for (const agent of team) {
+    const out = renderAgentFile(agent, `Prompt for ${agent.role}.`)
+    const displayName = displayFor(agent.role)
+    const label = CATALOG[agent.role].label
+    const expected = `description: ${displayName} \u2014 ${label}`
+    assert.ok(out.includes(expected),
+      `${agent.role}: expected description "${expected}" not found in:\n${out.split("\n").slice(0, 5).join("\n")}`)
+  }
 })
 
 test("renderOpenCodeJson has no agent block, sets default_agent", () => {
