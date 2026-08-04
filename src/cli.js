@@ -36,7 +36,7 @@ import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cm
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
 
-export const VERSION = "0.6.2"
+export const VERSION = "0.7.0"
 
 const HELP = `opencode-armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).
@@ -159,6 +159,10 @@ export async function main(argv = process.argv.slice(2)) {
       return driveCmd(rest, "drive")
     case "preset":
       return preset(rest)
+    case "--version":
+    case "-v":
+      process.stdout.write("opencode-armada v" + VERSION + "\n")
+      return 0
     case "help":
     case "-h":
     case "--help":
