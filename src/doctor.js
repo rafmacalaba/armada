@@ -142,5 +142,15 @@ export async function runDoctor(opts = {}) {
       detail: "disabled by user (--no-fleet-tracker)",
     })
   }
+  if (opts.project?.supervision?.watchdog) {
+    const pluginPath = join(opts.targetDir ?? ".", ".opencode/plugins/armada-watchdog.js")
+    checks.push({
+      name: "watchdog plugin",
+      status: existsSync(pluginPath) ? "pass" : "fail",
+      detail: existsSync(pluginPath)
+        ? ".opencode/plugins/armada-watchdog.js present"
+        : "supervision.watchdog is true but .opencode/plugins/armada-watchdog.js missing — re-run armada init",
+    })
+  }
   return checks
 }

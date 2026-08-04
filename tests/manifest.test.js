@@ -310,6 +310,54 @@ test("parses missing supervision block defaults fleet to true", () => {
   const parsed = parseManifestYaml(yaml)
   assert.strictEqual(parsed.project.supervision.plugin, false)
   assert.strictEqual(parsed.project.supervision.fleet, true)
+  assert.strictEqual(parsed.project.supervision.watchdog, false)
+})
+
+test("parses supervision.watchdog: true alongside plugin: false, fleet: false", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "  supervision:",
+    "    plugin: false",
+    "    fleet: false",
+    "    watchdog: true",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.supervision.plugin, false)
+  assert.strictEqual(parsed.project.supervision.fleet, false)
+  assert.strictEqual(parsed.project.supervision.watchdog, true)
+})
+
+test("rejects supervision.watchdog non-boolean", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: balanced\n  supervision:\n    watchdog: 42\nteam:\n  - role: qa\n    model: x\n    enabled: true"
+    ),
+    /armada\.yaml: schema violation: project\.supervision\.watchdog must be a boolean/
+  )
+})
+
+test("parses missing watchdog defaults to false", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "  supervision:",
+    "    plugin: true",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.supervision.plugin, true)
+  assert.strictEqual(parsed.project.supervision.fleet, true)
+  assert.strictEqual(parsed.project.supervision.watchdog, false)
 })
 
 // -- Phase 2: per-feature ledger paths --

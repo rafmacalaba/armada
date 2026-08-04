@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
-import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaFleetCommand, renderArmadaVoyageCommand, renderArmadaSupervisionPlugin, renderArmadaFleetPlugin } from "../src/generator.js"
+import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaFleetCommand, renderArmadaVoyageCommand, renderArmadaSupervisionPlugin, renderArmadaFleetPlugin, renderArmadaWatchdogPlugin } from "../src/generator.js"
 import { displayFor } from "../src/role-display.js"
 import { parseManifestYaml } from "../src/manifest.js"
 
@@ -799,4 +799,82 @@ test("renderArmadaSupervisionPlugin still denies old protected paths", () => {
   assert.match(src, /AGENTS\.md/)
   assert.match(src, /\.opencode\/\*/)
   assert.match(src, /armada\//)
+})
+
+// -- watchdog plugin generator tests --
+
+test("renderArmadaWatchdogPlugin starts with header comment", () => {
+  const src = renderArmadaWatchdogPlugin()
+  assert.match(src, /^\/\/ opencode-armada watchdog plugin/)
+  assert.match(src, /--watchdog/)
+  assert.match(src, /Auto-loaded by opencode from \.opencode\/plugins/)
+})
+
+test("renderArmadaWatchdogPlugin exports ArmadaWatchdog", () => {
+  const src = renderArmadaWatchdogPlugin()
+  assert.match(src, /export const ArmadaWatchdog/)
+})
+
+test("renderArmadaWatchdogPlugin embeds TIMEOUT_MS = 300_000", () => {
+  const src = renderArmadaWatchdogPlugin()
+  assert.match(src, /TIMEOUT_MS = 300_000/)
+})
+
+test("renderArmadaWatchdogPlugin contains all five handler hooks", () => {
+  const src = renderArmadaWatchdogPlugin()
+  assert.match(src, /session\.created/)
+  assert.match(src, /session\.idle/)
+  assert.match(src, /session\.completed/)
+  assert.match(src, /session\.closed/)
+  assert.match(src, /session\.deleted/)
+})
+
+test("renderArmadaWatchdogPlugin has skipNextIdle + nudgedSessions recursion guard", () => {
+  const src = renderArmadaWatchdogPlugin()
+  assert.match(src, /skipNextIdle/)
+  assert.match(src, /nudgedSessions/)
+})
+
+test("renderArmadaWatchdogPlugin is deterministic for same input", () => {
+  const a = renderArmadaWatchdogPlugin()
+  const b = renderArmadaWatchdogPlugin()
+  assert.strictEqual(a, b)
+})
+
+test("renderArmadaWatchdogPlugin is valid JS that imports cleanly as an ES module", async () => {
+  const src = renderArmadaWatchdogPlugin()
+  const { writeFileSync, mkdtempSync } = await import("node:fs")
+  const { tmpdir } = await import("node:os")
+  const { join } = await import("node:path")
+  const dir = mkdtempSync(join(tmpdir(), "armada-watchdog-plugin-"))
+  const file = join(dir, "armada-watchdog.mjs")
+  writeFileSync(file, src)
+  const mod = await import(file)
+  assert.strictEqual(typeof mod.ArmadaWatchdog, "function", "exports plugin factory")
+})
+
+test("renderManifestYaml emits watchdog: field and round-trips through parseManifestYaml", () => {
+  const yaml = renderManifestYaml(baseManifest, buildTeam(baseManifest))
+  assert.match(yaml, /watchdog: false/)
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.supervision.watchdog, false)
+})
+
+test("renderArmadaWatchdogPlugin embeds STALENESS_WINDOW_MS = 120_000", () => {
+  const src = renderArmadaWatchdogPlugin()
+  assert.match(src, /STALENESS_WINDOW_MS = 120_000/)
+})
+
+test("renderArmadaWatchdogPlugin embeds lastOrchestratorEventAt tracking", () => {
+  const src = renderArmadaWatchdogPlugin()
+  assert.match(src, /lastOrchestratorEventAt/)
+  assert.match(src, /lastOrchestratorEventAt = Date\.now\(\)/)
+})
+
+test("renderArmadaWatchdogPlugin contains two-gate logic", () => {
+  const src = renderArmadaWatchdogPlugin()
+  assert.match(src, /Gate 1/)
+  assert.match(src, /Gate 2/)
+  assert.match(src, /STALENESS_WINDOW_MS/)
+  assert.match(src, /TIMEOUT_MS/)
 })

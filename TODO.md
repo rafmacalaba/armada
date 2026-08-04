@@ -36,6 +36,10 @@ All in-flight lanes merged. `feat/fleet-dashboard` (#59), `feat/artifacts-under-
   resident-heartbeat notice.
 - [x] **Global binary + doctor check** (#64). `armada doctor` reports global-binary health;
   broken npm-link-to-deleted-worktree root cause fixed.
+- [x] **commodore-watchdog** — opt-in subagent watchdog plugin (`--watchdog` /
+  `supervision.watchdog`); nudges the orchestrator when a dispatched subagent has been pending
+  past `TIMEOUT_MS` (5 min) AND the orchestrator has been idle for `STALENESS_WINDOW_MS`
+  (2 min).
 
 ### Wave 2 — first consumers (parallel)
 

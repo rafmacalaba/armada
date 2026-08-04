@@ -70,6 +70,8 @@ function buildMinimalArmadaYaml(opts = {}) {
     `  requirementsFile: "armada/REQUIREMENTS.md"`,
     `  supervision:`,
     `    plugin: false`,
+    `    fleet: false`,
+    `    watchdog: false`,
     `  stack:`,
     `    frontend: null`,
     `    backend: null`,
@@ -239,6 +241,46 @@ test("init: prints Project/Team/Budget/Roster/Next steps summary", () => {
   )
 
   // Cleanup
+  rmSync(cwd, { recursive: true, force: true })
+})
+
+test("init: renders watchdog: false in armada.yaml by default", () => {
+  const cwd = makeTmpDir()
+  mkdirp(join(cwd, "armada"))
+  mkdirp(join(cwd, "src"))
+
+  writeFileSyncSafe(
+    join(cwd, "package.json"),
+    JSON.stringify({ name: "watchdog-test" }, null, 2) + "\n"
+  )
+
+  const result = runCli(["init", "--target", cwd, "--yes", "--headless"], {
+    env: { ...process.env, npm_config_yes: "true" },
+  })
+  assert.strictEqual(result.code, 0, `init failed (exit ${result.code}): ${result.stderr}`)
+
+  const written = readFileSync(join(cwd, "armada/armada.yaml"), "utf8")
+  assert.match(written, /watchdog: false/)
+  rmSync(cwd, { recursive: true, force: true })
+})
+
+test("init --watchdog: renders watchdog: true in armada.yaml", () => {
+  const cwd = makeTmpDir()
+  mkdirp(join(cwd, "armada"))
+  mkdirp(join(cwd, "src"))
+
+  writeFileSyncSafe(
+    join(cwd, "package.json"),
+    JSON.stringify({ name: "watchdog-test2" }, null, 2) + "\n"
+  )
+
+  const result = runCli(["init", "--target", cwd, "--yes", "--headless", "--watchdog"], {
+    env: { ...process.env, npm_config_yes: "true" },
+  })
+  assert.strictEqual(result.code, 0, `init --watchdog failed (exit ${result.code}): ${result.stderr}`)
+
+  const written = readFileSync(join(cwd, "armada/armada.yaml"), "utf8")
+  assert.match(written, /watchdog: true/)
   rmSync(cwd, { recursive: true, force: true })
 })
 

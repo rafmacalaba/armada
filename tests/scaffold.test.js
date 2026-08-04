@@ -4,7 +4,7 @@ import assert from "node:assert"
 import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify, validateTargetDir } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { agentNameFor } from "../src/role-display.js"
-import { renderArmadaFleetCommand, renderArmadaVoyageCommand, renderArmadaFleetPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
+import { renderArmadaFleetCommand, renderArmadaVoyageCommand, renderArmadaFleetPlugin, renderArmadaWatchdogPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
 import { detectStack } from "../src/stack-detect.js"
 import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync, symlinkSync, realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -480,6 +480,41 @@ test("fleet plugin removed on uninstall", () => {
   const removed = uninstall(manifest)
   assert.ok(!existsSync(plugin), "fleet plugin removed on uninstall")
   assert.ok(removed.includes(".opencode/plugins/armada-fleet.js"))
+  rmSync(dir, { recursive: true, force: true })
+})
+// -- Phase 1: watchdog plugin scaffold --
+test("watchdog plugin not written by default", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-wd-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  assert.ok(!existsSync(join(dir, ".opencode/plugins/armada-watchdog.js")), "no watchdog plugin by default")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("watchdog plugin written when supervision.watchdog is true", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-wd2-"))
+  const manifest = makeManifest(dir)
+  manifest.project.supervision = { watchdog: true }
+  scaffold(manifest, manifest.project.stack)
+  const plugin = join(dir, ".opencode/plugins/armada-watchdog.js")
+  assert.ok(existsSync(plugin), "watchdog plugin written when enabled")
+  const src = readFileSync(plugin, "utf8")
+  assert.match(src, /export const ArmadaWatchdog/)
+  assert.match(src, /TIMEOUT_MS/)
+  assert.strictEqual(src, renderArmadaWatchdogPlugin(), "content matches generator output")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("watchdog plugin removed on uninstall", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-wd3-"))
+  const manifest = makeManifest(dir)
+  manifest.project.supervision = { watchdog: true }
+  scaffold(manifest, manifest.project.stack)
+  const plugin = join(dir, ".opencode/plugins/armada-watchdog.js")
+  assert.ok(existsSync(plugin), "watchdog plugin present before uninstall")
+  const removed = uninstall(manifest)
+  assert.ok(!existsSync(plugin), "watchdog plugin removed on uninstall")
+  assert.ok(removed.includes(".opencode/plugins/armada-watchdog.js"))
   rmSync(dir, { recursive: true, force: true })
 })
 // -- Phase 1: managed .gitignore block --
