@@ -817,3 +817,37 @@ no-clobber, renderSkillFile pure), `tests/permissions.test.js` (BASE_PERMISSIONS
 
 **Lane status:** Phases 1-3 green in `feat/skills-integration`; this entry is the Phase 4
 acceptance evidence. PR handoff to commodore for `gh pr create --base master`.
+
+---
+
+## Skills expansion lane (2026-08-04)
+
+Expanded armada's bundled skills from 2 (Wave 2) to 9, covering the full fleet workflow:
+orchestration, dispatch, PR finish, resume, ledgers, context budget, TDD, SDD. Phases 1 and 2 ran
+in parallel: galleon authored the 7 new `SKILL.md` files + registry (`src/skills/<name>/SKILL.md`),
+clipper wired the per-role `load X when Y` references and the docs. Hybrid loading model — explicit
+per-role lines bias the load; opencode's description-triggered self-selection catches the rest.
+
+### What was wired
+
+- **Phase 1 (galleon).** `src/skills/armada-{dispatch,pr,resume,ledger,context-budget,tdd,sdd}/SKILL.md`
+  (7 new) + `src/skills/index.js` registry exporting all 9. Total: 9 skills, each with valid YAML
+  frontmatter (`name`, `description`).
+- **Phase 2 (clipper).** `agents/<role>/prompt.template.md` (8 roles) — appended `load X when Y`
+  references per the per-role spec. New test file `tests/prompts.test.js` (8 tests, one per role)
+  asserts each role's prompt contains its declared load lines. TDD: test fails before, passes after.
+- **Phase 3 (clipper).** `docs/using-armada.md` — new "Bundled skills" section with the 9-skill
+  table, per-role load table, self-selection explanation, and `project.skills` opt-out via
+  `armada.yaml`. Mirrors the `Fleet commands` table style.
+
+### Tests
+
+- After Phase 1 + 2: `node --test 'tests/*.test.js'` — 766 tests, 764 pass, 0 fail, 2 skipped.
+  New: 19 tests (`tests/prompts.test.js` × 8 from Phase 2 + `tests/skills-registry.test.js` × 11
+  from Phase 1). The 2 pre-existing flakes (`tests/drive.test.js`, `tests/heartbeat.test.js`)
+  pass on rerun.
+- Per-role load assertions: commodore (4 skills), galleon (4), clipper (4), corvette (2 — `armada-gate`
+  omitted per Wave 2 baseline), xebec (2), frigate (2), caravel (2), bark (1). All 8 role tests
+  pass green.
+- No regressions in `tests/orchestrator-prompt.test.js`, `tests/scaffold.test.js`,
+  `tests/role-display.test.js`, `tests/validation.test.js` — all stay green.

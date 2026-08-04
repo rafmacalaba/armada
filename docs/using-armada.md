@@ -22,6 +22,66 @@ on **anything else**.
 - **Repeatable.** `armada init --from-armada armada/armada.yaml` regenerates
   the exact same config. Tearing down and re-scaffolding is one command.
 
+## Bundled skills
+
+Armada ships **9 skills** that scaffold into every generated team at
+`.opencode/skills/<name>/SKILL.md`. Two layers of loading keep them cheap: per-role explicit lines
+in each role prompt (`Load \`X\` when Y`) bias the load toward the role's most common cases;
+self-selection on each skill's `description:` frontmatter catches the rest. Mirrors the
+`Fleet commands` table style (one short table per concept, prose around it).
+
+### The 9 skills
+
+| Skill | When to load |
+|---|---|
+| `armada-contract` | contract work, phase planning, requirements clarification |
+| `armada-gate` | phase gating, success criteria, evidence review |
+| `armada-dispatch` | 2+ independent tasks, parallel subagents, disjoint files |
+| `armada-pr` | finishing a feature lane, `gh pr create`, PR-first close |
+| `armada-resume` | session start, killed session, reconciling `armada/state/` |
+| `armada-ledger` | writing DEFECTS / ADVERSARIAL / SECURITY_FINDINGS entries |
+| `armada-context-budget` | always — token discipline, terse output, no over-write |
+| `armada-tdd` | before writing implementation, failing test first |
+| `armada-sdd` | when dispatched as a subagent, return shape, single receipt |
+
+### Per-role load table
+
+| Role (ship) | Loads |
+|---|---|
+| `orchestrator` (commodore) | `armada-contract`, `armada-dispatch`, `armada-pr`, `armada-resume` |
+| `backend-dev` (galleon) | `armada-tdd`, `armada-sdd`, `armada-context-budget`, `armada-ledger` |
+| `frontend-dev` (clipper) | `armada-tdd`, `armada-sdd`, `armada-context-budget`, `armada-ledger` |
+| `qa` (corvette) | `armada-gate`, `armada-ledger`, `armada-context-budget` |
+| `adversary` (xebec) | `armada-ledger`, `armada-context-budget` |
+| `security` (frigate) | `armada-ledger`, `armada-context-budget` |
+| `docs` (caravel) | `armada-contract`, `armada-context-budget` |
+| `architect` (bark) | `armada-context-budget` |
+
+### Self-selection (description-triggered)
+
+Each `SKILL.md` carries YAML frontmatter with a `description:` field listing the natural-language
+triggers ("PR", "failing test", "subagent", "tokens", "ledger", "contract", ...). When a role's
+task matches any trigger, opencode loads the skill on demand — even if the per-role load line
+didn't list it. Per-role lines bias the load (they're checked first); description matching catches
+the rest. The two layers are independent: a role prompt can omit a skill and the role still picks
+it up when the task matches the description.
+
+### Opt-out
+
+Default = all 9 skills ship into `.opencode/skills/`. Override via `project.skills` in
+`armada/armada.yaml`:
+
+```yaml
+project:
+  skills: []                                # ship no skills
+  # or
+  skills: [armada-contract, armada-gate]    # ship only this subset
+```
+
+Empty list disables; subset works; absent field = all 9. Re-scaffold with
+`armada init --from-armada armada/armada.yaml` to apply. Bundled skills never overwrite global
+skills (verification-before-completion, etc.) — the two layers coexist.
+
 ## Where to put the project
 
 For an external project, scaffold into a sibling directory **outside** the

@@ -9,6 +9,7 @@ Stack: {stack_summary}
 
 - Read the task spec and the relevant part of REQUIREMENTS.md before coding.
 - Read `<skill>` SKILL.md when the task matches its description.
+- Load `armada-tdd` before writing source, `armada-sdd` for subagent return shape, `armada-context-budget` always, `armada-ledger` when scope unclear.
 - Work incrementally: small steps, validate each one before moving on.
 - Before reporting done: run the frontend unit tests, start the app, screenshot the feature
   into {screenshots_dir}, and look at the screenshot. Check your own work against the spec and the
