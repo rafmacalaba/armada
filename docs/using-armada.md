@@ -546,6 +546,60 @@ A heartbeat keeps an entry fresh. Three ways to keep it fresh:
 A dock shows STALLED when no heartbeat has arrived in the last 2 minutes — the ship likely
 died. Re-attach with `tmux attach -t <name>` or restart it with `armada voyage <dock>`.
 
+## Security ledger
+
+Alongside the per-feature `DEFECTS.md` and `ADVERSARIAL_REVIEW.md`, the security role keeps
+a third ledger for security findings. Style and shape mirror the
+`## armada/ledgers/{feature}/DEFECTS.md — the defect ledger` section in the generated
+[AGENTS.md](../../AGENTS.md) (same format block, same status table); the entries are
+filed by the security reviewer and disposed by the orchestrator.
+
+- **File location** — `armada/ledgers/<feature>/SECURITY_FINDINGS.md`, one per active
+  feature (parallel to `DEFECTS.md` and `ADVERSARIAL_REVIEW.md`). A fresh repo gets the
+  same shape under `armada/ledgers/_template/`.
+- **Entry format** — `SEC-###` with a short title, one entry per finding, newest first:
+
+    ## SEC-001: Short title
+
+    - Status: OPEN
+    - Severity: HIGH | MEDIUM | LOW
+    - Found by: security
+    - Phase: N
+
+    What I found: ...
+    Expected: ...
+    Actual: ...
+    Screenshot: armada/screenshots/<feature>/sec-001.png (optional)
+
+    History:
+    - security: opened
+
+- **Status lifecycle** — OPEN → ACCEPTED → MITIGATED, with REJECTED as the off-ramp.
+  The lifecycle:
+
+  | Status | Meaning | Set by |
+  |--------|---------|--------|
+  | OPEN | New finding, pending review | security |
+  | ACCEPTED | Finding confirmed, fix planned | orchestrator |
+  | REJECTED | Not a vulnerability / out of scope | orchestrator |
+  | MITIGATED | Fix applied and verified | orchestrator |
+
+  Every status change appends a `History:` line. A finding is not closed because the
+  reviewer says so — it is closed when the orchestrator marks it MITIGATED (after qa
+  retest) or REJECTED with a written reason.
+
+- **Who writes** — **security (frigate) only**. No other agent, including qa or the
+  orchestrator, creates entries. The frigate's role prompt and frontmatter `permission`
+  grant it write access to `armada/ledgers/*/SECURITY_FINDINGS.md` and nothing else.
+- **Who reads** — **corvette (qa) and commodore (orchestrator)**. The commodore
+  dispositions: ACCEPT (route to a fix), REJECT (not a real finding, with reason), or
+  MITIGATED (after the fix lands and retest passes). The corvette reads to verify the
+  fix when a finding flips to MITIGATED. Other roles do not need to read it.
+
+For deeper detail (template rendering, no-clobber, multi-feature isolation) see
+`armada/ledgers/{feature}/SECURITY_FINDINGS.md — security findings` in the generated
+AGENTS.md of an armed project.
+
 ## Audit an existing repo
 
 Same scaffold, different intent: the team reviews the codebase and files findings — no code

@@ -20,6 +20,7 @@ import {
   renderArmadaFleetCommand,
   renderArmadaSupervisionPlugin,
   renderArmadaFleetPlugin,
+  renderSecurityFindingsTemplate,
 } from "./generator.js"
 import { ROLES } from "./model-catalog.js"
 import { formatStack } from "./stack-detect.js"
@@ -130,6 +131,7 @@ export function fillTemplate(text, manifest, stack) {
       : "",
     feature: featureName,
     ledgers_dir: ledgersDir,
+    security_ledgers_dir: ledgersDir,
     e2e_dir: e2eDir,
     screenshots_dir: screenshotsDir,
   }
@@ -347,6 +349,12 @@ export function scaffold(manifest, stack, opts = {}) {
   // 6. armada.yaml — always write (manifest is the re-runnable source of truth).
   write("armada/armada.yaml", renderManifestYaml(manifest, team))
 
+  // 6b. Security findings template — no-clobber (written once, never overwritten).
+  const securityTpl = "armada/ledgers/_template/SECURITY_FINDINGS.md"
+  if (!existsSync(out(securityTpl))) {
+    write(securityTpl, renderSecurityFindingsTemplate())
+  }
+
   // 7. armada commands for in-session use.
   write(".opencode/commands/armada.md", renderArmadaCommand())
   write(".opencode/commands/armada-status.md", renderArmadaStatusCommand())
@@ -416,6 +424,9 @@ export function uninstall(manifest, opts = {}) {
   removeFile("armada/armada.yaml")
   const requirementsFile = manifest?.project?.requirementsFile ?? "armada/REQUIREMENTS.md"
   removeFile(requirementsFile)
+  removeFile("armada/ledgers/_template/SECURITY_FINDINGS.md")
+  removeEmptyDir("armada/ledgers/_template")
+  removeEmptyDir("armada/ledgers")
   removeEmptyDir("armada")
   for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume", "armada-fleet"]) {
     removeFile(`.opencode/commands/${cmd}.md`)

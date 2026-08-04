@@ -79,7 +79,7 @@ export const CATALOG = {
     fallback: "openrouter/deepseek/deepseek-v4-pro",
     free: "opencode/big-pickle",
     power: "openrouter/deepseek/deepseek-v4-pro",
-    reasoning: "vulnerability review, auth/authz, data exposure, dependency risk",
+    reasoning: "vulnerability review, auth/authz, data exposure, dependency risk, armada/ledgers/<feature>/SECURITY_FINDINGS.md",
   },
   docs: {
     label: "Technical writer",

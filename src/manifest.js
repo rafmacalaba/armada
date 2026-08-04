@@ -209,6 +209,11 @@ export const DEFAULT_PLAYBOOK = {
     shared: "armada/ledgers/shared/ADVERSARIAL_REVIEW.md",
     owner: "adversary",
   },
+  securityLedger: {
+    file: "armada/ledgers/{feature}/SECURITY_FINDINGS.md",
+    shared: "armada/ledgers/shared/SECURITY_FINDINGS.md",
+    owner: "security",
+  },
   phases: {
     gateCriteria: "evidence: passing tests and/or screenshots",
     contract: "armada/REQUIREMENTS.md",
