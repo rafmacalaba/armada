@@ -6,8 +6,15 @@ import { createHash } from "node:crypto"
 
 import { makeTempRepo, runCli, spawnCli } from "./helpers.js"
 import { parseRepoArg, validateTargetPaths } from "../src/update.js"
+import { ROLES, modelFor } from "../src/model-catalog.js"
+import { buildTeam, renderManifestYaml } from "../src/generator.js"
 
-const manifestYaml = readFileSync(join(process.cwd(), "armada/armada.yaml"), "utf8")
+function manifestYaml() {
+  const m = { project: { name: "update-e2e", budget: "free", browserTesting: false, devcontainer: false,
+    useAgentBrowser: false, stack: {} },
+    team: ROLES.map((r) => ({ role: r, model: modelFor(r, "free"), fallback: null, enabled: true })) }
+  return renderManifestYaml(m, buildTeam(m))
+}
 
 function hashFile(dir, rel) {
   return createHash("sha256").update(readFileSync(join(dir, rel), "utf8")).digest("hex")
@@ -35,7 +42,7 @@ test("update: missing manifest exits 1 with hint", async () => {
 // 3. Unparseable opencode.json
 test("update: unparseable opencode.json exits 1, file untouched", async () => {
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": "{ this is not json }",
   })
   const originalHash = hashFile(dir, "opencode.json")
@@ -55,7 +62,7 @@ test("update --yes: sets default_agent, updates model, preserves user keys", asy
     mcp: { foo: "bar" },
   }
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": JSON.stringify(userOc),
   })
 
@@ -80,7 +87,7 @@ test("update --yes: re-run is idempotent (opencode.json unchanged)", async () =>
     mcp: { foo: "bar" },
   }
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": JSON.stringify(userOc),
   })
 
@@ -113,7 +120,7 @@ test("update --dry-run: prints plan, writes nothing", async () => {
     mcp: { foo: "bar" },
   }
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": JSON.stringify(userOc),
   })
 
@@ -147,7 +154,7 @@ test("update --dry-run: writes nothing, prints diff with default_agent, .opencod
     mcp: { foo: "bar" },
   }
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": JSON.stringify(userOc),
   })
 
@@ -175,7 +182,7 @@ test("update --yes with closed stdin: writes without prompting, .opencode/ creat
     mcp: { foo: "bar" },
   }
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": JSON.stringify(userOc),
   })
 
@@ -209,7 +216,7 @@ test("update without --yes on non-TTY stdin: warns, writes nothing", async () =>
     mcp: { foo: "bar" },
   }
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": JSON.stringify(userOc),
   })
 
@@ -326,7 +333,7 @@ test("validateTargetPaths: symlink pointing inside repo ok", () => {
 test("update --repo=value --dry-run: targets correct repo", async () => {
   const userOc = { model: "opencode/hy3-free", theme: "dark" }
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": JSON.stringify(userOc),
   })
   const r = await runCli(["update", `--repo=${dir}`, "--dry-run"])
@@ -347,7 +354,7 @@ test("update --repo (no value): exits 1, stderr mentions requires a path", async
 
 test("update with array opencode.json: exits 1, file byte-unchanged, mentions JSON object", async () => {
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": JSON.stringify(["not", "an", "object"]),
   })
   const originalContent = readFileSync(join(dir, "opencode.json"), "utf8")
@@ -363,7 +370,7 @@ test("update with array opencode.json: exits 1, file byte-unchanged, mentions JS
 test("update --yes on repo without .gitignore: block added", async () => {
   const userOc = { model: "opencode/hy3-free", theme: "dark" }
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
     "opencode.json": JSON.stringify(userOc),
   })
   // Ensure no .gitignore
@@ -379,7 +386,7 @@ test("update --yes on repo without .gitignore: block added", async () => {
 
 test("update --yes with symlink opencode.json outside repo: exits 1", async () => {
   const dir = makeTempRepo({
-    "armada/armada.yaml": manifestYaml,
+    "armada/armada.yaml": manifestYaml(),
   })
   const repo = resolve(dir)
   const outsidePath = join(resolve(dir, ".."), "victim.json")
