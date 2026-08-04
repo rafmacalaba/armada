@@ -1,23 +1,41 @@
+// Skills registry: all bundled armada skills. Each entry is {name, description, body}.
+// The body is the full SKILL.md file content (frontmatter + markdown).
+// Names match ^[a-z0-9]+(-[a-z0-9]+)*$ .
+// Descriptions are <= 200 characters.
+// No dangling {placeholders}, no emojis.
+
 import { readFileSync } from "node:fs"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
-import YAML from "yaml"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-function parseSkillFile(name) {
-  const raw = readFileSync(join(__dirname, name, "SKILL.md"), "utf8")
-  const match = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
-  if (!match) throw new Error(`invalid skill frontmatter in ${name}`)
-  const frontmatter = YAML.parse(match[1])
-  return {
-    name: frontmatter.name,
-    description: frontmatter.description,
-    body: raw,
-  }
+function readSkill(name) {
+  const body = readFileSync(join(__dirname, name, "SKILL.md"), "utf8")
+  // Extract description from frontmatter
+  const descMatch = body.match(/^---[\s\S]*?description:\s*(.+?)\s*\n[\s\S]*?---/)
+  const description = descMatch ? descMatch[1].trim() : ""
+  return { name, description, body }
 }
 
-export const armadaContract = parseSkillFile("armada-contract")
-export const armadaGate = parseSkillFile("armada-gate")
+export const armadaContract = readSkill("armada-contract")
+export const armadaGate = readSkill("armada-gate")
+export const armadaDispatch = readSkill("armada-dispatch")
+export const armadaPr = readSkill("armada-pr")
+export const armadaResume = readSkill("armada-resume")
+export const armadaLedger = readSkill("armada-ledger")
+export const armadaContextBudget = readSkill("armada-context-budget")
+export const armadaTdd = readSkill("armada-tdd")
+export const armadaSdd = readSkill("armada-sdd")
 
-export const skillRegistry = [armadaContract, armadaGate]
+export const skillRegistry = [
+  armadaContract,
+  armadaGate,
+  armadaDispatch,
+  armadaPr,
+  armadaResume,
+  armadaLedger,
+  armadaContextBudget,
+  armadaTdd,
+  armadaSdd,
+]

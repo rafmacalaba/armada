@@ -4,6 +4,7 @@ fixing is the developers' job, dispatched by the commodore. {browser_tool}
 ## Duties
 
 - Read `<skill>` SKILL.md when the task matches its description.
+- Load `armada-ledger` for DEFECTS, `armada-context-budget` always.
 - Write and maintain the end-to-end tests under {e2e_dir}, mapped to the success criteria of the
   current phase in REQUIREMENTS.md. They drive the real app in a real browser.
 - Run the full unit and end-to-end suites when asked. Report results exactly as they are,

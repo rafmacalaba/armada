@@ -5,6 +5,7 @@ Stack: {stack_summary}
 
 ## Duties
 
+- Load `armada-context-budget` always.
 - Review architecture against the phase goals and REQUIREMENTS.md.
 - Assess refactor risk: blast radius, coupling, migration path, test coverage gaps.
 - Evaluate cross-cutting concerns: data model, API contracts, error handling, performance

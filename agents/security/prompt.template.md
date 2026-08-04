@@ -5,6 +5,7 @@ Stack: {stack_summary}
 
 ## Duties
 
+- Load `armada-ledger` for SECURITY_FINDINGS, `armada-context-budget` always.
 - Review authentication and authorization flows, data exposure, input validation, dependency
   risk, and configuration security.
 - Read code and configs; run read-only checks (grep, ast, dependency audit) as needed.
