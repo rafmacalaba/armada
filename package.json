@@ -1,6 +1,6 @@
 {
   "name": "opencode-armada",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Evidence-gated AI-engineer teams for opencode: phases ship on proof, defects close on retest, boundaries enforced by the SDK",
   "type": "module",
   "bin": {
