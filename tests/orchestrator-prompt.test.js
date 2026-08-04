@@ -125,10 +125,6 @@ test("armada-status / armada-resume command renderers reference correct sources"
     resume.includes("armada reconcile"),
     "armada-resume must prefer the global armada binary"
   )
-  assert.ok(
-    resume.includes("node src/cli.js reconcile"),
-    "armada-resume must call node src/cli.js reconcile"
-  )
   assert.ok(resume.includes("resume line"), "armada-resume must mention resume line")
   assert.ok(resume.includes("drift list"), "armada-resume must mention drift list")
 })

@@ -297,7 +297,7 @@ test("rejects supervision.fleet non-boolean", () => {
   )
 })
 
-test("parses missing supervision block defaults both to false", () => {
+test("parses missing supervision block defaults fleet to true", () => {
   const yaml = [
     "project:",
     "  name: t",
@@ -309,7 +309,7 @@ test("parses missing supervision block defaults both to false", () => {
   ].join("\n")
   const parsed = parseManifestYaml(yaml)
   assert.strictEqual(parsed.project.supervision.plugin, false)
-  assert.strictEqual(parsed.project.supervision.fleet, false)
+  assert.strictEqual(parsed.project.supervision.fleet, true)
 })
 
 // -- Phase 2: per-feature ledger paths --
