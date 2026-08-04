@@ -2,6 +2,7 @@
 // detected stack, and the agent/prompt templates. Pure functions — no I/O.
 
 import { ROLES, CATALOG, modelFor, fallbackFor } from "./model-catalog.js"
+import { displayFor } from "./role-display.js"
 import { DEFAULT_PLAYBOOK } from "./manifest.js"
 import YAML from "yaml"
 
@@ -167,7 +168,7 @@ export function buildTeam(manifest) {
 // frontmatter so the roster works without any plugin.
 export function renderAgentFile(agent, promptText) {
   const frontmatter = {
-    description: CATALOG[agent.role].label,
+    description: `${displayFor(agent.role)} \u2014 ${CATALOG[agent.role].label}`,
     mode: agent.role === "orchestrator" ? "primary" : "subagent",
     ...(agent.model ? { model: agent.model } : {}),
     ...(agent.variant ? { variant: agent.variant } : {}),
