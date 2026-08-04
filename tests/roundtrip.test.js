@@ -12,7 +12,8 @@ function manifest(dir) {
   const m = { targetDir: dir, project: { name: "rt", budget: "power", browserTesting: true,
     devcontainer: true, useAgentBrowser: true,
     stack: { frontend: "nextjs", backend: "python-fastapi", database: "postgres", testing: "playwright",
-      srcDirs: ["src", "backend"], languages: ["typescript", "python"] } },
+      srcDirs: ["src", "backend"], languages: ["typescript", "python"] },
+    supervision: { plugin: false, fleet: true } },
     team: ROLES.map((r) => ({ role: r, model: modelFor(r, "power"), fallback: null, enabled: true })) }
   return { m, yaml: renderManifestYaml(m, buildTeam(m)) }
 }

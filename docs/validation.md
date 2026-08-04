@@ -817,3 +817,72 @@ no-clobber, renderSkillFile pure), `tests/permissions.test.js` (BASE_PERMISSIONS
 
 **Lane status:** Phases 1-3 green in `feat/skills-integration`; this entry is the Phase 4
 acceptance evidence. PR handoff to commodore for `gh pr create --base master`.
+
+---
+
+## Skills expansion lane (2026-08-04)
+
+Expanded armada's bundled skills from 2 (Wave 2) to 9, covering the full fleet workflow:
+orchestration, dispatch, PR finish, resume, ledgers, context budget, TDD, SDD. Phases 1 and 2 ran
+in parallel: galleon authored the 7 new `SKILL.md` files + registry (`src/skills/<name>/SKILL.md`),
+clipper wired the per-role `load X when Y` references and the docs. Hybrid loading model — explicit
+per-role lines bias the load; opencode's description-triggered self-selection catches the rest.
+
+### What was wired
+
+- **Phase 1 (galleon).** `src/skills/armada-{dispatch,pr,resume,ledger,context-budget,tdd,sdd}/SKILL.md`
+  (7 new) + `src/skills/index.js` registry exporting all 9. Total: 9 skills, each with valid YAML
+  frontmatter (`name`, `description`).
+- **Phase 2 (clipper).** `agents/<role>/prompt.template.md` (8 roles) — appended `load X when Y`
+  references per the per-role spec. New test file `tests/prompts.test.js` (8 tests, one per role)
+  asserts each role's prompt contains its declared load lines. TDD: test fails before, passes after.
+- **Phase 3 (clipper).** `docs/using-armada.md` — new "Bundled skills" section with the 9-skill
+  table, per-role load table, self-selection explanation, and `project.skills` opt-out via
+  `armada.yaml`. Mirrors the `Fleet commands` table style.
+
+### Tests
+
+- After Phase 1 + 2: `node --test 'tests/*.test.js'` — 766 tests, 764 pass, 0 fail, 2 skipped.
+  New: 19 tests (`tests/prompts.test.js` × 8 from Phase 2 + `tests/skills-registry.test.js` × 11
+  from Phase 1). The 2 pre-existing flakes (`tests/drive.test.js`, `tests/heartbeat.test.js`)
+  pass on rerun.
+- Per-role load assertions: commodore (4 skills), galleon (4), clipper (4), corvette (2 — `armada-gate`
+  omitted per Wave 2 baseline), xebec (2), frigate (2), caravel (2), bark (1). All 8 role tests
+  pass green.
+- No regressions in `tests/orchestrator-prompt.test.js`, `tests/scaffold.test.js`,
+  `tests/role-display.test.js`, `tests/validation.test.js` — all stay green.
+
+### Skills expansion lane — lightweight scaffold smoke (2026-08-04)
+
+Lightweight, no-LLM runtime check: fresh repo + `armada init --yes` + file-level verification.
+Closes the "skill not actually loaded at runtime" gap with a scaffold-level proof; full LLM
+runtime smoke remains a follow-up (requires tmux + opencode session, not lightweight).
+
+Procedure:
+1. `mkdir /tmp/armada-skills-smoke-$$ && cd $_`
+2. `git init -q && node /path/to/opencode-armada/src/cli.js init --yes`
+3. Verify `.opencode/skills/` contents + per-role load lines.
+
+Evidence:
+- `find .opencode/skills -name SKILL.md | wc -l` = **9** (all 9 ship).
+- 9 skills written: `armada-context-budget`, `armada-contract`, `armada-dispatch`, `armada-gate`,
+  `armada-ledger`, `armada-pr`, `armada-resume`, `armada-sdd`, `armada-tdd`.
+- Frontmatter parse: all 9 names match `^[a-z0-9]+(-[a-z0-9]+)*$`. Descriptions 127-193 chars
+  (all ≤ 200). Bodies render with no dangling `{placeholder}`.
+- Per-role load lines (grep on `.opencode/agent/<role>.md`):
+  - commodore → contract + gate + dispatch + pr + resume (5 lines, all present)
+  - galleon → tdd + sdd + context-budget + ledger (4 lines)
+  - clipper → same 4
+  - corvette → ledger + context-budget (2 lines; gate from Wave 2 baseline)
+  - xebec → ledger + context-budget (2)
+  - frigate → ledger + context-budget (2)
+  - caravel → contract + context-budget (2)
+  - bark → context-budget (1)
+- Self-selection: each skill's `description:` contains trigger phrases ("TDD", "subagent",
+  "PR", "resume", "ledger", "tokens", "parallelize", "evidence", "contract") — opencode's
+  description-based skill discovery will surface them on demand even without explicit prompt
+  references.
+
+Smoke verdict: scaffold-level PASS. Skills render, prompts reference them, descriptions
+enable self-selection. Runtime LLM test (opencode session actually loading `armada-tdd` and
+changing behavior) deferred — needs tmux + model calls, not lightweight.

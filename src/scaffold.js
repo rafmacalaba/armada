@@ -13,6 +13,12 @@ import {
   renderAgentsMd,
   renderRequirementsMd,
   renderManifestYaml,
+  renderArmadaCommand,
+  renderArmadaStatusCommand,
+  renderArmadaScoutCommand,
+  renderArmadaResumeCommand,
+  renderArmadaFleetCommand,
+  renderArmadaVoyageCommand,
   renderArmadaSupervisionPlugin,
   renderArmadaFleetPlugin,
   renderArmadaWatchdogPlugin,
@@ -404,14 +410,21 @@ export function scaffold(manifest, stack, opts = {}) {
     write(securityTpl, renderSecurityFindingsTemplate())
   }
 
+  // 7. armada commands for in-session use.
+  write(".opencode/commands/armada.md", renderArmadaCommand())
+  write(".opencode/commands/armada-status.md", renderArmadaStatusCommand())
+  write(".opencode/commands/armada-scout.md", renderArmadaScoutCommand())
+  write(".opencode/commands/armada-resume.md", renderArmadaResumeCommand())
+  write(".opencode/commands/armada-fleet.md", renderArmadaFleetCommand())
+  write(".opencode/commands/armada-voyage.md", renderArmadaVoyageCommand())
 
   // 7b. Opt-in thin supervision plugin.
   if (manifest.project.supervision?.plugin) {
     write(".opencode/plugins/armada-supervision.js", renderArmadaSupervisionPlugin(team))
   }
 
-  // 7c. Opt-in fleet tracker plugin.
-  if (manifest.project.supervision?.fleet) {
+  // 7c. Fleet tracker plugin — installed by default (use --no-fleet-tracker to skip).
+  if (manifest.project.supervision?.fleet !== false) {
     write(".opencode/plugins/armada-fleet.js", renderArmadaFleetPlugin())
   }
 
@@ -476,6 +489,9 @@ export function uninstall(manifest, opts = {}) {
   removeEmptyDir("armada/ledgers/_template")
   removeEmptyDir("armada/ledgers")
   removeEmptyDir("armada")
+  for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume", "armada-fleet", "armada-voyage"]) {
+    removeFile(`.opencode/commands/${cmd}.md`)
+  }
   // Opt-in supervision plugin (armada-owned, only removed when present).
   removeFile(".opencode/plugins/armada-supervision.js")
   removeFile(".opencode/plugins/armada-fleet.js")

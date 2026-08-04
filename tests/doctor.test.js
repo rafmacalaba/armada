@@ -88,12 +88,15 @@ test("supervision plugin check only when enabled", async () => {
   assert.strictEqual(present.status, "pass")
 })
 
-test("fleet tracker plugin check only when enabled", async () => {
+test("fleet tracker plugin check when explicitly disabled", async () => {
   const binDir = makeBin({ opencode: SH })
   const dir = mkdtempSync(join(tmpdir(), "armada-dr-flt-"))
-  // not enabled -> no check emitted
+  // explicitly disabled -> check emitted with pass/disabled status
   let checks = await runDoctor({ env: envWith(binDir), project: { supervision: { fleet: false } }, targetDir: dir })
-  assert.ok(!checks.some((c) => c.name === "fleet tracker plugin"))
+  const disabledCheck = checks.find((c) => c.name === "fleet tracker plugin")
+  assert.ok(disabledCheck, "check present when fleet is explicitly false")
+  assert.strictEqual(disabledCheck.status, "pass")
+  assert.match(disabledCheck.detail, /disabled by user/)
   // enabled but file missing -> fail
   checks = await runDoctor({ env: envWith(binDir), project: { supervision: { fleet: true } }, targetDir: dir })
   const missing = checks.find((c) => c.name === "fleet tracker plugin")

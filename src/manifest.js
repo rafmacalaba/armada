@@ -180,7 +180,7 @@ export function parseManifestYaml(text, target) {
       skills,
       supervision: {
         plugin: p.supervision?.plugin ?? false,
-        fleet: p.supervision?.fleet ?? false,
+        fleet: p.supervision?.fleet ?? true,
         watchdog: p.supervision?.watchdog ?? false,
       },
       stack: {

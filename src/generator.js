@@ -519,6 +519,96 @@ export function renderRequirementsMd(manifest) {
 `
 }
 
+// Build the `.opencode/commands/armada.md` command descriptor.
+export function renderArmadaCommand() {
+  return `---
+description: opencode-armada — team status, roles, regenerate
+---
+You are the armada helper. Report: the configured team (from .opencode/agent/),
+the active preset, and how to regenerate (armada init --from-armada armada/armada.yaml).
+When reporting the team, use the display names (Commodore, Galleon, Clipper, Corvette,
+Xebec, Frigate, Caravel, Bark). Keep it terse.
+`
+}
+
+// Build the `.opencode/commands/armada-status.md` command descriptor.
+export function renderArmadaStatusCommand() {
+  return `---
+description: opencode-armada — fleet status, active feature, next action
+agent: ${agentNameFor("orchestrator")}
+---
+Read armada/state/active.json + armada/state/features/index.json if they exist. Report the
+active feature, pending phases (status != "passed"), the next action, and the PR URL from
+\`active.json\` field \`prUrl\` (or "PR pending" if absent). If no state exists, say "no active
+fleet". Keep it terse.
+`
+}
+
+// Build the `.opencode/commands/armada-scout.md` command descriptor.
+export function renderArmadaScoutCommand() {
+  return `---
+description: opencode-armada — read-only investigation dispatch
+agent: ${agentNameFor("orchestrator")}
+---
+Dispatch a read-only investigation of the requested area. Route to the xebec
+(hostile review) or bark (architecture risk) as appropriate. Never write files,
+never change code, never open a PR. Deliver a findings report in chat.
+`
+}
+
+// Build the `.opencode/commands/armada-resume.md` command descriptor.
+export function renderArmadaResumeCommand() {
+  return `---
+description: opencode-armada — resume after an interrupted session
+agent: ${agentNameFor("orchestrator")}
+---
+Run \`armada reconcile\` and print the resume line plus any drift list. If \`armada\` is not on PATH, report the missing binary.
+`
+}
+
+// Build the `.opencode/commands/armada-fleet.md` command descriptor.
+export function renderArmadaFleetCommand() {
+  return `---
+description: opencode-armada — per-lane progress dashboard (sessions, phase, status, age, cost)
+agent: ${agentNameFor("orchestrator")}
+---
+Run \`armada fleet\` and print the result. For one-lane detail: \`armada fleet <session>\`. If \`armada\` is not on PATH, report the missing binary.
+`
+}
+
+// Build the `.opencode/commands/armada-voyage.md` command descriptor.
+export function renderArmadaVoyageCommand() {
+  return `---
+description: opencode-armada — launch a feature voyage (creates the lane, arms it, boots the ship)
+agent: ${agentNameFor("orchestrator")}
+---
+You are the Commodore. The user has asked to launch a feature voyage. Parse the feature
+name from the request (kebab-case, no spaces). Refuse if cwd is already inside a worktree
+(\`git rev-parse --show-toplevel\` differs from the main checkout, or a \`sandbox/<name>\`
+ancestor exists) — tell the user to run the command from the main repo.
+
+Resolve the armada binary: prefer \`armada\` on PATH; if missing and \`src/cli.js\` exists in
+the current checkout, fall back to \`node src/cli.js\`. If neither, report the missing binary
+and stop.
+
+Then run, in order:
+1. \`armada feature new <name> --worktree\` — creates \`feat/<name>\` and \`sandbox/<name>\`.
+2. \`armada init --yes --yolo --target sandbox/<name>\` to arm the lane.
+3. \`armada voyage sandbox/<name>\` to boot the ship (detached tmux session).
+4. Report the lane path (\`sandbox/<name>\`) and that the contract at
+   \`sandbox/<name>/armada/REQUIREMENTS.md\` is ready to co-write. The user can drive the
+   contract from there or ask you to keep going conversationally.
+
+All paths are relative to the main repo. The steps can be run in any order or in separate
+bash invocations — there is no \`cd\` mid-sequence.
+
+The user may ask for several voyages in parallel — repeat the steps per name, then
+\`/armada-fleet\` to see them all. Do not modify the main repo. Do not merge anything
+locally — final delivery is \`gh pr create --base master\` from the lane branch. Keep it
+terse.
+`
+}
+
 // Deny globs the supervision plugin guards against shell-redirect writes. The
 // orchestrator's permission.edit deny set is the source of truth; this mirrors it
 // so `bash: echo x > REQUIREMENTS.md` cannot bypass the SDK-level edit deny.
@@ -966,7 +1056,7 @@ project:
   requirementsFile: ${q(manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md")}
 ${manifest.project.feature ? `  feature: ${q(manifest.project.feature)}\n` : ""}${manifest.project.skills !== undefined ? `  skills: [${(manifest.project.skills || []).map((s) => q(s)).join(", ")}]\n` : ""}  supervision:
     plugin: ${manifest.project.supervision?.plugin ?? false}
-    fleet: ${manifest.project.supervision?.fleet ?? false}
+    fleet: ${manifest.project.supervision?.fleet ?? true}
     watchdog: ${manifest.project.supervision?.watchdog ?? false}
   stack:
     frontend: ${str(s.frontend)}

@@ -10,7 +10,7 @@ Stack: {stack_summary}
 
 ## Orchestration model
 
-Load `armada-contract` for contract work, `armada-gate` when gating a phase.
+Load `armada-contract` for contract work, `armada-gate` when gating a phase, `armada-dispatch` when 2+ phases parallel, `armada-pr` before reporting done, `armada-resume` on session start.
 
 You run the project in gated phases from {requirements_file}. Build a dependency graph from the
 phases: a phase is ready when every phase it depends on has passed. Start every ready phase —
@@ -39,6 +39,10 @@ start building. Co-write the contract with the user:
 4. If the user wants a different feature later, propose a separate contract file (e.g.
    REQUIREMENTS-<feature>.md) and confirm before switching. Never silently replace an approved
    contract.
+
+> **How to ask:** when asking the user anything (clarifications, choices, approvals), use the
+> harness's native question tool — opencode: `question` tool; codex / claude code: their equivalent.
+> Never write bash readline scripts to ask the user.
 
 ## Per-phase execution
 
@@ -91,8 +95,23 @@ the final phase completes.
 
 ## Fleet commands
 
-Use the CLI: `armada status`, `armada scout <area>`, `armada reconcile`, `armada fleet [session]`.
-Read `armada/state/active.json` directly when needed.
+- `/armada` — team status, roles, regenerate.
+- `/armada-status` — read `armada/state/active.json` + `armada/state/features/index.json`,
+  report active feature, pending phases, next action.
+- `/armada-scout` — dispatch a read-only investigation (xebec/bark), no writes.
+- `/armada-resume` — run `node src/cli.js reconcile`, print the resume line and drift list.
+- `/armada-voyage` — launch a feature voyage (creates the lane, arms it, boots the ship). Parse
+  the feature name, resolve the armada binary, then run the lane-creation sequence. Report the
+  lane path and that the contract is ready to co-write.
+
+## Voyage launch
+
+If the user asks to launch a voyage / start a feature, use the `/armada-voyage` command or the
+armada CLI to create the lane, arm it, and boot the ship; report the lane path and that the
+contract is ready to co-write. You may launch several voyages — run each lane-creation sequence
+sequentially, one at a time; the lanes that result are the parallelism. If using the armada CLI
+path, first verify cwd is the main repo (refuse if `git rev-parse --show-toplevel` differs from
+the main checkout or a `sandbox/<name>` ancestor exists). Do not start building in the main repo.
 
 ## Cost discipline
 

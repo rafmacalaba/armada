@@ -22,6 +22,66 @@ on **anything else**.
 - **Repeatable.** `armada init --from-armada armada/armada.yaml` regenerates
   the exact same config. Tearing down and re-scaffolding is one command.
 
+## Bundled skills
+
+Armada ships **9 skills** that scaffold into every generated team at
+`.opencode/skills/<name>/SKILL.md`. Two layers of loading keep them cheap: per-role explicit lines
+in each role prompt (`Load \`X\` when Y`) bias the load toward the role's most common cases;
+self-selection on each skill's `description:` frontmatter catches the rest. Mirrors the
+`Fleet commands` table style (one short table per concept, prose around it).
+
+### The 9 skills
+
+| Skill | When to load |
+|---|---|
+| `armada-contract` | contract work, phase planning, requirements clarification |
+| `armada-gate` | phase gating, success criteria, evidence review |
+| `armada-dispatch` | 2+ independent tasks, parallel subagents, disjoint files |
+| `armada-pr` | finishing a feature lane, `gh pr create`, PR-first close |
+| `armada-resume` | session start, killed session, reconciling `armada/state/` |
+| `armada-ledger` | writing DEFECTS / ADVERSARIAL / SECURITY_FINDINGS entries |
+| `armada-context-budget` | always — token discipline, terse output, no over-write |
+| `armada-tdd` | before writing implementation, failing test first |
+| `armada-sdd` | when dispatched as a subagent, return shape, single receipt |
+
+### Per-role load table
+
+| Role (ship) | Loads |
+|---|---|
+| `orchestrator` (commodore) | `armada-contract`, `armada-dispatch`, `armada-pr`, `armada-resume` |
+| `backend-dev` (galleon) | `armada-tdd`, `armada-sdd`, `armada-context-budget`, `armada-ledger` |
+| `frontend-dev` (clipper) | `armada-tdd`, `armada-sdd`, `armada-context-budget`, `armada-ledger` |
+| `qa` (corvette) | `armada-gate`, `armada-ledger`, `armada-context-budget` |
+| `adversary` (xebec) | `armada-ledger`, `armada-context-budget` |
+| `security` (frigate) | `armada-ledger`, `armada-context-budget` |
+| `docs` (caravel) | `armada-contract`, `armada-context-budget` |
+| `architect` (bark) | `armada-context-budget` |
+
+### Self-selection (description-triggered)
+
+Each `SKILL.md` carries YAML frontmatter with a `description:` field listing the natural-language
+triggers ("PR", "failing test", "subagent", "tokens", "ledger", "contract", ...). When a role's
+task matches any trigger, opencode loads the skill on demand — even if the per-role load line
+didn't list it. Per-role lines bias the load (they're checked first); description matching catches
+the rest. The two layers are independent: a role prompt can omit a skill and the role still picks
+it up when the task matches the description.
+
+### Opt-out
+
+Default = all 9 skills ship into `.opencode/skills/`. Override via `project.skills` in
+`armada/armada.yaml`:
+
+```yaml
+project:
+  skills: []                                # ship no skills
+  # or
+  skills: [armada-contract, armada-gate]    # ship only this subset
+```
+
+Empty list disables; subset works; absent field = all 9. Re-scaffold with
+`armada init --from-armada armada/armada.yaml` to apply. Bundled skills never overwrite global
+skills (verification-before-completion, etc.) — the two layers coexist.
+
 ## Where to put the project
 
 For an external project, scaffold into a sibling directory **outside** the
@@ -82,6 +142,11 @@ delegates everything else.
 5. **It comes back to you only for judgment.** Phase gates pass on evidence (tests/screenshots).
    It escalates to you for: contract approval, a real decision it can't make, or a permission
    override. Everything else it resolves itself.
+
+> **Question UI.** When the orchestrator asks you anything (clarifications, choices, approvals),
+> it uses the harness's native question tool — opencode's `question` tool, or the equivalent in
+> codex / claude code. The CLI's `armada init` questionnaire is the fallback for terminal-only
+> contexts where the harness UI is unavailable.
 
 **`--yolo` changes permissions, not this conversation.** Autonomous mode auto-approves *tool*
 permission prompts — but the *product decision* (what to build) is still co-written with you,
@@ -144,10 +209,64 @@ Run these in your terminal, not the opencode TUI:
 | `armada reconcile` | Resume after an interrupted session (drift list) |
 | `armada fleet [session]` | Per-lane progress dashboard |
 
+Every scaffold also ships six in-session commands under `.opencode/commands/`:
+
+| Command | What it does |
+|---|---|
+| `/armada` | Team status, roles, how to regenerate |
+| `/armada-status` | Read `.opencode/fleet-status.md` — active phases, last update, next action |
+| `/armada-scout` | Dispatch a read-only investigation (adversary/architect), no writes, no PR |
+| `/armada-resume` | Read `.opencode/fleet-status.md`, summarize pending phases, ask the next action |
+| `/armada-fleet` | Per-dock progress dashboard (same store as the `armada fleet` CLI) |
+| `/armada-voyage` | Launch a feature voyage (creates the lane, arms it, boots the ship) — see [Launching voyages from the TUI](#launching-voyages-from-the-tui) |
+
 **Fleet status file (`.opencode/fleet-status.md`):** written by the orchestrator so a killed
 session can be resumed. Format: YAML frontmatter (`active_phases`, `last_update`, `next_action`)
 plus a short markdown body — one line per active phase (phase, evidence in, status). The
 orchestrator reads it on session start (hard rule 3) and on `armada status` / `armada reconcile`.
+
+## Launching voyages from the TUI
+
+No shell ceremony required. Open the TUI in an armed repo and tell the Commodore:
+
+```
+launch a voyage for <feature>
+```
+
+That's the whole trigger. The Commodore does the rest:
+
+- **Parse the name.** The feature name becomes the lane (`sandbox/<name>`) and the branch
+  (`feat/<name>`).
+- **Refuse nested lanes.** If cwd is inside a worktree, the launch is refused with a clear
+  error pointing at the main repo — no lanes inside lanes.
+- **Resolve the armada binary.** `armada` on PATH, falling back to `node src/cli.js` in the
+  armada repo.
+- **Run the four-step sequence.** `armada feature new <name> --worktree`, then `armada init
+  --yes --yolo` inside the lane, then `armada voyage sandbox/<name>`.
+- **Report the lane path** and that the contract is ready to co-write.
+
+### Co-write the contract
+
+`sandbox/<name>/armada/REQUIREMENTS.md` is the next thing to drive. Keep the conversation in
+the new TUI session the voyage booted, or stay in the current session and ask the Commodore to
+keep going — either reaches the same lane. No implementation starts against an unapproved
+contract.
+
+### Multiple parallel voyages
+
+Ask for several in one turn — "launch voyages for a and b". Each is launched sequentially, one
+at a time: `git worktree add` is serialized to avoid `.git/index.lock` contention. The lanes
+coexist, and `/armada-fleet` lists them all.
+
+### The manual form still exists
+
+The `/armada-voyage` command is sugar over the CLI forms, unchanged for automation/CI:
+
+```bash
+armada feature new <name> --worktree
+armada init --yes --yolo --target sandbox/<name>
+armada voyage sandbox/<name>
+```
 
 ### Resume after a crash
 
@@ -359,6 +478,9 @@ node /path/to/opencode-armada/src/cli.js init --from-armada armada/armada.yaml
 # OR let the scaffolder generate the manifest from presets + stack detection
 node /path/to/opencode-armada/src/cli.js init --stack <stack> --budget balanced
 ```
+
+armada source-checkout contributors: `npm link` exposes the `armada` binary on PATH so the
+generated `/armada-*` slash commands work without a source-relative fallback.
 
 What you get:
 

@@ -5,6 +5,7 @@ Stack: {stack_summary}
 
 ## Duties
 
+- Load `armada-contract` for spec drafts, `armada-context-budget` always.
 - Write and update README, API reference, architecture notes, changelog, and developer guides.
 - Match existing doc conventions and tone in the repo.
 - Keep docs accurate against the current code: check what you document.

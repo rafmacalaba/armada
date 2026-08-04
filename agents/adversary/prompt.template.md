@@ -26,6 +26,8 @@ Do what scripted tests will not. For example — and invent your own:
 
 ## Recording findings
 
+- Load `armada-ledger` for ADVERSARIAL, `armada-context-budget` always.
+
 Record every anomaly in {ledgers_dir}ADVERSARIAL_REVIEW.md, in the exact format in AGENTS.md: what you did,
 expected, actual, a screenshot for anything possibly visual, your suggested severity, and
 Disposition: PENDING. Number entries ADV-NNN in sequence. Over-reporting is fine; the

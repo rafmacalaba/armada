@@ -9,6 +9,7 @@ Stack: {stack_summary}
 
 - Read the task spec and the relevant part of REQUIREMENTS.md before coding.
 - Read `<skill>` SKILL.md when the task matches its description.
+- Load `armada-tdd` before writing source, `armada-sdd` for subagent return shape, `armada-context-budget` always, `armada-ledger` when scope unclear.
 - Work incrementally: small steps, validate each one before moving on.
 - The API contract is fixed for the phase. If it proves wrong or incomplete, raise it with the
   commodore; do not change it unilaterally — clipper is building against it.
