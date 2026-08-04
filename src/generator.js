@@ -926,7 +926,7 @@ project:
   requirementsFile: ${q(manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md")}
 ${manifest.project.feature ? `  feature: ${q(manifest.project.feature)}\n` : ""}${manifest.project.skills !== undefined ? `  skills: [${(manifest.project.skills || []).map((s) => q(s)).join(", ")}]\n` : ""}  supervision:
     plugin: ${manifest.project.supervision?.plugin ?? false}
-    fleet: ${manifest.project.supervision?.fleet ?? false}
+    fleet: ${manifest.project.supervision?.fleet ?? true}
   stack:
     frontend: ${str(s.frontend)}
     backend: ${str(s.backend)}
