@@ -13,11 +13,6 @@ import {
   renderAgentsMd,
   renderRequirementsMd,
   renderManifestYaml,
-  renderArmadaCommand,
-  renderArmadaStatusCommand,
-  renderArmadaScoutCommand,
-  renderArmadaResumeCommand,
-  renderArmadaFleetCommand,
   renderArmadaSupervisionPlugin,
   renderArmadaFleetPlugin,
   renderSecurityFindingsTemplate,
@@ -337,6 +332,29 @@ export function scaffold(manifest, stack, opts = {}) {
     }
   }
 
+  // 1d. Orphan cleanup: remove legacy slash-command files retired in v0.9.0.
+  const LEGACY_COMMAND_FILES = [
+    "armada.md",
+    "armada-status.md",
+    "armada-scout.md",
+    "armada-resume.md",
+    "armada-fleet.md",
+  ]
+  for (const f of LEGACY_COMMAND_FILES) {
+    const cmdRel = `.opencode/commands/${f}`
+    const cmdPath = out(cmdRel)
+    if (existsSync(cmdPath)) {
+      let isLink = false
+      try { isLink = lstatSync(cmdPath).isSymbolicLink() } catch {}
+      if (isLink) {
+        removed.push(`${cmdRel} (skipped: symlink)`)
+      } else {
+        if (!opts.dryRun) rmSync(cmdPath, { force: true })
+        removed.push(cmdRel)
+      }
+    }
+  }
+
   // 3. opencode.json — only write if absent (never clobber project config).
   if (!existsSync(out("opencode.json"))) {
     write("opencode.json", JSON.stringify(renderOpenCodeJson(manifest, team), null, 2) + "\n")
@@ -385,12 +403,6 @@ export function scaffold(manifest, stack, opts = {}) {
     write(securityTpl, renderSecurityFindingsTemplate())
   }
 
-  // 7. armada commands for in-session use.
-  write(".opencode/commands/armada.md", renderArmadaCommand())
-  write(".opencode/commands/armada-status.md", renderArmadaStatusCommand())
-  write(".opencode/commands/armada-scout.md", renderArmadaScoutCommand())
-  write(".opencode/commands/armada-resume.md", renderArmadaResumeCommand())
-  write(".opencode/commands/armada-fleet.md", renderArmadaFleetCommand())
 
   // 7b. Opt-in thin supervision plugin.
   if (manifest.project.supervision?.plugin) {
@@ -458,9 +470,6 @@ export function uninstall(manifest, opts = {}) {
   removeEmptyDir("armada/ledgers/_template")
   removeEmptyDir("armada/ledgers")
   removeEmptyDir("armada")
-  for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume", "armada-fleet"]) {
-    removeFile(`.opencode/commands/${cmd}.md`)
-  }
   // Opt-in supervision plugin (armada-owned, only removed when present).
   removeFile(".opencode/plugins/armada-supervision.js")
   removeFile(".opencode/plugins/armada-fleet.js")
@@ -487,6 +496,18 @@ export function uninstall(manifest, opts = {}) {
       if (f.endsWith(".md")) removeFile(`.opencode/oh-my-opencode-slim/${f}`)
     }
     removeEmptyDir(".opencode/oh-my-opencode-slim")
+  }
+  // Remove legacy slash-command files from old armed repos. These were retired
+  // in v0.9.0; cleaning them individually so removeEmptyDir can succeed.
+  const LEGACY_COMMAND_FILES = [
+    "armada.md",
+    "armada-status.md",
+    "armada-scout.md",
+    "armada-resume.md",
+    "armada-fleet.md",
+  ]
+  for (const f of LEGACY_COMMAND_FILES) {
+    removeFile(`.opencode/commands/${f}`)
   }
   removeEmptyDir(".opencode/commands")
   const opencodeDir = join(target, ".opencode")

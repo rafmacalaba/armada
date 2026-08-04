@@ -33,6 +33,8 @@ import { openTerminal } from "./terminal-open.js"
 import { listRuns, readRun } from "./fleet-tracker.js"
 import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cmd.js"
 import { runUpdate } from "./update.js"
+import { main as statusMain } from "./status-cmd.js"
+import { main as scoutMain } from "./scout-cmd.js"
 
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
@@ -67,6 +69,8 @@ Usage:
   armada feature close <name>                verify evidence + mark shipped
   armada feature status [name]               show active or named feature state
   armada fleet [session] [--json] [--open]   per-lane progress dashboard (table by default)
+  armada status [--json]                     feature status from armada/state (table by default)
+  armada scout <area>                        print investigation brief for a code area
   armada reconcile [--json] [--state-dir <p>] [--repo <p>]
                            check for evidence drifts against contract (exit 2 if drifts)
   armada voyage <lane-path> [--heartbeat]  boot a lane session and send the voyage prompt (TUI-ready handshake)
@@ -168,6 +172,10 @@ export async function main(argv = process.argv.slice(2)) {
     case "-v":
       process.stdout.write("opencode-armada v" + VERSION + "\n")
       return 0
+    case "status":
+      return statusCmd(rest)
+    case "scout":
+      return scoutCmd(rest)
     case "help":
     case "-h":
     case "--help":
@@ -729,6 +737,33 @@ async function fleetCmd(args) {
   }
 
   return 0
+}
+
+function statusCmd(args) {
+  const { code, output } = statusMain(args, { cwd: process.cwd() })
+  if (code === 0) {
+    process.stdout.write(output)
+  } else {
+    process.stderr.write(output)
+  }
+  if (code !== 0) process.exitCode = code
+  return code
+}
+
+function scoutCmd(args) {
+  // Intercept --help / -h before passing to scoutMain
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(HELP)
+    return 0
+  }
+  const { code, output } = scoutMain(args)
+  if (code === 0) {
+    process.stdout.write(output)
+  } else {
+    process.stderr.write(output)
+  }
+  if (code !== 0) process.exitCode = code
+  return code
 }
 
 async function featureCmd(args) {
