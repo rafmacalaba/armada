@@ -27,7 +27,7 @@
  */
 
 /**
- * @typedef {{ feature: string, contract: string, phaseGraph: { phases: Phase[] }, evidence: Evidence[], nextAction: string, updatedAt: string }} ActiveState
+ * @typedef {{ feature: string, contract: string, phaseGraph: { phases: Phase[] }, evidence: Evidence[], nextAction: string, prUrl: null | string, updatedAt: string }} ActiveState
  */
 
 /**
@@ -165,6 +165,8 @@ export function validateState(obj) {
     checkNonEmptyString(obj.evidence[i].criterion, `state.evidence[${i}].criterion`)
   }
   checkString(obj.nextAction, "state.nextAction")
+  // prUrl is the PR URL once `gh pr create` succeeds; null until then
+  if (obj.prUrl !== null) checkNonEmptyString(obj.prUrl, "state.prUrl")
   checkNonEmptyString(obj.updatedAt, "state.updatedAt")
   return obj
 }
@@ -222,6 +224,7 @@ export function emptyActive(featureName, contractPath, phaseGraph) {
     phaseGraph,
     evidence: [],
     nextAction: "",
+    prUrl: null,
     updatedAt: nowISO(),
   }
 }

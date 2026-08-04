@@ -379,6 +379,7 @@ export function renderRequirementsMd(manifest) {
 ## Final criteria
 
 - [ ] Every phase success criterion is demonstrably true (test run and/or screenshot).
+- [ ] This work lands as \`gh pr create --base master\` from the lane branch — never \`git merge\` locally, never push master directly.
 `
 }
 
@@ -401,8 +402,9 @@ description: opencode-armada — fleet status, active feature, next action
 agent: orchestrator
 ---
 Read armada/state/active.json + armada/state/features/index.json if they exist. Report the
-active feature, pending phases (status != "passed"), and the next action. If no state exists,
-say "no active fleet". Keep it terse.
+active feature, pending phases (status != "passed"), the next action, and the PR URL from
+\`active.json\` field \`prUrl\` (or "PR pending" if absent). If no state exists, say "no active
+fleet". Keep it terse.
 `
 }
 
