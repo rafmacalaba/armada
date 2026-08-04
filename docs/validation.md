@@ -747,3 +747,73 @@ armada init --from-armada armada/armada.yaml --yolo
 2. After a hard kill, no state is lost — the orchestrator resumes exactly where it left off.
 3. The `/armada-resume` command works in a generated repo (no armada source) via the global binary.
 4. Drift detection works: delete an evidence file, re-run reconcile, exit code = 2 with drift list.
+
+---
+
+## Skills integration lane (2026-08-04)
+
+**Validated by:** clipper (frontend-dev, post-Phase-3, `sandbox/skills-integration`)
+**Full suite:** `node --test 'tests/*.test.js'` — 774 tests, 772 pass, 2 skipped, 0 fail
+(`tests/skills.test.js`, `tests/permissions.test.js`, `tests/prompts.test.js` cover Phases 1-3)
+
+The `feat/skills-integration` lane ships two starter skills (`armada-contract`,
+`armada-gate`) into generated repos and wires them into role prompts. The proof-of-mechanism
+is the same one observed for `verification-before-completion` in earlier sessions: a worker
+self-loads a `SKILL.md` whose `description` matches the live task, and the prompt line *"Read
+`<skill>` SKILL.md when the task matches its description"* is what the agent keys off. In this
+lane the orchestrator loads `armada-contract` while co-writing `armada/REQUIREMENTS.md` and
+loads `armada-gate` before ticking a success criterion. Opencode discovers the files under
+`.opencode/skills/<name>/SKILL.md` natively; armada's job is only to ship them and reference
+them.
+
+**Evidence wired into the generated repo:**
+
+- `src/skills/{armada-contract,armada-gate}/SKILL.md` — starter set, valid
+  `name: ^[a-z0-9]+(-[a-z0-9]+)*$` + non-empty `description` (frontmatter enforced by
+  `tests/skills.test.js`).
+- `src/generator.js` `renderSkillFile(skill)` (pure) + `src/scaffold.js` write path — mirrors
+  `writeAgent`; init emits `.opencode/skills/<name>/SKILL.md`.
+- `src/manifest.js` — new `project.skills: string[]` field; default-on with the starter set;
+  empty list disables shipping; round-trip-stable through `init --from-armada`.
+- `src/generator.js` `BASE_PERMISSIONS` — `permission.skill: "allow"` pinned for
+  commodore/galleon/clipper/corvette (the four write-capable roles); caravel/bark/frigate
+  (read-only) stay default (opencode enables tools unless denied).
+- `agents/orchestrator/prompt.template.md:13` — *"Load `armada-contract` for contract work,
+  `armada-gate` when gating a phase."*
+- `agents/{backend-dev,frontend-dev,qa}/prompt.template.md` — *"Read `<skill>` SKILL.md when
+  the task matches its description."* (one line each). caravel/bark/frigate prompts untouched.
+
+**What to verify in a real generated repo (manual, ~30 seconds):**
+
+```bash
+# Fresh init
+mkdir /tmp/skills-smoke && cd /tmp/skills-smoke
+node <armada-checkout>/sandbox/skills-integration/src/cli.js init --yes
+ls .opencode/skills/                       # expect: armada-contract  armada-gate
+head -3 .opencode/skills/armada-gate/SKILL.md   # expect: name + description frontmatter
+
+# Round-trip (manifest stability)
+node <armada-checkout>/sandbox/skills-integration/src/cli.js init \
+  --from-armada armada/armada.yaml --yes
+git diff armada/armada.yaml                 # expect: empty (skills field round-trips)
+
+# Permission wiring
+grep -A1 '"permission"' opencode.json | head -20
+# expect: skill: "allow" present in commodore/galleon/clipper/corvette blocks;
+# absent from caravel/bark/frigate.
+
+# Self-load in a session
+opencode
+# Tell the orchestrator: "begin phase 1".
+# Watch: it loads armada-contract on first turn, armada-gate on the gating turn.
+# Behavior mirrors verification-before-completion: the prompt references the skill by
+# description match, the skill body is read on demand, the agent acts on it.
+```
+
+**Tests added (Phases 1-3):** `tests/skills.test.js` (name regex, description present,
+no-clobber, renderSkillFile pure), `tests/permissions.test.js` (BASE_PERMISSIONS
+`permission.skill` allow for write roles, unset for read-only), `tests/prompts.test.js`
+(orchestrator + worker prompt grep). Suite delta: 759 → 774 (+15).
+
+**Lane status:** Phases 1-3 green in `feat/skills-integration`; this entry is the Phase 4
+acceptance evidence. PR handoff to commodore for `gh pr create --base master`.

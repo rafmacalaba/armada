@@ -40,6 +40,7 @@ const BASE_PERMISSIONS = {
       "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "allow",
     },
     bash: { "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow" },
+    skill: "allow",
   },
   "backend-dev": {
     edit: {
@@ -57,6 +58,7 @@ const BASE_PERMISSIONS = {
       "ADVERSARIAL_REVIEW.md": "deny",
       "armada/*": "deny",
     },
+    skill: "allow",
   },
   "frontend-dev": {
     edit: {
@@ -74,6 +76,7 @@ const BASE_PERMISSIONS = {
       "ADVERSARIAL_REVIEW.md": "deny",
       "armada/*": "deny",
     },
+    skill: "allow",
   },
   qa: {
     edit: {
@@ -83,6 +86,7 @@ const BASE_PERMISSIONS = {
       "armada/screenshots/*": "allow",
     },
     bash: { "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow" },
+    skill: "allow",
   },
   adversary: {
     edit: {
@@ -841,7 +845,14 @@ Every status change appends a History line.
 `
 }
 
-// Build \`armada.yaml\` manifest content (serialized).
+// Render a skill file into its target path `.opencode/skills/<name>/SKILL.md`.
+// The skill object has `name`, `description`, and `body` (full SKILL.md content).
+// Pure function, no I/O.
+export function renderSkillFile(skill) {
+  return skill.body
+}
+
+// Build `armada.yaml` manifest content (serialized).
 export function renderManifestYaml(manifest, team) {
   const q = (v) => JSON.stringify(v)
   const teamByRole = Object.fromEntries((manifest.team || []).map((t) => [t.role, t]))
@@ -880,7 +891,7 @@ project:
   headless: ${manifest.project.headless ?? false}
   yolo: ${manifest.project.yolo ?? false}
   requirementsFile: ${q(manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md")}
-${manifest.project.feature ? `  feature: ${q(manifest.project.feature)}\n` : ""}  supervision:
+${manifest.project.feature ? `  feature: ${q(manifest.project.feature)}\n` : ""}${manifest.project.skills !== undefined ? `  skills: [${(manifest.project.skills || []).map((s) => q(s)).join(", ")}]\n` : ""}  supervision:
     plugin: ${manifest.project.supervision?.plugin ?? false}
     fleet: ${manifest.project.supervision?.fleet ?? false}
   stack:

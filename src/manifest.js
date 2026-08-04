@@ -88,6 +88,19 @@ function parseBoolean(value, field) {
   throw new Error(`armada.yaml: schema violation: ${field} must be a boolean`)
 }
 
+function validateSkills(skills) {
+  if (skills === undefined || skills === null) return undefined
+  if (!Array.isArray(skills)) {
+    throw new Error("armada.yaml: schema violation: project.skills must be a list")
+  }
+  for (const s of skills) {
+    if (typeof s !== "string") {
+      throw new Error("armada.yaml: schema violation: project.skills entries must be strings")
+    }
+  }
+  return skills
+}
+
 export function parseManifestYaml(text, target) {
   let raw
   try {
@@ -149,6 +162,7 @@ export function parseManifestYaml(text, target) {
   })
   if (!team.length) throw new Error("armada.yaml: team is empty")
   validateRequirementsFile(p.requirementsFile ?? "armada/REQUIREMENTS.md")
+  const skills = validateSkills(p.skills)
   return {
     project: {
       name: p.name ?? "project",
@@ -160,6 +174,7 @@ export function parseManifestYaml(text, target) {
       yolo: p.yolo ?? false,
       requirementsFile: p.requirementsFile ?? "armada/REQUIREMENTS.md",
       feature: p.feature ?? null,
+      skills,
       supervision: {
         plugin: p.supervision?.plugin ?? false,
         fleet: p.supervision?.fleet ?? false,
