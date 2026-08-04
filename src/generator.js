@@ -92,7 +92,11 @@ const BASE_PERMISSIONS = {
     },
   },
   security: {
-    edit: { "*": "deny" },
+    edit: {
+      "*": "deny",
+      "armada/ledgers/*/SECURITY_FINDINGS.md": "allow",
+      "armada/screenshots/*": "allow",
+    },
     webfetch: "allow",
   },
   docs: {
@@ -318,6 +322,7 @@ export function renderAgentsMd(manifest, team, featureName) {
   // Resolve {feature} token in playbook file paths — uses pathToken so lane case stays literal
   const defectFile = (pb.defectLedger.file || "armada/ledgers/{feature}/DEFECTS.md").replace(/\{feature\}/g, () => pathToken)
   const adversarialFile = (pb.adversarialLedger.file || "armada/ledgers/{feature}/ADVERSARIAL_REVIEW.md").replace(/\{feature\}/g, () => pathToken)
+  const securityFile = (pb.securityLedger?.file || "armada/ledgers/{feature}/SECURITY_FINDINGS.md").replace(/\{feature\}/g, () => pathToken)
   const enabled = team.filter((a) => a.enabled)
   const roles = enabled
     .map(
@@ -412,6 +417,40 @@ Format, exactly:
 The orchestrator replaces PENDING with either \`ACCEPTED -> DEF-NNN\` or \`REJECTED - reason\`.
 Accepted findings are reproduced and filed in ${defectFile} by qa. No entry may remain PENDING
 when the final phase completes.
+
+## ${securityFile} — security findings
+
+All security findings live in \`${securityFile}\`. Writer: **security** (create findings).
+Statuses: OPEN, ACCEPTED, REJECTED, MITIGATED. Orchestrator sets Disposition. Nobody else edits.
+
+Format, exactly:
+
+    ## SEC-###: Title
+
+    - Status: OPEN
+    - Severity: HIGH | MEDIUM | LOW
+    - Found by: security
+    - Phase: N
+
+    What I found: ...
+    Expected: ...
+    Actual: ...
+    Screenshot: ${screenshotsDir}sec-###.png (optional)
+
+    History:
+    - security: opened
+
+Statuses and who may set them:
+
+| Status | Meaning | Set by |
+|--------|---------|--------|
+| OPEN | New finding, pending review | security |
+| ACCEPTED | Finding confirmed, fix planned | orchestrator |
+| REJECTED | Not a vulnerability / not in scope | orchestrator |
+| MITIGATED | Fix applied and verified | orchestrator |
+
+Every status change appends a History line. A finding is never done because security says
+so — it is done when the orchestrator closes it.
 
 ## Phase gates
 
@@ -735,7 +774,74 @@ export const ArmadaFleet = async ({ client }) => {
 `
 }
 
-// Build `armada.yaml` manifest content (serialized).
+// Render a single security finding entry in the canonical SEC-FINDINGS format.
+// Used by tests and future auto-generation. Mirrors securityFindingEntry in
+// src/ledgers.js but lives in generator as a pure renderer alongside the other
+// ledger-format renderers.
+export function renderSecurityFinding(feature, finding = {}) {
+  const n = String(finding.num ?? 1).padStart(3, "0")
+  const lines = [`## SEC-${n}: ${finding.title ?? "Untitled"}`, ""]
+  lines.push(`- Status: ${finding.status ?? "OPEN"}`)
+  lines.push(`- Severity: ${finding.severity ?? "MEDIUM"}`)
+  lines.push(`- Found by: ${finding.foundBy ?? "security"}`)
+  lines.push(`- Phase: ${finding.phase ?? "N"}`)
+  lines.push("")
+  lines.push(`What I found: ${finding.found ?? "..."}`)
+  lines.push(`Expected: ${finding.expected ?? "..."}`)
+  lines.push(`Actual: ${finding.actual ?? "..."}`)
+  if (finding.screenshot) {
+    lines.push(`Screenshot: ${finding.screenshot}`)
+  }
+  lines.push("")
+  lines.push("History:")
+  const history = finding.history ?? ["security: opened"]
+  for (const h of history) {
+    lines.push(`- ${h}`)
+  }
+  return lines.join("\n")
+}
+
+// Render the canonical SECURITY_FINDINGS.md template file content.
+// Written once at armada/ledgers/_template/SECURITY_FINDINGS.md on init;
+// never clobbered on re-scaffold.
+export function renderSecurityFindingsTemplate() {
+  return `# armada/ledgers/{feature}/SECURITY_FINDINGS.md — security findings
+
+All security findings live in \`armada/ledgers/{feature}/SECURITY_FINDINGS.md\`, one entry
+per finding, newest first. Writer: **security** (create findings). Statuses: OPEN, ACCEPTED,
+REJECTED, MITIGATED. The orchestrator sets Disposition. Nobody else edits.
+
+Format, exactly:
+
+    ## SEC-###: Title
+
+    - Status: OPEN
+    - Severity: HIGH | MEDIUM | LOW
+    - Found by: security
+    - Phase: N
+
+    What I found: ...
+    Expected: ...
+    Actual: ...
+    Screenshot: armada/screenshots/{feature}/sec-###.png (optional)
+
+    History:
+    - security: opened
+
+Statuses and who may set them:
+
+| Status | Meaning | Set by |
+|--------|---------|--------|
+| OPEN | New finding, pending review | security |
+| ACCEPTED | Finding confirmed, fix planned | orchestrator |
+| REJECTED | Not a vulnerability / not in scope | orchestrator |
+| MITIGATED | Fix applied and verified | orchestrator |
+
+Every status change appends a History line.
+`
+}
+
+// Build \`armada.yaml\` manifest content (serialized).
 export function renderManifestYaml(manifest, team) {
   const q = (v) => JSON.stringify(v)
   const teamByRole = Object.fromEntries((manifest.team || []).map((t) => [t.role, t]))
@@ -762,7 +868,7 @@ export function renderManifestYaml(manifest, team) {
     .join("\n")
   const s = manifest.project.stack || {}
   const str = (v) => v === null || v === undefined ? "null" : q(v)
-  return `# armada.yaml — opencode-armada manifest (source of truth)
+  let yaml = `# armada.yaml — opencode-armada manifest (source of truth)
 # Regenerate identical config with: armada init --from-armada armada/armada.yaml
 
 project:
@@ -789,4 +895,18 @@ ${manifest.project.feature ? `  feature: ${q(manifest.project.feature)}\n` : ""}
 team:
 ${teamLines}
 `
+  // Phase 1: securityLedger round-trip — append playbook section when securityLedger is set.
+  const secLedger = manifest.playbook?.securityLedger
+  if (secLedger) {
+    yaml += "\nplaybook:\n"
+    yaml += "  securityLedger:\n"
+    if (typeof secLedger === "object") {
+      yaml += `    file: ${q(secLedger.file)}\n`
+      if (secLedger.shared) yaml += `    shared: ${q(secLedger.shared)}\n`
+      if (secLedger.owner) yaml += `    owner: ${q(secLedger.owner)}\n`
+    } else {
+      yaml += `    file: ${q(secLedger)}\n`
+    }
+  }
+  return yaml
 }
