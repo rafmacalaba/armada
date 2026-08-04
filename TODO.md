@@ -12,30 +12,38 @@ before the next; lanes within a wave run in parallel (disjoint files). Exhaustiv
 still unimplemented (all items below still have open `[ ]` specs — shipped items are marked in the
 sections further down).
 
-### Wave 0 — finish in-flight lanes (parallel, running now)
+### Wave 0 — shipped (2026-08-03)
 
-Empty — no lanes in flight. `feat/fleet-dashboard` merged (#59), `feat/artifacts-under-armada`
-merged (#58), `feat/landing-page-armada` merged (#15), `feat/audit` merged (#17),
-`feat/real-repo-validation` merged (#53).
+All in-flight lanes merged. `feat/fleet-dashboard` (#59), `feat/artifacts-under-armada` (#58),
+`feat/landing-page-armada` (#15), `feat/audit` (#17), `feat/real-repo-validation` (#53).
 
-### Wave 1 — foundations (parallel; disjoint files)
+### Wave 1 — foundations (shipped 2026-08-03/04)
 
-- [ ] **PR-first finish + stacked PRs** (spec below). Unblocks: every future lane's finish gate,
-  dashboard PR URL, issue-posting `gh` flow. Files: contracts, orchestrator prompt, tests.
-- [ ] **Fleet terminology + role display names** (specs below). Unblocks: downstream docs/UI
-  naming. Files: docs, `src/role-display.js`, prompt prose. Note: run *after* PR-first merges
-  (both touch the orchestrator prompt) or combine into one lane.
-- [ ] **Lane-drive completion — wezterm-baseline refactor** (spec below). Unblocks: dashboard
-  `--watch` tab. Files: `src/drive.js`, `src/terminal-open.js`.
-- [ ] **Multi-feature via worktrees** (spec below). Composes with artifacts' worktree-aware
-  layout. Files: `src/feature-commands.js`, drive.
+- [x] **PR-first finish** (#65). Orchestrator hard rule 6 (PR before done, never local
+  merge/push), contract final criterion, `prUrl` in state + status output, docs Finish section,
+  tests. Stacked-PR part of the spec not built (gh-stack extension still unmanaged).
+- [x] **Fleet terminology + role display names** (#63). Ship-type display map
+  (`src/role-display.js`: Commodore/Galleon/Clipper/Corvette/Xebec/Frigate/Caravel/Bark),
+  the old two-mode names (audit/feature lanes) -> patrol/voyage, sandbox -> dock,
+  `armada drive` -> `armada voyage` (alias kept).
+- [x] **Lane-drive completion — wezterm-baseline** (#66). Docs + `--term` surface default to
+  wezterm-first; per-OS emulators fallback. Terminal-open logic was already wezterm-preferred.
+- [x] **Multi-feature via worktrees** (#67). `armada feature new --worktree` creates
+  `sandbox/<name>` on `feat/<name>`, list/close worktree-aware.
+- [x] **Stable AGENTS.md block** (#68). Generated armada block uses repo identity in the header,
+  `{feature}` token in paths — parallel lanes no longer conflict on AGENTS.md.
+- [x] **Drive reliability fixes** (#62). `--help` handled, boot modals dismissed repeatedly,
+  resident-heartbeat notice.
+- [x] **Global binary + doctor check** (#64). `armada doctor` reports global-binary health;
+  broken npm-link-to-deleted-worktree root cause fixed.
 
 ### Wave 2 — first consumers (parallel)
 
 - [ ] **Skills integration** (spec below). Requires: per-role configurability (shipped #52).
   Files: `src/skills/`, generator, manifest, prompts.
-- [ ] **Security findings ledger** (spec below). Requires: artifacts ledgers (Wave 0).
-  Files: security prompt, `armada/ledgers/`.
+- [ ] **Security findings ledger** (spec below). Requires: artifacts ledgers (shipped #58).
+  Files: security prompt, `armada/ledgers/`. Note: spec body to write (backlog line 163 is a
+  question, not a spec).
 
 ### Wave 3 — systemic self-improvement (sequential)
 
@@ -49,12 +57,15 @@ Shared orchestrator-prompt + findings files → sequence, don't parallelize.
 ### Wave 4 — product surface + cleanup (parallel)
 
 - [ ] **Re-evaluate 8-role roster** (spec below). Result folds into the role-display map.
+  Note: spec body to write.
 - [ ] **Dashboard `--watch` TUI follow-up** (fleet-dashboard spec). Requires: fleet-dashboard
-  (shipped #59) + wezterm baseline (Wave 1). Files: `src/fleet-tracker.js`, `armada fleet --watch`.
+  (shipped #59) + wezterm baseline (shipped #66). Files: `src/fleet-tracker.js`,
+  `armada fleet --watch`.
 
 ### Wave 5 — deferred
 
-- [ ] **Multi-harness** (spec below). Last by design; nothing depends on it.
+- [ ] **Multi-harness** (spec below). Last by design; nothing depends on it. Note: spec body to
+  write.
 
 ---
 
@@ -91,12 +102,11 @@ Small, low-risk, high-leverage. Do first.
 
 The improvements that unlock the durable-implementation vision.
 
-- [ ] **PR-first finish — never local merge or direct push after a feature lane.** After a
+- [x] **PR-first finish — never local merge or direct push after a feature lane.** After a
   feature implementation runs, the lane's work must end in a **pull request** — not a local
-  `git merge`, not a direct push to master, not "done" without a PR. The fleet keeps finishing
-  lanes with local merges/pushes and skipping the PR step; that breaks the reviewed-delivery
-  rule (`docs/armada-improves-armada.md` Finish section). Spec below. Live symptom: lanes end
-  without `gh pr create --base master`, so work lands unreviewed.
+  `git merge`, not a direct push to master, not "done" without a PR. Shipped in #65: orchestrator
+  hard rule 6 (PR before done, never local merge/push), contract final criterion, `prUrl` in
+  state + `/armada-status`, docs Finish section, tests. Stacked-PR follow-up (gh-stack) not built.
 - [x] **Lane drive — TUI-ready handshake + auto-open visible terminal** — spec below. Drive a
   lane without swallowing the prompt (poll `tmux capture-pane` for the TUI input bar, verify the
   drive prompt registered, resend once) and auto-open a visible terminal attached to the
@@ -137,11 +147,10 @@ Bigger features, well-specified, sequenced after the High items.
   fresh repo); tests (template render with no dangling placeholders, catalog integrity, CLI
   e2e: new repo → detectStack → team scaffolds). Shipped in #36 (`src/new-command.js` +
   `starter/{web-app,ml-training,research-paper}/`).
-- [ ] **Multi-feature via worktrees.** `armada feature new <name>` optionally creates a
+- [x] **Multi-feature via worktrees** — `armada feature new --worktree` creates a
   `git worktree` per feature (`git worktree add sandbox/<feature>`, per-feature branch);
-  `feature list` shows each worktree; zero cross-feature clobber; per-feature fast-forward
-  merge. Upgrades the disjoint-files prompt rule (the fragile same-tree fallback). Test: two
-  features in two worktrees, both implemented + merged, no clobber.
+  `feature list` shows each worktree; zero cross-feature clobber. Shipped in #67
+  (`src/feature-commands.js` + `src/cli.js` `featureCmd` + e2e under `armada/e2e/worktree-features/`).
 - [x] **Arrow-key questionnaire** — `select`/`multiSelect`/`confirm` in `src/ui.js` already ship
   this; questionnaire uses them. Shipped 2026-08-03.
 
@@ -332,15 +341,19 @@ lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/la
     env: `iTerm.app`, `WezTerm`, `vscode`, etc.), target that; otherwise fall back to current
     behavior. This keeps it invisible-and-native instead of spawning windows.
   Shipped 2026-08-03.
-- [ ] **Refactor to wezterm as the baseline** — if the wezterm-first path proves out, make
-  wezterm the default terminal recommendation in docs and treat per-OS emulators as fallback
-  only (see the fleet-terminology spec below for the naming direction).
+- [x] **Refactor to wezterm as the baseline** — wezterm-first proved out; docs + `--term`
+  surface now present wezterm as the default recommendation, per-OS emulators as fallback.
+  Shipped in #66 (`docs/armada-improves-armada.md`, `docs/sandbox.md`, `DRIVE_HELP`).
 - [x] **Tests.** Terminal-opening logic is a pure module (OS detect + command builder) with unit
   tests; the handshake is tested against a fake `tmux` binary on PATH (`makeBin` pattern) or
   marked integration-only if unfakeable.
 - [x] **Docs.** `docs/armada-improves-armada.md` + `docs/sandbox.md` updated to the new drive step.
 
-### Fleet terminology (glossary) — retire "Lane A" / "Lane B" (IDEATION, HIGH)
+### Fleet terminology (glossary) — retire "Lane A" / "Lane B" (SHIPPED #63)
+
+Shipped 2026-08-03 in `feat/armada-language` (#63): the old audit/feature lane names -> voyage
+and patrol, sandbox/<name> -> dock, `armada drive` -> `armada voyage` (alias kept). Docs +
+user-facing strings refactored; glossary table in README. Spec below retained for reference.
 
 Old terminology: the repo names the two self-improvement modes **Lane A (audit)** and **Lane B (feature)**.
 The metaphor is generic and the naming doesn't echo the armada/fleet identity the tool actually
@@ -380,7 +393,12 @@ Refactor scope:
 - [ ] **Tests.** (Old terminology) Grep-based test that no doc or generated artifact still says "Lane A"/"Lane B"
   after the refactor (or a documented glossary exemption).
 
-### Team role names — armada terms for the roster (IDEATION, HIGH)
+### Team role names — armada terms for the roster (SHIPPED #63)
+
+Shipped 2026-08-03 in `feat/armada-language` (#63): ship-type display map in
+`src/role-display.js` — Commodore/Galleon/Clipper/Corvette/Xebec/Frigate/Caravel/Bark for
+orchestrator/backend-dev/frontend-dev/qa/adversary/security/docs/architect. Display-layer only;
+role keys untouched. Spec below retained for reference.
 
 The 8-role roster is plain-engineering: `orchestrator`, `backend-dev`, `frontend-dev`, `qa`,
 `adversary`, `security`, `docs`, `architect`. Clear, but it reads like a generic agent library,
@@ -758,7 +776,7 @@ tracked by the orchestrator across sessions.
   shipped, what changed) and reports "resume: feature X phase 2, evidence in, next action Y".
   Residual gap: the CLI is only reachable inside armada's own source tree — see the
   resume-reachability spec under High.
-- [ ] Multi-feature via worktrees — open, in Backlog → Medium.
+- [x] Multi-feature via worktrees — shipped in #67 (see Wave 1 above).
 - [ ] Live validation in a real repo — open, in Backlog → High.
 
 #### Finding from the first voyage run (2026-08-02)
