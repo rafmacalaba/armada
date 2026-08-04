@@ -76,7 +76,7 @@ describe("renderInitSummary", () => {
     const out = renderInitSummary(balancedManifest)
     assert.ok(out.includes("Next steps:"), "missing next steps header")
     assert.ok(out.includes("1. opencode"), "missing step 1")
-    assert.ok(out.includes("2. /armada  -> team status"), "missing step 2")
+    assert.ok(out.includes("2. armada status (CLI)  -> fleet status"), "missing step 2")
     assert.ok(out.includes("3. 'ping all agents'  -> verify roster"), "missing step 3")
   })
 
@@ -102,7 +102,7 @@ describe("renderInitSummary", () => {
       "  Caravel: opencode/deepseek-v4-flash-free",
       "Next steps:",
       "  1. opencode",
-      "  2. /armada  -> team status",
+      "  2. armada status (CLI)  -> fleet status",
       "  3. 'ping all agents'  -> verify roster",
     ]
     for (const line of expected) {

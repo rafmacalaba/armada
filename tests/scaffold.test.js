@@ -4,7 +4,7 @@ import assert from "node:assert"
 import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify, validateTargetDir } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { agentNameFor } from "../src/role-display.js"
-import { renderArmadaFleetCommand, renderArmadaFleetPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
+import { renderArmadaFleetPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
 import { detectStack } from "../src/stack-detect.js"
 import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync, symlinkSync, realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -72,17 +72,15 @@ test("scaffold writes all expected files", () => {
   const expected = [
     "armada/armada.yaml",
     "armada/REQUIREMENTS.md",
-    ".opencode/commands/armada.md",
-    ".opencode/commands/armada-status.md",
-    ".opencode/commands/armada-scout.md",
-    ".opencode/commands/armada-resume.md",
-    ".opencode/commands/armada-fleet.md",
     ...ROLES.map((r) => `.opencode/agent/${agentNameFor(r)}.md`),
   ]
   for (const f of expected) {
     assert.ok(files.includes(f), `missing in list: ${f}`)
     assert.ok(existsSync(join(dir, f)), `missing on disk: ${f}`)
   }
+
+  // .opencode/commands/ must NOT exist — slash commands are removed
+  assert.ok(!existsSync(join(dir, ".opencode/commands")), ".opencode/commands/ must NOT exist")
 
   // devcontainer copied when enabled
   assert.ok(existsSync(join(dir, ".devcontainer/devcontainer.json")))
@@ -92,16 +90,6 @@ test("scaffold writes all expected files", () => {
   const orch = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
   assert.match(orch, /^---\n/m)
   assert.match(orch, /mode: primary/)
-
-  // bundled commands carry frontmatter + state-index reference
-  const status = readFileSync(join(dir, ".opencode/commands/armada-status.md"), "utf8")
-  assert.match(status, /^---\n/m)
-  assert.match(status, /armada\/state\/active\.json/)
-  assert.match(status, /commodore/i)
-  const scout = readFileSync(join(dir, ".opencode/commands/armada-scout.md"), "utf8")
-  assert.match(scout, /read-only|no writes/i)
-  const resume = readFileSync(join(dir, ".opencode/commands/armada-resume.md"), "utf8")
-  assert.match(resume, /node src\/cli\.js reconcile/)
 
   rmSync(dir, { recursive: true, force: true })
 })
@@ -207,30 +195,11 @@ test("uninstall keeps user files under .opencode/ and warns", () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("uninstall removes bundled command files", () => {
+test("scaffold does not create .opencode/commands directory", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-uni4-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
-  for (const f of [
-    ".opencode/commands/armada.md",
-    ".opencode/commands/armada-status.md",
-    ".opencode/commands/armada-scout.md",
-    ".opencode/commands/armada-resume.md",
-    ".opencode/commands/armada-fleet.md",
-  ]) {
-    assert.ok(existsSync(join(dir, f)), `present before uninstall: ${f}`)
-  }
-  const removed = uninstall(manifest)
-  for (const f of [
-    ".opencode/commands/armada.md",
-    ".opencode/commands/armada-status.md",
-    ".opencode/commands/armada-scout.md",
-    ".opencode/commands/armada-resume.md",
-    ".opencode/commands/armada-fleet.md",
-  ]) {
-    assert.ok(!existsSync(join(dir, f)), `removed after uninstall: ${f}`)
-    assert.ok(removed.includes(f), `listed in removed: ${f}`)
-  }
+  assert.ok(!existsSync(join(dir, ".opencode/commands")), "commands dir must NOT exist")
 })
 
 test("supervision plugin written only when enabled, removed on uninstall", () => {
@@ -252,22 +221,13 @@ test("supervision plugin written only when enabled, removed on uninstall", () =>
   assert.ok(removed.includes(".opencode/plugins/armada-supervision.js"))
 })
 
-test("scaffold writes armada-fleet.md matching generator output", () => {
+test("scaffold does not write any commands files", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-fleet-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
 
-  const path = join(dir, ".opencode/commands/armada-fleet.md")
-  assert.ok(existsSync(path), "armada-fleet.md exists")
-
-  const content = readFileSync(path, "utf8")
-  assert.strictEqual(content, renderArmadaFleetCommand(), "content matches generator output")
-  assert.match(content, /armada fleet/)
-  assert.match(content, /node src\/cli\.js fleet/)
-
-  const removed = uninstall(manifest)
-  assert.ok(!existsSync(path), "armada-fleet.md removed on uninstall")
-  assert.ok(removed.includes(".opencode/commands/armada-fleet.md"))
+  assert.ok(!existsSync(join(dir, ".opencode/commands")), ".opencode/commands/ must NOT exist")
+  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-fleet.md")), "armada-fleet.md must NOT exist")
 
   rmSync(dir, { recursive: true, force: true })
 })
@@ -289,7 +249,6 @@ test("generated artifacts contain zero omo-slim references", () => {
   scaffold(manifest, manifest.project.stack)
   const files = [
     "opencode.json", "AGENTS.md", "armada/armada.yaml", "armada/REQUIREMENTS.md",
-    ".opencode/commands/armada.md",
     ...ROLES.map((r) => `.opencode/agent/${agentNameFor(r)}.md`),
   ]
   for (const f of files) {

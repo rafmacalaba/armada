@@ -82,7 +82,7 @@ test("init --from-armada scaffolds full team", async () => {
   const r = await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
   assert.strictEqual(r.code, 0)
   for (const f of ["armada/armada.yaml", "opencode.json", "AGENTS.md", "armada/REQUIREMENTS.md",
-    ".opencode/agent/commodore.md", ".opencode/commands/armada.md"])
+    ".opencode/agent/commodore.md"])
     assert.ok(existsSync(join(dir, f)), `missing ${f}`)
 })
 

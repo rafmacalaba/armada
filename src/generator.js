@@ -519,63 +519,6 @@ export function renderRequirementsMd(manifest) {
 `
 }
 
-// Build the `.opencode/commands/armada.md` command descriptor.
-export function renderArmadaCommand() {
-  return `---
-description: opencode-armada — team status, roles, regenerate
----
-You are the armada helper. Report: the configured team (from .opencode/agent/),
-the active preset, and how to regenerate (armada init --from-armada armada/armada.yaml).
-When reporting the team, use the display names (Commodore, Galleon, Clipper, Corvette,
-Xebec, Frigate, Caravel, Bark). Keep it terse.
-`
-}
-
-// Build the `.opencode/commands/armada-status.md` command descriptor.
-export function renderArmadaStatusCommand() {
-  return `---
-description: opencode-armada — fleet status, active feature, next action
-agent: ${agentNameFor("orchestrator")}
----
-Read armada/state/active.json + armada/state/features/index.json if they exist. Report the
-active feature, pending phases (status != "passed"), the next action, and the PR URL from
-\`active.json\` field \`prUrl\` (or "PR pending" if absent). If no state exists, say "no active
-fleet". Keep it terse.
-`
-}
-
-// Build the `.opencode/commands/armada-scout.md` command descriptor.
-export function renderArmadaScoutCommand() {
-  return `---
-description: opencode-armada — read-only investigation dispatch
-agent: ${agentNameFor("orchestrator")}
----
-Dispatch a read-only investigation of the requested area. Route to the xebec
-(hostile review) or bark (architecture risk) as appropriate. Never write files,
-never change code, never open a PR. Deliver a findings report in chat.
-`
-}
-
-// Build the `.opencode/commands/armada-resume.md` command descriptor.
-export function renderArmadaResumeCommand() {
-  return `---
-description: opencode-armada — resume after an interrupted session
-agent: ${agentNameFor("orchestrator")}
----
-Run \`armada reconcile\` and print the resume line plus any drift list. If the global \`armada\` binary is not on PATH AND \`src/cli.js\` exists in the cwd (i.e. you are in the armada source checkout), fall back to \`node src/cli.js reconcile\`. Otherwise report the missing binary. Keep it terse.
-`
-}
-
-// Build the `.opencode/commands/armada-fleet.md` command descriptor.
-export function renderArmadaFleetCommand() {
-  return `---
-description: opencode-armada — per-lane progress dashboard (sessions, phase, status, age, cost)
-agent: ${agentNameFor("orchestrator")}
----
-Run \`armada fleet\` and print the result. If the global \`armada\` binary is not on PATH AND \`src/cli.js\` exists in cwd (i.e. you are in the armada source checkout), fall back to \`node src/cli.js fleet\`. For one-lane detail, run \`armada fleet <session>\`. Keep it terse.
-`
-}
-
 // Deny globs the supervision plugin guards against shell-redirect writes. The
 // orchestrator's permission.edit deny set is the source of truth; this mirrors it
 // so `bash: echo x > REQUIREMENTS.md` cannot bypass the SDK-level edit deny.
