@@ -562,7 +562,7 @@ export function renderArmadaResumeCommand() {
 description: opencode-armada — resume after an interrupted session
 agent: ${agentNameFor("orchestrator")}
 ---
-Run \`armada reconcile\` and print the resume line plus any drift list. If the global \`armada\` binary is not on PATH AND \`src/cli.js\` exists in the cwd (i.e. you are in the armada source checkout), fall back to \`node src/cli.js reconcile\`. Otherwise report the missing binary. Keep it terse.
+Run \`armada reconcile\` and print the resume line plus any drift list. If \`armada\` is not on PATH, report the missing binary.
 `
 }
 
@@ -572,7 +572,7 @@ export function renderArmadaFleetCommand() {
 description: opencode-armada — per-lane progress dashboard (sessions, phase, status, age, cost)
 agent: ${agentNameFor("orchestrator")}
 ---
-Run \`armada fleet\` and print the result. If the global \`armada\` binary is not on PATH AND \`src/cli.js\` exists in cwd (i.e. you are in the armada source checkout), fall back to \`node src/cli.js fleet\`. For one-lane detail, run \`armada fleet <session>\`. Keep it terse.
+Run \`armada fleet\` and print the result. For one-lane detail: \`armada fleet <session>\`. If \`armada\` is not on PATH, report the missing binary.
 `
 }
 

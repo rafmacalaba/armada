@@ -135,6 +135,12 @@ export async function runDoctor(opts = {}) {
         ? ".opencode/plugins/armada-fleet.js present"
         : "supervision.fleet is true but .opencode/plugins/armada-fleet.js missing — re-run armada init",
     })
+  } else if (opts.project?.supervision !== undefined && opts.project.supervision.fleet === false) {
+    checks.push({
+      name: "fleet tracker plugin",
+      status: "pass",
+      detail: "disabled by user (--no-fleet-tracker)",
+    })
   }
   return checks
 }

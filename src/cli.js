@@ -52,7 +52,7 @@ Usage:
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
   armada init --yolo                         autonomous: no permission prompts (bash allow, edit boundaries kept)
   armada init --supervision-plugin           opt-in thin supervision plugin (.opencode/plugins/)
-  armada init --fleet-tracker                opt-in fleet tracker plugin (.opencode/plugins/)
+  armada init --no-fleet-tracker              opt-out from default-on fleet tracker plugin
   armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
   armada init --target <dir>                 scaffold into a directory (default cwd)
   armada init --from-armada armada/armada.yaml      regenerate from manifest
@@ -306,9 +306,12 @@ async function init(args) {
     manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: false }
     manifest.project.supervision.plugin = true
   }
+  if (args.includes("--no-fleet-tracker")) {
+    manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: true }
+    manifest.project.supervision.fleet = false
+  }
   if (args.includes("--fleet-tracker")) {
-    manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: false }
-    manifest.project.supervision.fleet = true
+    console.warn("note: --fleet-tracker is now the default; use --no-fleet-tracker to opt out")
   }
   const reqIdx = args.indexOf("--requirements")
   if (reqIdx !== -1 && args[reqIdx + 1] && !args[reqIdx + 1].startsWith("--")) {
@@ -378,7 +381,7 @@ export function defaultManifest(target = ".") {
       useAgentBrowser: false,
       headless: false,
       yolo: false,
-      supervision: { plugin: false, fleet: false },
+      supervision: { plugin: false, fleet: true },
       requirementsFile: "armada/REQUIREMENTS.md",
       stack: {},
     },
