@@ -290,7 +290,7 @@ test("supervision.plugin round-trips through manifest", () => {
   const m = structuredClone(baseManifest)
   m.project.supervision = { plugin: true }
   const yaml = renderManifestYaml(m, buildTeam(m))
-  assert.match(yaml, /supervision:\n    plugin: true/)
+  assert.match(yaml, /supervision:\n\s+#.*\n\s+plugin: true/)
   const reparsed = parseManifestYaml(yaml)
   assert.strictEqual(reparsed.project.supervision.plugin, true)
   // default is false when absent
