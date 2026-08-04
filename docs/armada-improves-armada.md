@@ -169,7 +169,8 @@ opens in wezterm; Windows follows the same default — wezterm first, Windows Te
 (or iTerm if installed), Linux the default X terminal emulator (`gnome-terminal`, `konsole`, or
 `x-terminal-emulator`; requires `DISPLAY`), Windows Windows Terminal. wezterm is never required —
 if no terminal can be opened (headless, missing binary, no `DISPLAY`), it prints
-`tmux attach -t <name>` and continues — the launch never fails. Pass `--no-open` to skip the
+`auto-attach skipped: unable to open terminal` and continues — the launch never fails.
+Use `armada voyage --print-attach <name>` to recover the attach command. Pass `--no-open` to skip the
 auto-open for CI/headless use.
 
 If you're already running in a terminal (the common case — you ran `armada voyage` from one),
@@ -177,11 +178,11 @@ If you're already running in a terminal (the common case — you ran `armada voy
 `TERM_PROGRAM` (WezTerm, Apple_Terminal, iTerm.app) on macOS and `KONSOLE_VERSION` on Linux —
 WezTerm is checked first on any OS; wezterm's daemon reuses the existing instance. If you run in
 a non-wezterm terminal but wezterm is on PATH (rule 5, macOS/Linux), the attach still goes
-to wezterm. vscode / cursor users get a `tmux attach` hint instead (their integrated terminal
+to wezterm. vscode / cursor users can recover the attach command via `armada voyage --print-attach <name>` (their integrated terminal
 can't be addressed from outside). The success message reflects what happened:
 `auto-attached in tab of WezTerm` vs `auto-attached in tab of Terminal.app` vs
 `auto-attached in new window of Terminal.app` vs
-`auto-attach skipped: ... — attach manually: tmux attach -t <name>`.
+`auto-attach skipped: <reason>`.
 
 Phase gates: a phase closes only with evidence — passing test run, screenshot, or file/line
 citation. The per-feature ledgers `armada/ledgers/<feature>/DEFECTS.md` and
@@ -193,7 +194,7 @@ citation. The per-feature ledgers `armada/ledgers/<feature>/DEFECTS.md` and
 TUI is yours when the voyage prompt lands. To steer the co-write interview yourself, attach manually:
 
 ```bash
-tmux attach -t <session>        # you're now IN the orchestrator's TUI
+armada voyage --print-attach <session>        # prints tmux attach -t '<session>' for you to run
 ```
 
 The orchestrator is the only agent you address. To co-write a feature you're steering:
@@ -206,7 +207,7 @@ The orchestrator is the only agent you address. To co-write a feature you're ste
    iterates until you **explicitly approve**. No building before approval.
 4. **Detach when you're done** (`Ctrl+b` then `d`) — the session keeps running, the fleet
    dispatches, and the orchestrator holds its turn on the evidence gates.
-5. **Re-attach anytime** (`tmux attach -t <session>`) to answer a question, approve a gate, or
+5. **Re-attach anytime** (`armada voyage --print-attach <session>`) to answer a question, approve a gate, or
    watch the subagent panel (`ctrl+x`).
 
 This is the canonical armada interaction: **you steer via questions and approvals; the fleet

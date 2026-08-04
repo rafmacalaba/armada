@@ -29,7 +29,7 @@ import { renderInitSummary } from "./init-summary.js"
 import { applyPreset } from "./preset-command.js"
 import { bootLane, DriveError } from "./drive.js"
 import { startHeartbeat } from "./heartbeat.js"
-import { openTerminal } from "./terminal-open.js"
+import { openTerminal, buildAttachCommand } from "./terminal-open.js"
 import { listRuns, readRun } from "./fleet-tracker.js"
 import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cmd.js"
 import { runUpdate } from "./update.js"
@@ -76,7 +76,9 @@ Usage:
                            check for evidence drifts against contract (exit 2 if drifts)
   armada voyage <lane-path> [--heartbeat]  boot a lane session and send the voyage prompt (TUI-ready handshake)
   armada drive <lane-path>              (alias for voyage)
-                                          auto-opens in wezterm (preferred) or per-OS emulator as fallback
+                                           auto-opens in wezterm (preferred) or per-OS emulator as fallback
+  armada voyage --print-attach <name>     print tmux attach command and exit
+  armada drive --print-attach <name>      (same, via drive alias)
   armada ping                                sanity check
   armada help                                this help
 `
@@ -577,12 +579,12 @@ async function getAutoOpenSuffix(name) {
       return ` (auto-attached in ${result.kind})`
     }
     if (result.mode === "hint") {
-      return ` (auto-attach skipped: ${result.reason} — attach manually: ${result.hint})`
+      return ` (auto-attach skipped: ${result.reason})`
     }
-    return ` (auto-attach skipped: unable to open terminal — attach manually: ${result.hint})`
+    return ` (auto-attach skipped: unable to open terminal)`
   } catch {
     // terminal-open must never fail the drive
-    return ` (auto-attach skipped: unable to open terminal — attach manually: tmux attach -t ${name})`
+    return ` (auto-attach skipped: unable to open terminal)`
   }
 }
 
@@ -642,6 +644,12 @@ async function driveCmd(args, cmdName = "drive") {
   }
 
   const noOpen = args.includes("--no-open")
+  const printAttach = args.includes("--print-attach")
+
+  if (printAttach) {
+    console.log(buildAttachCommand(name))
+    return 0
+  }
 
   // Resolve lane path to absolute and verify it exists
   const absLane = resolve(lanePath)
