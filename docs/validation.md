@@ -851,3 +851,38 @@ per-role lines bias the load; opencode's description-triggered self-selection ca
   pass green.
 - No regressions in `tests/orchestrator-prompt.test.js`, `tests/scaffold.test.js`,
   `tests/role-display.test.js`, `tests/validation.test.js` — all stay green.
+
+### Skills expansion lane — lightweight scaffold smoke (2026-08-04)
+
+Lightweight, no-LLM runtime check: fresh repo + `armada init --yes` + file-level verification.
+Closes the "skill not actually loaded at runtime" gap with a scaffold-level proof; full LLM
+runtime smoke remains a follow-up (requires tmux + opencode session, not lightweight).
+
+Procedure:
+1. `mkdir /tmp/armada-skills-smoke-$$ && cd $_`
+2. `git init -q && node /path/to/opencode-armada/src/cli.js init --yes`
+3. Verify `.opencode/skills/` contents + per-role load lines.
+
+Evidence:
+- `find .opencode/skills -name SKILL.md | wc -l` = **9** (all 9 ship).
+- 9 skills written: `armada-context-budget`, `armada-contract`, `armada-dispatch`, `armada-gate`,
+  `armada-ledger`, `armada-pr`, `armada-resume`, `armada-sdd`, `armada-tdd`.
+- Frontmatter parse: all 9 names match `^[a-z0-9]+(-[a-z0-9]+)*$`. Descriptions 127-193 chars
+  (all ≤ 200). Bodies render with no dangling `{placeholder}`.
+- Per-role load lines (grep on `.opencode/agent/<role>.md`):
+  - commodore → contract + gate + dispatch + pr + resume (5 lines, all present)
+  - galleon → tdd + sdd + context-budget + ledger (4 lines)
+  - clipper → same 4
+  - corvette → ledger + context-budget (2 lines; gate from Wave 2 baseline)
+  - xebec → ledger + context-budget (2)
+  - frigate → ledger + context-budget (2)
+  - caravel → contract + context-budget (2)
+  - bark → context-budget (1)
+- Self-selection: each skill's `description:` contains trigger phrases ("TDD", "subagent",
+  "PR", "resume", "ledger", "tokens", "parallelize", "evidence", "contract") — opencode's
+  description-based skill discovery will surface them on demand even without explicit prompt
+  references.
+
+Smoke verdict: scaffold-level PASS. Skills render, prompts reference them, descriptions
+enable self-selection. Runtime LLM test (opencode session actually loading `armada-tdd` and
+changing behavior) deferred — needs tmux + model calls, not lightweight.
