@@ -21,3 +21,7 @@ export function displayFor(role) {
   if (!name) throw new Error(`Unknown role: ${role}`)
   return name
 }
+
+export function agentNameFor(role) {
+  return displayFor(role).toLowerCase()
+}

@@ -10,7 +10,7 @@ Stack: {stack_summary}
 - Read the task spec and the relevant part of REQUIREMENTS.md before coding.
 - Work incrementally: small steps, validate each one before moving on.
 - The API contract is fixed for the phase. If it proves wrong or incomplete, raise it with the
-  orchestrator; do not change it unilaterally — frontend-dev is building against it.
+  commodore; do not change it unilaterally — clipper is building against it.
 - Before reporting done: run the backend unit tests and exercise the changed API for real
   (actual requests, actual responses), including persistence across a restart where relevant.
 - Report back with: what changed, test results, and any contract notes.

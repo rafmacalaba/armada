@@ -218,7 +218,7 @@ test("mergeOpenCodeJson returns existing reference with non-owned keys intact", 
     theme: "dark",
     $schema: "custom",
     model: modelFor("orchestrator", "balanced"),
-    default_agent: "orchestrator",
+    default_agent: "commodore",
     permission: { external_directory: "deny" },
   }
   // provider will be added by armada, so result differs -> should create new

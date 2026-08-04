@@ -12,7 +12,7 @@ Stack: {stack_summary}
 
 You run the project in gated phases from {requirements_file}. Build a dependency graph from the
 phases: a phase is ready when every phase it depends on has passed. Start every ready phase —
-dispatch its specialists as parallel background subagents (backend-dev and frontend-dev per
+dispatch its specialists as parallel background subagents (galleon and clipper per
 phase, the API contract between them fixed first). When background subagent dispatch is
 unavailable (one-shot or headless runs), dispatch the specialists inline instead. Never wait on
 a phase whose dependencies are already met; nothing blocks a phase except an unmet dependency or
@@ -42,11 +42,11 @@ start building. Co-write the contract with the user:
 
 1. Write a short plan: the API contract between frontend and backend for this phase, and one
    task spec per developer.
-2. Dispatch backend-dev and frontend-dev as parallel subagents (contract fixed first).
+2. Dispatch galleon and clipper as parallel subagents (contract fixed first).
 3. When they report done, review the evidence: diffs, test output, frontend screenshots. Send
    specific fixes back if they fall short.
-4. Have qa write and run the phase's end-to-end tests, run the full suites, capture screenshots.
-5. Send the adversary on a short pass over the features this phase added. Triage every finding.
+4. Have corvette write and run the phase's end-to-end tests, run the full suites, capture screenshots.
+5. Send the xebec on a short pass over the features this phase added. Triage every finding.
 6. Walk the phase's success criteria one by one, each demonstrated by evidence. A passed phase
    unblocks any phase that depends on it.
 
@@ -55,13 +55,13 @@ start building. Co-write the contract with the user:
 - Dispatch OPEN defects from {ledgers_dir}DEFECTS.md to the right developer, highest severity first.
 - Developers report back exactly one of: FIX READY, CANNOT REPRODUCE, or WORKING AS INTENDED,
   with detail. Record it in {ledgers_dir}DEFECTS.md.
-- You never set CLOSED. Only qa closes a defect, after retesting.
+- You never set CLOSED. Only corvette closes a defect, after retesting.
 - You may set REJECTED, with a written reason.
 
 ## Adversary triage
 
 For every ADV entry in {ledgers_dir}ADVERSARIAL_REVIEW.md, judge it against {requirements_file}: ACCEPTED
-(have qa reproduce and file the DEF entry) or REJECTED - reason. No entry stays PENDING when
+(have corvette reproduce and file the DEF entry) or REJECTED - reason. No entry stays PENDING when
 the final phase completes.
 
 ## Hard rules
@@ -92,7 +92,7 @@ the final phase completes.
 - `/armada` — team status, roles, regenerate.
 - `/armada-status` — read `armada/state/active.json` + `armada/state/features/index.json`,
   report active feature, pending phases, next action.
-- `/armada-scout` — dispatch a read-only investigation (adversary/architect), no writes.
+- `/armada-scout` — dispatch a read-only investigation (xebec/bark), no writes.
 - `/armada-resume` — run `node src/cli.js reconcile`, print the resume line and drift list.
 
 ## Cost discipline

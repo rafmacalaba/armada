@@ -47,7 +47,7 @@ function computeChanges(existing, merged, prefix = "") {
   return changes
 }
 
-function formatPlan(plan, scaffoldFiles) {
+function formatPlan(plan, scaffoldFiles, removedOrphans) {
   const lines = ["armada update — plan", ""]
 
   lines.push("opencode.json changes:")
@@ -72,6 +72,14 @@ function formatPlan(plan, scaffoldFiles) {
   } else {
     for (const f of scaffoldFiles) {
       lines.push(`  + ${f}`)
+    }
+  }
+
+  if (removedOrphans && removedOrphans.length > 0) {
+    lines.push("")
+    lines.push("Orphan cleanup (legacy agent files to remove):")
+    for (const f of removedOrphans) {
+      lines.push(`  - ${f}`)
     }
   }
 
@@ -147,6 +155,8 @@ export function validateTargetPaths(repo, ocPath, armadaDirPath) {
 
   checkPath(ocPath, "opencode.json")
   checkPath(armadaDirPath, "armada/")
+  checkPath(join(repo, ".opencode"), ".opencode/")
+  checkPath(join(repo, ".opencode/agent"), ".opencode/agent/")
 }
 
 // ---- main -------------------------------------------------------------------
@@ -234,9 +244,9 @@ export async function runUpdate(args, opts = {}) {
   }
 
   // Get scaffold file list (dry-run preview)
-  const scaffoldFiles = scaffold(manifest, stack, { dryRun: true, gitignore: true })
+  const scaffoldResult = scaffold(manifest, stack, { dryRun: true, gitignore: true })
 
-  const planText = formatPlan(plan, scaffoldFiles)
+  const planText = formatPlan(plan, scaffoldResult.written, scaffoldResult.removed)
 
   // 8. --dry-run
   if (dryRun) {

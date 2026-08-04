@@ -3,8 +3,18 @@ import assert from "node:assert"
 import { join } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
-import { fillPrompt, PROMPT_SOURCE } from "../src/scaffold.js"
-import { renderArmadaStatusCommand, renderArmadaResumeCommand } from "../src/generator.js"
+import { fillPrompt, PROMPT_SOURCE, scaffold } from "../src/scaffold.js"
+import {
+  renderArmadaStatusCommand,
+  renderArmadaResumeCommand,
+  renderArmadaScoutCommand,
+  renderArmadaFleetCommand,
+  renderArmadaCommand,
+} from "../src/generator.js"
+import { agentNameFor } from "../src/role-display.js"
+import { ROLES } from "../src/model-catalog.js"
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -108,4 +118,87 @@ test("armada-status / armada-resume command renderers reference correct sources"
   )
   assert.ok(resume.includes("resume line"), "armada-resume must mention resume line")
   assert.ok(resume.includes("drift list"), "armada-resume must mention drift list")
+})
+
+test("orchestrator prompt: delegation targets ship names", () => {
+  const prompt = orchestratorPrompt()
+
+  assert.match(prompt, /dispatch\s+galleon/i, "prompt must say dispatch galleon")
+  assert.match(prompt, /dispatch[\s\S]{0,20}clipper/i, "prompt must say ...clipper in dispatch context")
+
+  const shipMap = {
+    orchestrator: "commodore",
+    "backend-dev": "galleon",
+    "frontend-dev": "clipper",
+    qa: "corvette",
+    adversary: "xebec",
+    security: "frigate",
+    docs: "caravel",
+    architect: "bark",
+  }
+  for (const [role, ship] of Object.entries(shipMap)) {
+    const re = new RegExp(`\\b${role}\\b`)
+    assert.doesNotMatch(prompt, re,
+      `prompt must not contain bare role key "${role}" as a standalone word`)
+  }
+
+  assert.doesNotMatch(prompt, /\{[a-z_]+\}/,
+    "prompt must contain no dangling {placeholder} tokens")
+})
+
+test("command renderers: ship-named agent", () => {
+  const cmds = [
+    renderArmadaStatusCommand(),
+    renderArmadaScoutCommand(),
+    renderArmadaResumeCommand(),
+    renderArmadaFleetCommand(),
+  ]
+  for (const c of cmds) {
+    assert.match(c, /^agent: commodore$/m,
+      "command frontmatter must have 'agent: commodore'")
+  }
+
+  const generic = renderArmadaCommand()
+  assert.doesNotMatch(generic, /^agent:/m,
+    "generic armada command must not have an agent: line")
+})
+
+test("generated agents have no dangling {placeholder} or bare role names (scaffold e2e)", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-sni-phase3-"))
+
+  const manifest = {
+    project: {
+      name: "ship-name-e2e",
+      budget: "balanced",
+      browserTesting: false,
+      devcontainer: false,
+      useAgentBrowser: false,
+      requirementsFile: "armada/REQUIREMENTS.md",
+      stack: { frontend: null, backend: null, database: null, testing: null, srcDirs: [], languages: [] },
+    },
+    targetDir: dir,
+    team: ROLES.map((r) => ({ role: r, enabled: true })),
+  }
+
+  scaffold(manifest, manifest.project.stack)
+
+  const agentDir = join(dir, ".opencode/agent")
+  const agentFiles = readdirSync(agentDir)
+
+  for (const f of agentFiles) {
+    const content = readFileSync(join(agentDir, f), "utf8")
+    assert.doesNotMatch(content, /\{[a-z_]+\}/,
+      `agent file ${f} must have no dangling placeholders`)
+  }
+
+  // Only the orchestrator prompt must avoid bare role keys (delegation context).
+  // Other agents may legitimately self-reference (e.g. "You are the architect").
+  const commodore = readFileSync(join(agentDir, "commodore.md"), "utf8")
+  for (const role of ["orchestrator", "backend-dev", "frontend-dev", "qa", "adversary", "architect", "docs"]) {
+    const re = new RegExp(`\\b${role}\\b`)
+    assert.doesNotMatch(commodore, re,
+      `orchestrator prompt must not contain bare role key "${role}"`)
+  }
+
+  rmSync(dir, { recursive: true, force: true })
 })

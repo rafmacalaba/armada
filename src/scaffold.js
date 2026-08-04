@@ -24,6 +24,7 @@ import {
 import { ROLES } from "./model-catalog.js"
 import { formatStack } from "./stack-detect.js"
 import { validateRequirementsFile } from "./manifest.js"
+import { agentNameFor } from "./role-display.js"
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -229,14 +230,23 @@ export function validateTargetDir(target) {
   }
   if (symlink(full)) throw new Error(`target directory is a symlink: ${target}`)
   if (symlink(join(full, ".opencode"))) throw new Error(`.opencode/ is a symlink under target: ${target}`)
+  for (const sub of [".opencode/agent", ".opencode/commands", ".opencode/plugins"]) {
+    if (symlink(join(full, sub))) throw new Error(`${sub} is a symlink under target: ${target}`)
+  }
 }
 
-// Main entry. target = repo root. Returns list of written files.
+const LEGACY_ROLE_NAMES = new Set([
+  "orchestrator", "backend-dev", "frontend-dev", "qa",
+  "adversary", "security", "docs", "architect",
+])
+
+// Main entry. target = repo root. Returns { written, removed }.
 export function scaffold(manifest, stack, opts = {}) {
   const target = manifest.targetDir || "."
   if (!opts.dryRun) validateTargetDir(target)
   const team = buildTeam(manifest)
   const files = []
+  const removed = []
 
   const out = (rel) => join(target, rel)
   const ensure = (rel) => mkdirSync(out(rel), { recursive: true })
@@ -270,7 +280,23 @@ export function scaffold(manifest, stack, opts = {}) {
       promptText = promptText + "\n\n" + a.instructions
     }
     const content = renderAgentFile(a, promptText)
-    write(`.opencode/agent/${a.role}.md`, content)
+    const shipName = agentNameFor(a.role)
+    write(`.opencode/agent/${shipName}.md`, content)
+    // Orphan cleanup: remove legacy role-named agent file if it differs from ship name
+    if (a.role !== shipName && LEGACY_ROLE_NAMES.has(a.role)) {
+      const legacyRel = `.opencode/agent/${a.role}.md`
+      const legacyPath = out(legacyRel)
+      if (existsSync(legacyPath)) {
+        let isLink = false
+        try { isLink = lstatSync(legacyPath).isSymbolicLink() } catch {}
+        if (isLink) {
+          removed.push(`${legacyRel} (skipped: symlink)`)
+        } else {
+          if (!opts.dryRun) rmSync(legacyPath, { force: true })
+          removed.push(legacyRel)
+        }
+      }
+    }
   }
 
   // 1b. Prune stale omo-slim artifacts from the old layout (armada-owned).
@@ -354,7 +380,7 @@ export function scaffold(manifest, stack, opts = {}) {
     if (!files.includes(".gitignore")) files.push(".gitignore")
   }
 
-  return files
+  return { written: files, removed }
 }
 
 // Remove generated armada files. Never removes user files without opts.all.
@@ -402,7 +428,7 @@ export function uninstall(manifest, opts = {}) {
   const agentDir = join(target, ".opencode/agent")
   if (existsSync(agentDir)) {
     for (const role of ROLES) {
-      removeFile(`.opencode/agent/${role}.md`)
+      removeFile(`.opencode/agent/${agentNameFor(role)}.md`)
     }
   }
   removeEmptyDir(".opencode/agent")
