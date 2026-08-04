@@ -5,7 +5,7 @@ import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
-import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaSupervisionPlugin, renderArmadaFleetPlugin } from "../src/generator.js"
+import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaStatusCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaFleetCommand, renderArmadaVoyageCommand, renderArmadaSupervisionPlugin, renderArmadaFleetPlugin } from "../src/generator.js"
 import { displayFor } from "../src/role-display.js"
 import { parseManifestYaml } from "../src/manifest.js"
 
@@ -364,6 +364,98 @@ test("renderAgentsMd phase gates are dependency-driven", () => {
   const md = renderAgentsMd(baseManifest, buildTeam(baseManifest))
   assert.match(md, /starts as soon as the phases it depends on have passed/i)
   assert.ok(!/Only then does the next phase start/i.test(md), "no rigid sequential gate wording")
+})
+
+test("renderArmadaCommand lives in generator.js and is pure", () => {
+  const md = renderArmadaCommand()
+  assert.match(md, /armada init --from-armada/)
+  assert.match(md, /---/)
+})
+
+test("renderArmadaStatusCommand reads state index, terse", () => {
+  const md = renderArmadaStatusCommand()
+  assert.match(md, /^---\n/)
+  assert.match(md, /description:/)
+  assert.match(md, /armada\/state\/active\.json/)
+  assert.match(md, /pending phases|active feature/i)
+  assert.match(md, /commodore/i)
+  assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
+})
+
+test("renderArmadaStatusCommand reports PR URL", () => {
+  const md = renderArmadaStatusCommand()
+  // The command must tell the orchestrator to report the PR URL.
+  assert.match(md, /pr\s*url/i,
+    "armada-status must mention 'PR URL' reporting")
+  assert.match(md, /pr\s*pending|prurl/i,
+    "armada-status must mention 'PR pending' or 'prUrl' field")
+})
+
+test("renderArmadaScoutCommand is read-only, dispatches investigation", () => {
+  const md = renderArmadaScoutCommand()
+  assert.match(md, /^---\n/)
+  assert.match(md, /description:/)
+  assert.match(md, /read-only|no writes|never write/i)
+  assert.match(md, /adversary|architect/i)
+  assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
+})
+
+test("renderArmadaResumeCommand prefers armada reconcile with in-tree fallback", () => {
+  const md = renderArmadaResumeCommand()
+  assert.match(md, /^---\n/)
+  assert.match(md, /description:/)
+  assert.match(md, /armada reconcile/)
+  assert.match(md, /node src\/cli\.js reconcile/)
+  assert.match(md, /resume line/)
+  assert.match(md, /drift list/)
+  assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
+})
+
+test("renderArmadaResumeCommand is byte-identical after manifest round-trip", () => {
+  // armada init --from-armada twice must produce identical command file.
+  const cmd1 = renderArmadaResumeCommand()
+  // Round-trip through manifest: parse -> re-render -> re-parse, then rebuild team.
+  const team = buildTeam(baseManifest)
+  const yaml = renderManifestYaml(baseManifest, team)
+  const reparsed = parseManifestYaml(yaml)
+  const team2 = buildTeam(reparsed)
+  const yaml2 = renderManifestYaml(reparsed, team2)
+  const cmd2 = renderArmadaResumeCommand()
+  assert.strictEqual(cmd1, cmd2, "command output must be byte-identical after round-trip")
+})
+
+test("renderArmadaFleetCommand returns frontmatter with commodore agent and fleet fallback", () => {
+  const md = renderArmadaFleetCommand()
+  assert.match(md, /^---\n/)
+  assert.match(md, /agent: commodore/)
+  assert.match(md, /armada fleet/)
+  assert.match(md, /node src\/cli\.js fleet/)
+})
+
+test("renderArmadaVoyageCommand returns frontmatter with commodore agent and voyage launch body", () => {
+  const md = renderArmadaVoyageCommand()
+  assert.match(md, /^---\n/)
+  assert.match(md, /agent: commodore/)
+  assert.match(md, /armada feature new/)
+  assert.match(md, /armada init --yes --yolo/)
+  assert.match(md, /armada voyage sandbox\//)
+  assert.match(md, /node src\/cli\.js/)
+})
+
+test("renderArmadaVoyageCommand is byte-identical after manifest round-trip", () => {
+  const cmd1 = renderArmadaVoyageCommand()
+  const team = buildTeam(baseManifest)
+  const yaml = renderManifestYaml(baseManifest, team)
+  const reparsed = parseManifestYaml(yaml)
+  const team2 = buildTeam(reparsed)
+  const yaml2 = renderManifestYaml(reparsed, team2)
+  const cmd2 = renderArmadaVoyageCommand()
+  assert.strictEqual(cmd1, cmd2, "command output must be byte-identical after round-trip")
+})
+
+test("renderArmadaVoyageCommand has no dangling placeholders", () => {
+  const md = renderArmadaVoyageCommand()
+  assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
 })
 
 test("renderArmadaSupervisionPlugin is valid JS with three handlers", async () => {

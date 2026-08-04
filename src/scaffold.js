@@ -13,6 +13,12 @@ import {
   renderAgentsMd,
   renderRequirementsMd,
   renderManifestYaml,
+  renderArmadaCommand,
+  renderArmadaStatusCommand,
+  renderArmadaScoutCommand,
+  renderArmadaResumeCommand,
+  renderArmadaFleetCommand,
+  renderArmadaVoyageCommand,
   renderArmadaSupervisionPlugin,
   renderArmadaFleetPlugin,
   renderSecurityFindingsTemplate,
@@ -403,6 +409,13 @@ export function scaffold(manifest, stack, opts = {}) {
     write(securityTpl, renderSecurityFindingsTemplate())
   }
 
+  // 7. armada commands for in-session use.
+  write(".opencode/commands/armada.md", renderArmadaCommand())
+  write(".opencode/commands/armada-status.md", renderArmadaStatusCommand())
+  write(".opencode/commands/armada-scout.md", renderArmadaScoutCommand())
+  write(".opencode/commands/armada-resume.md", renderArmadaResumeCommand())
+  write(".opencode/commands/armada-fleet.md", renderArmadaFleetCommand())
+  write(".opencode/commands/armada-voyage.md", renderArmadaVoyageCommand())
 
   // 7b. Opt-in thin supervision plugin.
   if (manifest.project.supervision?.plugin) {
@@ -470,6 +483,9 @@ export function uninstall(manifest, opts = {}) {
   removeEmptyDir("armada/ledgers/_template")
   removeEmptyDir("armada/ledgers")
   removeEmptyDir("armada")
+  for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume", "armada-fleet", "armada-voyage"]) {
+    removeFile(`.opencode/commands/${cmd}.md`)
+  }
   // Opt-in supervision plugin (armada-owned, only removed when present).
   removeFile(".opencode/plugins/armada-supervision.js")
   removeFile(".opencode/plugins/armada-fleet.js")

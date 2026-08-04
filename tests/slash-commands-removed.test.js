@@ -35,13 +35,16 @@ team:
     enabled: true
 `;
 
-test("armada init --from-armada does NOT create .opencode/commands/ directory", async () => {
+test("armada init --from-armada creates .opencode/commands/ directory", async () => {
   const dir = makeTempRepo({ "armada/armada.yaml": manifestYaml });
   const r = await runCli(["init", "--from-armada", "armada/armada.yaml", "--yes"], { cwd: dir });
 
   assert.strictEqual(r.code, 0, "init must succeed");
   const commandsDir = join(dir, ".opencode/commands");
-  assert.ok(!existsSync(commandsDir), `.opencode/commands/ must NOT exist after scaffold (got: ${commandsDir})`);
+  assert.ok(existsSync(commandsDir), `.opencode/commands/ must exist after scaffold (got: ${commandsDir})`);
+  for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume", "armada-fleet", "armada-voyage"]) {
+    assert.ok(existsSync(join(commandsDir, `${cmd}.md`)), `${cmd}.md must exist`);
+  }
 
   rmSync(dir, { recursive: true, force: true });
 });

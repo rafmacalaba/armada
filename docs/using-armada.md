@@ -204,10 +204,64 @@ Run these in your terminal, not the opencode TUI:
 | `armada reconcile` | Resume after an interrupted session (drift list) |
 | `armada fleet [session]` | Per-lane progress dashboard |
 
+Every scaffold also ships six in-session commands under `.opencode/commands/`:
+
+| Command | What it does |
+|---|---|
+| `/armada` | Team status, roles, how to regenerate |
+| `/armada-status` | Read `.opencode/fleet-status.md` — active phases, last update, next action |
+| `/armada-scout` | Dispatch a read-only investigation (adversary/architect), no writes, no PR |
+| `/armada-resume` | Read `.opencode/fleet-status.md`, summarize pending phases, ask the next action |
+| `/armada-fleet` | Per-dock progress dashboard (same store as the `armada fleet` CLI) |
+| `/armada-voyage` | Launch a feature voyage (creates the lane, arms it, boots the ship) — see [Launching voyages from the TUI](#launching-voyages-from-the-tui) |
+
 **Fleet status file (`.opencode/fleet-status.md`):** written by the orchestrator so a killed
 session can be resumed. Format: YAML frontmatter (`active_phases`, `last_update`, `next_action`)
 plus a short markdown body — one line per active phase (phase, evidence in, status). The
 orchestrator reads it on session start (hard rule 3) and on `armada status` / `armada reconcile`.
+
+## Launching voyages from the TUI
+
+No shell ceremony required. Open the TUI in an armed repo and tell the Commodore:
+
+```
+launch a voyage for <feature>
+```
+
+That's the whole trigger. The Commodore does the rest:
+
+- **Parse the name.** The feature name becomes the lane (`sandbox/<name>`) and the branch
+  (`feat/<name>`).
+- **Refuse nested lanes.** If cwd is inside a worktree, the launch is refused with a clear
+  error pointing at the main repo — no lanes inside lanes.
+- **Resolve the armada binary.** `armada` on PATH, falling back to `node src/cli.js` in the
+  armada repo.
+- **Run the four-step sequence.** `armada feature new <name> --worktree`, then `armada init
+  --yes --yolo` inside the lane, then `armada voyage sandbox/<name>`.
+- **Report the lane path** and that the contract is ready to co-write.
+
+### Co-write the contract
+
+`sandbox/<name>/armada/REQUIREMENTS.md` is the next thing to drive. Keep the conversation in
+the new TUI session the voyage booted, or stay in the current session and ask the Commodore to
+keep going — either reaches the same lane. No implementation starts against an unapproved
+contract.
+
+### Multiple parallel voyages
+
+Ask for several in one turn — "launch voyages for a and b". Each is launched sequentially, one
+at a time: `git worktree add` is serialized to avoid `.git/index.lock` contention. The lanes
+coexist, and `/armada-fleet` lists them all.
+
+### The manual form still exists
+
+The `/armada-voyage` command is sugar over the CLI forms, unchanged for automation/CI:
+
+```bash
+armada feature new <name> --worktree
+armada init --yes --yolo --target sandbox/<name>
+armada voyage sandbox/<name>
+```
 
 ### Resume after a crash
 

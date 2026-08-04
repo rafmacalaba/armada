@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url"
 import { fillPrompt, PROMPT_SOURCE, scaffold } from "../src/scaffold.js"
 import { agentNameFor } from "../src/role-display.js"
 import { ROLES } from "../src/model-catalog.js"
+import { renderArmadaStatusCommand, renderArmadaResumeCommand } from "../src/generator.js"
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 
@@ -86,6 +87,50 @@ test("orchestrator prompt: PR-first hard rule (rule 6)", () => {
     "PR-first rule must live under the Hard rules section")
   assert.match(prompt, /gh pr create[\s\S]{0,200}base master/i,
     "PR must target master base")
+})
+
+test("orchestrator prompt: voyage launch rule with /armada-voyage", () => {
+  const prompt = orchestratorPrompt().toLowerCase()
+
+  assert.match(prompt, /\/armada-voyage/,
+    "prompt must reference the /armada-voyage command")
+  assert.match(prompt, /launch a voyage|start a feature/,
+    "prompt must trigger on 'launch a voyage' or 'start a feature'")
+  assert.match(prompt, /create the lane[\s\S]{0,80}arm it[\s\S]{0,80}boot the ship/,
+    "prompt must describe lane creation, arming, and boot")
+  assert.match(prompt, /(several|multiple).*voyages/,
+    "prompt must allow several voyages")
+  assert.match(prompt, /(sequential|one at a time|one-after-another)/i,
+    "prompt must require sequential, one-at-a-time lane creation")
+  assert.match(prompt, /git rev-parse --show-toplevel|sandbox\/.+ancestor/,
+    "prompt must include worktree-detection in the CLI fallback branch")
+  assert.match(prompt, /do not start building\s+in the main repo|do not build in the main repo|not start building.*main repo/,
+    "prompt must forbid building in the main repo")
+})
+
+test("armada-status / armada-resume command renderers reference correct sources", () => {
+  // armada-status reads the state index directly.
+  const status = renderArmadaStatusCommand()
+  assert.ok(
+    status.includes("armada/state/active.json") || status.includes("armada/state/features/index.json"),
+    "armada-status must reference armada/state/active.json or the features index"
+  )
+  assert.ok(
+    !/read \.opencode\/fleet-status\.md/i.test(status),
+    "armada-status must not read .opencode/fleet-status.md as the primary state"
+  )
+  // armada-resume calls the engine (no direct state reads).
+  const resume = renderArmadaResumeCommand()
+  assert.ok(
+    resume.includes("armada reconcile"),
+    "armada-resume must prefer the global armada binary"
+  )
+  assert.ok(
+    resume.includes("node src/cli.js reconcile"),
+    "armada-resume must call node src/cli.js reconcile"
+  )
+  assert.ok(resume.includes("resume line"), "armada-resume must mention resume line")
+  assert.ok(resume.includes("drift list"), "armada-resume must mention drift list")
 })
 
 test("orchestrator prompt: delegation targets ship names", () => {
