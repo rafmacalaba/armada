@@ -211,7 +211,7 @@ export async function runNew(opts = {}) {
   const manifest = defaultManifestFor(name)
   const stack = detectStack(targetDir)
   manifest.targetDir = targetDir
-  const files = scaffold(manifest, stack)
+  const { written: files } = scaffold(manifest, stack)
 
   console.log(`\nCreated ${name}/`)
   console.log(`Template: ${CATEGORIES[category].label} / ${stackName}`)

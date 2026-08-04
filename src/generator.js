@@ -3,7 +3,7 @@
 
 import { isDeepStrictEqual } from "node:util"
 import { ROLES, CATALOG, modelFor, fallbackFor } from "./model-catalog.js"
-import { displayFor } from "./role-display.js"
+import { displayFor, agentNameFor } from "./role-display.js"
 import { DEFAULT_PLAYBOOK } from "./manifest.js"
 import YAML from "yaml"
 
@@ -221,7 +221,7 @@ export function renderOpenCodeJson(manifest, team) {
   return {
     model: modelFor("orchestrator", manifest.project?.budget ?? "balanced"),
     permission,
-    default_agent: "orchestrator",
+    default_agent: agentNameFor("orchestrator"),
     ...(Object.keys(openrouterModels).length
       ? { provider: { openrouter: { models: openrouterModels } } }
       : {}),
@@ -492,7 +492,7 @@ Xebec, Frigate, Caravel, Bark). Keep it terse.
 export function renderArmadaStatusCommand() {
   return `---
 description: opencode-armada — fleet status, active feature, next action
-agent: orchestrator
+agent: ${agentNameFor("orchestrator")}
 ---
 Read armada/state/active.json + armada/state/features/index.json if they exist. Report the
 active feature, pending phases (status != "passed"), the next action, and the PR URL from
@@ -505,10 +505,10 @@ fleet". Keep it terse.
 export function renderArmadaScoutCommand() {
   return `---
 description: opencode-armada — read-only investigation dispatch
-agent: orchestrator
+agent: ${agentNameFor("orchestrator")}
 ---
-Dispatch a read-only investigation of the requested area. Route to the adversary
-(hostile review) or architect (architecture risk) as appropriate. Never write files,
+Dispatch a read-only investigation of the requested area. Route to the xebec
+(hostile review) or bark (architecture risk) as appropriate. Never write files,
 never change code, never open a PR. Deliver a findings report in chat.
 `
 }
@@ -517,7 +517,7 @@ never change code, never open a PR. Deliver a findings report in chat.
 export function renderArmadaResumeCommand() {
   return `---
 description: opencode-armada — resume after an interrupted session
-agent: orchestrator
+agent: ${agentNameFor("orchestrator")}
 ---
 Run \`armada reconcile\` and print the resume line plus any drift list. If the global \`armada\` binary is not on PATH AND \`src/cli.js\` exists in the cwd (i.e. you are in the armada source checkout), fall back to \`node src/cli.js reconcile\`. Otherwise report the missing binary. Keep it terse.
 `
@@ -527,7 +527,7 @@ Run \`armada reconcile\` and print the resume line plus any drift list. If the g
 export function renderArmadaFleetCommand() {
   return `---
 description: opencode-armada — per-lane progress dashboard (sessions, phase, status, age, cost)
-agent: orchestrator
+agent: ${agentNameFor("orchestrator")}
 ---
 Run \`armada fleet\` and print the result. If the global \`armada\` binary is not on PATH AND \`src/cli.js\` exists in cwd (i.e. you are in the armada source checkout), fall back to \`node src/cli.js fleet\`. For one-lane detail, run \`armada fleet <session>\`. Keep it terse.
 `

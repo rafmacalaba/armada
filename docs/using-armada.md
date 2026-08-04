@@ -676,6 +676,21 @@ when the `opencode.json` drift is the actual problem; use `armada init --from-ar
 when the opencode.json in the repo is already correct and you just want the rest
 brought current.
 
+## Agent identity vs manifest role
+
+The TUI shows an agent's file name as its identity. Armada ships native agents with
+the ship name as the file name (`commodore`, `galleon`, `clipper`, `corvette`,
+`xebec`, `frigate`, `caravel`, `bark`). The manifest `team[].role` keys stay as the
+stable identifiers (`orchestrator`, `backend-dev`, `frontend-dev`, `qa`, `adversary`,
+`security`, `docs`, `architect`).
+
+Display names (Commodore, Galleon, etc.) come from `src/role-display.js` `DISPLAY`
+map. The ship-name file identity is `DISPLAY[role].toLowerCase()` — see
+`agentNameFor()`.
+
+Example: TUI shows "Commodore" because the file is `.opencode/agent/commodore.md`;
+the manifest still says `role: orchestrator`.
+
 ## See also
 
 - [docs/armada-improves-armada.md](./armada-improves-armada.md) — using armada on *armada itself* (dock worktrees).

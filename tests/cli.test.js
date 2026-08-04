@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { existsSync, readFileSync, mkdtempSync, chmodSync, mkdirSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, mkdtempSync, chmodSync, mkdirSync, symlinkSync, unlinkSync, writeFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { execFile, execSync } from "node:child_process"
@@ -82,7 +82,7 @@ test("init --from-armada scaffolds full team", async () => {
   const r = await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
   assert.strictEqual(r.code, 0)
   for (const f of ["armada/armada.yaml", "opencode.json", "AGENTS.md", "armada/REQUIREMENTS.md",
-    ".opencode/agent/orchestrator.md", ".opencode/commands/armada.md"])
+    ".opencode/agent/commodore.md", ".opencode/commands/armada.md"])
     assert.ok(existsSync(join(dir, f)), `missing ${f}`)
 })
 
@@ -108,9 +108,9 @@ test("init --budget free selects free-tier models for agents", async () => {
   const dir = makeTempRepo({})
   const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser"], { cwd: dir })
   assert.strictEqual(r.code, 0)
-  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  const orch = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
   assert.match(orch, new RegExp(`model: ${modelFor("orchestrator", "free")}`))
-  const qa = readFileSync(join(dir, ".opencode/agent/qa.md"), "utf8")
+  const qa = readFileSync(join(dir, ".opencode/agent/corvette.md"), "utf8")
   assert.match(qa, new RegExp(`model: ${modelFor("qa", "free")}`))
   const yaml = readFileSync(join(dir, "armada/armada.yaml"), "utf8")
   assert.match(yaml, new RegExp(`model: "${modelFor("orchestrator", "free")}"`))
@@ -120,7 +120,7 @@ test("init --budget power selects power-tier models for agents", async () => {
   const dir = makeTempRepo({})
   const r = await runCli(["init", "--yes", "--budget", "power", "--no-browser"], { cwd: dir })
   assert.strictEqual(r.code, 0)
-  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  const orch = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
   assert.match(orch, new RegExp(`model: ${modelFor("orchestrator", "power")}`))
 })
 
@@ -133,7 +133,7 @@ test("init --yolo emits autonomous config (bash allow, keep boundaries)", async 
   const cfg = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8"))
   assert.strictEqual(cfg.permission["*"], "allow", "config catch-all allow")
   assert.strictEqual(cfg.permission.external_directory, "deny", "external dir stays denied")
-  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  const orch = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
   assert.match(orch, /\bbash:\n\s+"\*": allow/, "orchestrator bash allowed in yolo")
   assert.match(orch, /edit:\n\s+"\*": deny/, "orchestrator edit still denies (delegates)")
 })
@@ -273,7 +273,7 @@ test("uninstall CLI keeps user .opencode files and warns", async () => {
   await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
   const r = await runCli(["uninstall"], { cwd: dir })
   assert.strictEqual(r.code, 0)
-  assert.ok(!existsSync(join(dir, ".opencode/agent/backend-dev.md")))
+  assert.ok(!existsSync(join(dir, ".opencode/agent/galleon.md")))
   assert.ok(!existsSync(join(dir, ".opencode/commands")))
   assert.strictEqual(readFileSync(join(dir, ".opencode/agent/custom.md"), "utf8"), "# custom\n")
   assert.ok(existsSync(join(dir, ".opencode")))
@@ -285,7 +285,7 @@ test("init --headless sets manifest flag + scoped orchestrator bash allow", asyn
   const r = await runCli(["init", "--yes", "--headless", "--budget", "free", "--no-browser"], { cwd: dir })
   assert.strictEqual(r.code, 0)
   assert.match(readFileSync(join(dir, "armada/armada.yaml"), "utf8"), /headless: true/)
-  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  const orch = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
   const fm = orch.slice(orch.indexOf("---") + 3, orch.indexOf("---\n", 3))
   const cfg = parseFrontmatter(fm)
   assert.strictEqual(cfg.permission.bash["*"], "deny")
@@ -326,6 +326,28 @@ test("init rejects .opencode symlink under target", async () => {
   const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser", "--target", target])
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /symlink/)
+})
+
+test("init rejects .opencode/agent symlink under target", async () => {
+  const real = mkdtempSync(join(tmpdir(), "armada-opc-a-real-"))
+  const target = mkdtempSync(join(tmpdir(), "armada-opc-a-target-"))
+  mkdirSync(join(target, ".opencode"), { recursive: true })
+  symlinkSync(real, join(target, ".opencode/agent"), "dir")
+  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser", "--target", target])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /symlink/)
+  rmSync(real, { recursive: true, force: true })
+})
+
+test("init rejects .opencode/commands symlink under target", async () => {
+  const real = mkdtempSync(join(tmpdir(), "armada-opc-c-real-"))
+  const target = mkdtempSync(join(tmpdir(), "armada-opc-c-target-"))
+  mkdirSync(join(target, ".opencode"), { recursive: true })
+  symlinkSync(real, join(target, ".opencode/commands"), "dir")
+  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser", "--target", target])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /symlink/)
+  rmSync(real, { recursive: true, force: true })
 })
 
 test("doctor exits 1 via script mode when a check fails", async () => {

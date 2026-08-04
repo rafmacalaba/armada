@@ -174,7 +174,7 @@ test("renderOpenCodeJson has no agent block, sets default_agent", () => {
   const cfg = renderOpenCodeJson(baseManifest, team)
   assert.strictEqual(cfg.model, modelFor("orchestrator", "balanced"))
   assert.strictEqual(cfg.permission.external_directory, "deny")
-  assert.strictEqual(cfg.default_agent, "orchestrator")
+  assert.strictEqual(cfg.default_agent, "commodore")
   assert.strictEqual(cfg.agent, undefined, "agent block removed")
 })
 
@@ -183,7 +183,7 @@ test("renderOpenCodeJson model follows budget tier", () => {
   m.project.budget = "free"
   const cfg = renderOpenCodeJson(m, buildTeam(m))
   assert.strictEqual(cfg.model, modelFor("orchestrator", "free"))
-  assert.strictEqual(cfg.default_agent, "orchestrator")
+  assert.strictEqual(cfg.default_agent, "commodore")
 })
 
 test("renderOpenCodeJson uses orchestrator model + deny external_directory", () => {
@@ -378,7 +378,7 @@ test("renderArmadaStatusCommand reads state index, terse", () => {
   assert.match(md, /description:/)
   assert.match(md, /armada\/state\/active\.json/)
   assert.match(md, /pending phases|active feature/i)
-  assert.match(md, /orchestrator/i)
+  assert.match(md, /commodore/i)
   assert.ok(!/\{[a-z_]+\}/.test(md), "no dangling placeholders")
 })
 
@@ -424,10 +424,10 @@ test("renderArmadaResumeCommand is byte-identical after manifest round-trip", ()
   assert.strictEqual(cmd1, cmd2, "command output must be byte-identical after round-trip")
 })
 
-test("renderArmadaFleetCommand returns frontmatter with orchestrator agent and fleet fallback", () => {
+test("renderArmadaFleetCommand returns frontmatter with commodore agent and fleet fallback", () => {
   const md = renderArmadaFleetCommand()
   assert.match(md, /^---\n/)
-  assert.match(md, /agent: orchestrator/)
+  assert.match(md, /agent: commodore/)
   assert.match(md, /armada fleet/)
   assert.match(md, /node src\/cli\.js fleet/)
 })

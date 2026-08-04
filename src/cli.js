@@ -344,7 +344,8 @@ async function init(args) {
 
   let files
   try {
-    files = scaffold(manifest, stack, { dryRun, gitignore })
+    const scaffoldResult = scaffold(manifest, stack, { dryRun, gitignore })
+    files = scaffoldResult.written
   } catch (err) {
     logError(err, `check permissions on the target directory`)
     process.exitCode = 1

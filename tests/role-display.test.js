@@ -88,4 +88,40 @@ describe("role-display module", () => {
     assert.strictEqual(mod2.displayFor("orchestrator"), "Commodore")
     assert.strictEqual(mod2.DISPLAY, mod.DISPLAY, "multiple imports produce same DISPLAY object")
   })
+
+  it("exports agentNameFor as a function", () => {
+    assert.ok(mod.agentNameFor, "agentNameFor export missing")
+    assert.equal(typeof mod.agentNameFor, "function", "agentNameFor is not a function")
+  })
+
+  it("agentNameFor returns lowercase display name for every role", () => {
+    for (const role of ROLES) {
+      assert.equal(
+        mod.agentNameFor(role),
+        DISPLAY_MAP[role].toLowerCase(),
+        `agentNameFor("${role}") should be "${DISPLAY_MAP[role].toLowerCase()}"`
+      )
+    }
+  })
+
+  it("agentNameFor returns all 8 expected ship names literally", () => {
+    const expected = {
+      orchestrator: "commodore",
+      "backend-dev": "galleon",
+      "frontend-dev": "clipper",
+      qa: "corvette",
+      adversary: "xebec",
+      security: "frigate",
+      docs: "caravel",
+      architect: "bark",
+    }
+    for (const [role, ship] of Object.entries(expected)) {
+      assert.equal(mod.agentNameFor(role), ship, `agentNameFor("${role}") expected "${ship}"`)
+    }
+  })
+
+  it("agentNameFor throws on unknown role", () => {
+    assert.throws(() => mod.agentNameFor("pirate"), /Unknown role/)
+    assert.throws(() => mod.agentNameFor(""), /Unknown role/)
+  })
 })

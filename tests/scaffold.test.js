@@ -1,11 +1,12 @@
 import { test } from "node:test"
 import assert from "node:assert"
 
-import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify } from "../src/scaffold.js"
+import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify, validateTargetDir } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
+import { agentNameFor } from "../src/role-display.js"
 import { renderArmadaFleetCommand, renderArmadaFleetPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
 import { detectStack } from "../src/stack-detect.js"
-import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync, symlinkSync, realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -66,7 +67,7 @@ test("fillTemplate is pure and substitutes placeholders", () => {
 test("scaffold writes all expected files", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-scaffold-"))
   const manifest = makeManifest(dir)
-  const files = scaffold(manifest, manifest.project.stack)
+  const { written: files } = scaffold(manifest, manifest.project.stack)
 
   const expected = [
     "armada/armada.yaml",
@@ -76,7 +77,7 @@ test("scaffold writes all expected files", () => {
     ".opencode/commands/armada-scout.md",
     ".opencode/commands/armada-resume.md",
     ".opencode/commands/armada-fleet.md",
-    ...ROLES.map((r) => `.opencode/agent/${r}.md`),
+    ...ROLES.map((r) => `.opencode/agent/${agentNameFor(r)}.md`),
   ]
   for (const f of expected) {
     assert.ok(files.includes(f), `missing in list: ${f}`)
@@ -88,7 +89,7 @@ test("scaffold writes all expected files", () => {
   assert.ok(existsSync(join(dir, ".devcontainer/setup.sh")))
 
   // agent file is native markdown with YAML frontmatter
-  const orch = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  const orch = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
   assert.match(orch, /^---\n/m)
   assert.match(orch, /mode: primary/)
 
@@ -96,7 +97,7 @@ test("scaffold writes all expected files", () => {
   const status = readFileSync(join(dir, ".opencode/commands/armada-status.md"), "utf8")
   assert.match(status, /^---\n/m)
   assert.match(status, /armada\/state\/active\.json/)
-  assert.match(status, /orchestrator/i)
+  assert.match(status, /commodore/i)
   const scout = readFileSync(join(dir, ".opencode/commands/armada-scout.md"), "utf8")
   assert.match(scout, /read-only|no writes/i)
   const resume = readFileSync(join(dir, ".opencode/commands/armada-resume.md"), "utf8")
@@ -143,9 +144,9 @@ test("AGENTS.md merge: replaces existing armada section", () => {
 test("scaffold dryRun writes nothing but lists files", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-dry-"))
   const manifest = makeManifest(dir)
-  const files = scaffold(manifest, manifest.project.stack, { dryRun: true })
+  const { written: files } = scaffold(manifest, manifest.project.stack, { dryRun: true })
   assert.ok(files.includes("armada/armada.yaml"))
-  assert.ok(files.includes(".opencode/agent/orchestrator.md"))
+  assert.ok(files.includes(".opencode/agent/commodore.md"))
   assert.ok(!existsSync(join(dir, "armada/armada.yaml")))
   assert.ok(!existsSync(join(dir, "armada")))
   assert.ok(!existsSync(join(dir, ".opencode")))
@@ -196,7 +197,7 @@ test("uninstall keeps user files under .opencode/ and warns", () => {
     console.warn = origWarn
   }
 
-  assert.ok(!existsSync(join(dir, ".opencode/agent/backend-dev.md")), "armada role file removed")
+  assert.ok(!existsSync(join(dir, ".opencode/agent/galleon.md")), "armada agent file removed")
   assert.ok(!existsSync(join(dir, ".opencode/oh-my-opencode-slim")), "stale omo dir pruned")
   assert.ok(existsSync(custom), "user file kept")
   assert.ok(existsSync(join(dir, ".opencode")), ".opencode dir kept")
@@ -278,7 +279,7 @@ test("scaffold prunes stale omo-slim artifacts on re-scaffold", () => {
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
   assert.ok(!existsSync(join(dir, ".opencode/oh-my-opencode-slim.jsonc")))
-  assert.ok(existsSync(join(dir, ".opencode/agent/orchestrator.md")))
+  assert.ok(existsSync(join(dir, ".opencode/agent/commodore.md")))
   rmSync(dir, { recursive: true, force: true })
 })
 
@@ -289,7 +290,7 @@ test("generated artifacts contain zero omo-slim references", () => {
   const files = [
     "opencode.json", "AGENTS.md", "armada/armada.yaml", "armada/REQUIREMENTS.md",
     ".opencode/commands/armada.md",
-    ...ROLES.map((r) => `.opencode/agent/${r}.md`),
+    ...ROLES.map((r) => `.opencode/agent/${agentNameFor(r)}.md`),
   ]
   for (const f of files) {
     const content = readFileSync(join(dir, f), "utf8")
@@ -302,7 +303,7 @@ test("scaffold writes custom requirements file, no-clobber", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-req-"))
   const manifest = makeManifest(dir)
   manifest.project.requirementsFile = "REQUIREMENTS-admin.md"
-  const files = scaffold(manifest, manifest.project.stack)
+  const { written: files } = scaffold(manifest, manifest.project.stack)
   assert.ok(files.includes("REQUIREMENTS-admin.md"))
   assert.ok(existsSync(join(dir, "REQUIREMENTS-admin.md")))
   writeFileSync(join(dir, "REQUIREMENTS-admin.md"), "# mine")
@@ -405,7 +406,7 @@ test("scaffold appends instructions to the rendered prompt body", () => {
       instructions: "Extra instruction line 1\nExtra instruction line 2" },
   ]
   scaffold(manifest, manifest.project.stack)
-  const agentFile = readFileSync(join(dir, ".opencode/agent/backend-dev.md"), "utf8")
+  const agentFile = readFileSync(join(dir, ".opencode/agent/galleon.md"), "utf8")
   // The instructions text must appear after frontmatter and prompt body, separated by a blank line
   assert.match(agentFile, /\n\nExtra instruction line 1\nExtra instruction line 2$/)
   rmSync(dir, { recursive: true, force: true })
@@ -424,7 +425,7 @@ test("scaffold resolves custom prompt template when prompt is set", () => {
       prompt: "templates/custom-be.md" },
   ]
   scaffold(manifest, manifest.project.stack)
-  const agentFile = readFileSync(join(dir, ".opencode/agent/backend-dev.md"), "utf8")
+  const agentFile = readFileSync(join(dir, ".opencode/agent/galleon.md"), "utf8")
   assert.match(agentFile, /Custom prompt for python-fastapi with postgres\./)
   rmSync(dir, { recursive: true, force: true })
 })
@@ -540,7 +541,7 @@ test("scaffold appends gitignore block, preserves existing lines", () => {
 test("scaffold dryRun reports .gitignore in files, does not write", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-gi4-"))
   const manifest = makeManifest(dir)
-  const files = scaffold(manifest, manifest.project.stack, { dryRun: true })
+  const { written: files } = scaffold(manifest, manifest.project.stack, { dryRun: true })
   assert.ok(files.includes(".gitignore"), ".gitignore must be in dryRun files list")
   assert.ok(!existsSync(join(dir, ".gitignore")), ".gitignore must not be written in dryRun")
   rmSync(dir, { recursive: true, force: true })
@@ -549,7 +550,7 @@ test("scaffold dryRun reports .gitignore in files, does not write", () => {
 test("scaffold skips gitignore when opts.gitignore is false", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-gi5-"))
   const manifest = makeManifest(dir)
-  const files = scaffold(manifest, manifest.project.stack, { gitignore: false })
+  const { written: files } = scaffold(manifest, manifest.project.stack, { gitignore: false })
   assert.ok(!files.includes(".gitignore"), ".gitignore must not be in files list when skipped")
   assert.ok(!existsSync(join(dir, ".gitignore")), ".gitignore must not be written when skipped")
   rmSync(dir, { recursive: true, force: true })
@@ -690,7 +691,7 @@ test("rendered qa agent permissions: owns ledgers, e2e, screenshots; denies rest
   const dir = mkdtempSync(join(tmpdir(), "armada-perm-qa-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
-  const content = readFileSync(join(dir, ".opencode/agent/qa.md"), "utf8")
+  const content = readFileSync(join(dir, ".opencode/agent/corvette.md"), "utf8")
   const edit = frontmatterPerms(content)
 
   assert.strictEqual(edit["*"], "deny", "qa must deny *")
@@ -707,7 +708,7 @@ test("rendered backend-dev agent permissions: denies ledger, e2e, screenshots, s
   const dir = mkdtempSync(join(tmpdir(), "armada-perm-be-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
-  const content = readFileSync(join(dir, ".opencode/agent/backend-dev.md"), "utf8")
+  const content = readFileSync(join(dir, ".opencode/agent/galleon.md"), "utf8")
   const edit = frontmatterPerms(content)
 
   assert.strictEqual(edit["armada/ledgers/*"], "deny", "backend-dev must deny armada/ledgers/*")
@@ -725,7 +726,7 @@ test("rendered orchestrator agent permissions: allows specific ledger files, den
   const dir = mkdtempSync(join(tmpdir(), "armada-perm-orch-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
-  const content = readFileSync(join(dir, ".opencode/agent/orchestrator.md"), "utf8")
+  const content = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
   const edit = frontmatterPerms(content)
 
   assert.strictEqual(edit["armada/ledgers/*/DEFECTS.md"], "allow", "orchestrator must allow DEFECTS.md in ledgers")
@@ -862,5 +863,103 @@ test("renderAgentsMd: parallel lanes produce identical armada blocks", () => {
   } finally {
     rmSync(dirA, { recursive: true, force: true })
     rmSync(dirB, { recursive: true, force: true })
+  }
+})
+
+// -- Phase 5: DEF-005 symlink safety (validateTargetDir + orphan lstat guard) --
+
+test("validateTargetDir rejects .opencode/agent symlink under target", () => {
+  const target = mkdtempSync(join(tmpdir(), "armada-vtd-agent-"))
+  const realDir = mkdtempSync(join(tmpdir(), "armada-real-agent-"))
+  mkdirSync(join(target, ".opencode"), { recursive: true })
+  symlinkSync(realDir, join(target, ".opencode/agent"), "dir")
+  try {
+    assert.throws(() => validateTargetDir(target), /\.opencode\/agent is a symlink/)
+  } finally {
+    rmSync(target, { recursive: true, force: true })
+    rmSync(realDir, { recursive: true, force: true })
+  }
+})
+
+test("validateTargetDir rejects .opencode/commands symlink under target", () => {
+  const target = mkdtempSync(join(tmpdir(), "armada-vtd-cmds-"))
+  const realDir = mkdtempSync(join(tmpdir(), "armada-real-cmds-"))
+  mkdirSync(join(target, ".opencode"), { recursive: true })
+  symlinkSync(realDir, join(target, ".opencode/commands"), "dir")
+  try {
+    assert.throws(() => validateTargetDir(target), /\.opencode\/commands is a symlink/)
+  } finally {
+    rmSync(target, { recursive: true, force: true })
+    rmSync(realDir, { recursive: true, force: true })
+  }
+})
+
+test("validateTargetDir rejects .opencode/plugins symlink under target", () => {
+  const target = mkdtempSync(join(tmpdir(), "armada-vtd-plug-"))
+  const realDir = mkdtempSync(join(tmpdir(), "armada-real-plug-"))
+  mkdirSync(join(target, ".opencode"), { recursive: true })
+  symlinkSync(realDir, join(target, ".opencode/plugins"), "dir")
+  try {
+    assert.throws(() => validateTargetDir(target), /\.opencode\/plugins is a symlink/)
+  } finally {
+    rmSync(target, { recursive: true, force: true })
+    rmSync(realDir, { recursive: true, force: true })
+  }
+})
+
+test("orphan cleanup: lstat guard skips symlinked legacy agent file, preserves external file", () => {
+  // Create external dir with a victim file
+  const externalDir = mkdtempSync(join(tmpdir(), "armada-ext-victim-"))
+  const victimPath = join(externalDir, "orchestrator.md")
+  writeFileSync(victimPath, "external content", "utf8")
+
+  // Create target repo with .opencode/agent as a real directory
+  const target = mkdtempSync(join(tmpdir(), "armada-lstat-"))
+  mkdirSync(join(target, ".opencode", "agent"), { recursive: true })
+
+  // Symlink the legacy orchestrator.md to external victim
+  symlinkSync(victimPath, join(target, ".opencode", "agent", "orchestrator.md"))
+
+  try {
+    const manifest = makeManifest(target)
+    const { removed } = scaffold(manifest, manifest.project.stack)
+
+    // Legacy symlink must NOT be removed, but listed as skipped
+    const skippedEntry = removed.find(e => e.includes("orchestrator.md") && e.includes("skipped: symlink"))
+    assert.ok(skippedEntry, `removed should include 'skipped: symlink' entry for orchestrator.md, got: ${JSON.stringify(removed)}`)
+
+    // External victim file must still exist with original content
+    assert.strictEqual(existsSync(victimPath), true, "external victim file must still exist")
+    const victimContent = readFileSync(victimPath, "utf8")
+    assert.strictEqual(victimContent, "external content", "external victim file must have original content")
+
+    // Symlink itself still exists (we skipped deletion)
+    assert.strictEqual(existsSync(join(target, ".opencode", "agent", "orchestrator.md")), true, "symlink must not be deleted")
+  } finally {
+    rmSync(target, { recursive: true, force: true })
+    rmSync(externalDir, { recursive: true, force: true })
+  }
+})
+
+test("orphan cleanup: normal (non-symlink) legacy file still removed", () => {
+  const target = mkdtempSync(join(tmpdir(), "armada-normal-legacy-"))
+  mkdirSync(join(target, ".opencode", "agent"), { recursive: true })
+  // Create a regular legacy file
+  writeFileSync(join(target, ".opencode", "agent", "orchestrator.md"), "legacy content", "utf8")
+
+  try {
+    const manifest = makeManifest(target)
+    const { removed } = scaffold(manifest, manifest.project.stack)
+
+    // Must have a non-skip entry for the legacy file
+    const normalEntry = removed.find(e => e === ".opencode/agent/orchestrator.md")
+    assert.ok(normalEntry, `removed should include normal entry for orchestrator.md, got: ${JSON.stringify(removed)}`)
+
+    // Legacy file must be gone
+    assert.strictEqual(existsSync(join(target, ".opencode", "agent", "orchestrator.md")), false, "legacy file must be removed")
+    // Ship-named file must exist
+    assert.strictEqual(existsSync(join(target, ".opencode", "agent", "commodore.md")), true, "commodore.md must exist")
+  } finally {
+    rmSync(target, { recursive: true, force: true })
   }
 })

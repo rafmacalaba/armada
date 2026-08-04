@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import { readFileSync, existsSync, readdirSync, lstatSync, symlinkSync, realpathSync, rmSync, writeFileSync } from "node:fs"
+import { readFileSync, existsSync, readdirSync, lstatSync, symlinkSync, realpathSync, rmSync, writeFileSync, mkdirSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { createHash } from "node:crypto"
 
@@ -70,7 +70,7 @@ test("update --yes: sets default_agent, updates model, preserves user keys", asy
   assert.strictEqual(r.code, 0, r.stderr)
 
   const updated = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8"))
-  assert.strictEqual(updated.default_agent, "orchestrator")
+  assert.strictEqual(updated.default_agent, "commodore")
   assert.notStrictEqual(updated.model, "opencode/hy3-free", "model must be updated from dead model")
   assert.ok(updated.model, "model must be set")
   assert.strictEqual(updated.$schema, "https://x")
@@ -97,7 +97,7 @@ test("update --yes: re-run is idempotent (opencode.json unchanged)", async () =>
 
   // Check that armada-owned keys were set
   const after1 = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8"))
-  assert.strictEqual(after1.default_agent, "orchestrator")
+  assert.strictEqual(after1.default_agent, "commodore")
   assert.notStrictEqual(after1.model, "opencode/hy3-free")
   assert.ok(after1.model)
 
@@ -193,7 +193,7 @@ test("update --yes with closed stdin: writes without prompting, .opencode/ creat
   assert.strictEqual(r.code, 0, r.stderr)
 
   const updated = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8"))
-  assert.strictEqual(updated.default_agent, "orchestrator")
+  assert.strictEqual(updated.default_agent, "commodore")
   assert.notStrictEqual(updated.model, "opencode/hy3-free", "model must be updated from dead model")
   assert.ok(updated.model, "model must be set")
   assert.strictEqual(updated.$schema, "https://x")
@@ -401,4 +401,163 @@ test("update --yes with symlink opencode.json outside repo: exits 1", async () =
   } finally {
     rmSync(outsidePath, { force: true })
   }
+})
+
+// CLI e2e: symlink .opencode/agent escaping repo rejected
+
+test("update --yes with symlink .opencode/agent outside repo: exits 1", async () => {
+  const dir = makeTempRepo({
+    "armada/armada.yaml": manifestYaml(),
+    "opencode.json": '{"default_agent":"orchestrator","model":"opencode/hy3-free"}',
+  })
+  const repo = resolve(dir)
+  const outsidePath = resolve(repo, "..", "victim-agent-dir")
+  mkdirSync(outsidePath, { recursive: true })
+  writeFileSync(join(outsidePath, "orchestrator.md"), "victim", "utf8")
+  mkdirSync(join(repo, ".opencode"), { recursive: true })
+  symlinkSync(outsidePath, join(repo, ".opencode/agent"), "dir")
+  try {
+    const r = await runCli(["update", "--yes", "--repo", repo])
+    assert.strictEqual(r.code, 1, r.stderr)
+    // Victim file must still exist
+    const victimContent = readFileSync(join(outsidePath, "orchestrator.md"), "utf8")
+    assert.strictEqual(victimContent, "victim", "victim file untouched")
+  } finally {
+    rmSync(outsidePath, { recursive: true, force: true })
+  }
+})
+
+test("update --yes with symlink .opencode outside repo: exits 1", async () => {
+  const dir = makeTempRepo({
+    "armada/armada.yaml": manifestYaml(),
+    "opencode.json": '{"default_agent":"orchestrator","model":"opencode/hy3-free"}',
+  })
+  const repo = resolve(dir)
+  const outsidePath = resolve(repo, "..", "victim-opencode-dir")
+  mkdirSync(outsidePath, { recursive: true })
+  symlinkSync(outsidePath, join(repo, ".opencode"), "dir")
+  try {
+    const r = await runCli(["update", "--yes", "--repo", repo])
+    assert.strictEqual(r.code, 1, r.stderr)
+  } finally {
+    rmSync(outsidePath, { recursive: true, force: true })
+  }
+})
+
+// ---- Phase 4: orphan cleanup (legacy agent file removal) ------------------
+
+test("armada update: orphan cleanup -- removes legacy role-named agent files during update", async () => {
+  const userOc = {
+    default_agent: "orchestrator",
+    model: "opencode/hy3-free",
+    theme: "dark",
+  }
+  const dir = makeTempRepo({
+    "armada/armada.yaml": manifestYaml(),
+    "opencode.json": JSON.stringify(userOc),
+  })
+  // Create legacy agent files
+  const agentDir = join(dir, ".opencode", "agent")
+  mkdirSync(agentDir, { recursive: true })
+  writeFileSync(join(agentDir, "orchestrator.md"), "legacy orchestrator", "utf8")
+  writeFileSync(join(agentDir, "backend-dev.md"), "legacy galleon", "utf8")
+  writeFileSync(join(agentDir, "qa.md"), "legacy corvette", "utf8")
+
+  const r = await runCli(["update", "--yes", "--repo", dir])
+  assert.strictEqual(r.code, 0, r.stderr)
+
+  // Ship-named files must exist
+  assert.strictEqual(existsSync(join(agentDir, "commodore.md")), true)
+  assert.strictEqual(existsSync(join(agentDir, "galleon.md")), true)
+  assert.strictEqual(existsSync(join(agentDir, "corvette.md")), true)
+  // Legacy files must be gone
+  assert.strictEqual(existsSync(join(agentDir, "orchestrator.md")), false)
+  assert.strictEqual(existsSync(join(agentDir, "backend-dev.md")), false)
+  assert.strictEqual(existsSync(join(agentDir, "qa.md")), false)
+  // opencode.json updated
+  const updated = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8"))
+  assert.strictEqual(updated.default_agent, "commodore")
+})
+
+test("armada update: orphan cleanup -- dry-run lists orphan removals without writing", async () => {
+  const userOc = {
+    default_agent: "orchestrator",
+    model: "opencode/hy3-free",
+    theme: "dark",
+  }
+  const dir = makeTempRepo({
+    "armada/armada.yaml": manifestYaml(),
+    "opencode.json": JSON.stringify(userOc),
+  })
+  const agentDir = join(dir, ".opencode", "agent")
+  mkdirSync(agentDir, { recursive: true })
+  writeFileSync(join(agentDir, "orchestrator.md"), "legacy orchestrator", "utf8")
+  writeFileSync(join(agentDir, "backend-dev.md"), "legacy galleon", "utf8")
+  writeFileSync(join(agentDir, "qa.md"), "legacy corvette", "utf8")
+
+  const r = await runCli(["update", "--dry-run", "--repo", dir])
+  assert.strictEqual(r.code, 0, r.stderr)
+  // Output mentions orphan cleanup
+  assert.match(r.stdout, /Orphan cleanup/)
+  assert.match(r.stdout, /\.opencode\/agent\/orchestrator\.md/)
+  assert.match(r.stdout, /\.opencode\/agent\/backend-dev\.md/)
+  assert.match(r.stdout, /\.opencode\/agent\/qa\.md/)
+  // Legacy files still exist after dry-run
+  assert.strictEqual(existsSync(join(agentDir, "orchestrator.md")), true)
+  assert.strictEqual(existsSync(join(agentDir, "backend-dev.md")), true)
+  assert.strictEqual(existsSync(join(agentDir, "qa.md")), true)
+  // opencode.json unchanged
+  const updated = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8"))
+  assert.strictEqual(updated.default_agent, "orchestrator")
+})
+
+test("armada update: orphan cleanup -- preserves user-added custom agent files", async () => {
+  const userOc = {
+    default_agent: "orchestrator",
+    model: "opencode/hy3-free",
+    theme: "dark",
+  }
+  const dir = makeTempRepo({
+    "armada/armada.yaml": manifestYaml(),
+    "opencode.json": JSON.stringify(userOc),
+  })
+  const agentDir = join(dir, ".opencode", "agent")
+  mkdirSync(agentDir, { recursive: true })
+  writeFileSync(join(agentDir, "orchestrator.md"), "legacy orchestrator", "utf8")
+  writeFileSync(join(agentDir, "my-custom-agent.md"), "user custom agent", "utf8")
+
+  const r = await runCli(["update", "--yes", "--repo", dir])
+  assert.strictEqual(r.code, 0, r.stderr)
+  // User file preserved
+  assert.strictEqual(existsSync(join(agentDir, "my-custom-agent.md")), true)
+  // Legacy gone
+  assert.strictEqual(existsSync(join(agentDir, "orchestrator.md")), false)
+  // Ship-named exists
+  assert.strictEqual(existsSync(join(agentDir, "commodore.md")), true)
+})
+
+test("armada update: orphan cleanup -- preserves user opencode.json keys during update", async () => {
+  const userOc = {
+    default_agent: "orchestrator",
+    model: "opencode/hy3-free",
+    customTheme: "dark",
+    savedLayout: { sidebar: "left" },
+  }
+  const dir = makeTempRepo({
+    "armada/armada.yaml": manifestYaml(),
+    "opencode.json": JSON.stringify(userOc),
+  })
+  const agentDir = join(dir, ".opencode", "agent")
+  mkdirSync(agentDir, { recursive: true })
+  writeFileSync(join(agentDir, "orchestrator.md"), "legacy orchestrator", "utf8")
+
+  const r = await runCli(["update", "--yes", "--repo", dir])
+  assert.strictEqual(r.code, 0, r.stderr)
+  const updated = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8"))
+  assert.strictEqual(updated.default_agent, "commodore")
+  assert.strictEqual(updated.customTheme, "dark")
+  assert.deepStrictEqual(updated.savedLayout, { sidebar: "left" })
+  // Legacy gone, ship-named exists
+  assert.strictEqual(existsSync(join(agentDir, "orchestrator.md")), false)
+  assert.strictEqual(existsSync(join(agentDir, "commodore.md")), true)
 })
