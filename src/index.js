@@ -9,6 +9,12 @@ export {
   renderAgentsMd,
   renderRequirementsMd,
   renderManifestYaml,
+  renderArmadaCommand,
+  renderArmadaStatusCommand,
+  renderArmadaScoutCommand,
+  renderArmadaResumeCommand,
+  renderArmadaFleetCommand,
+  renderArmadaVoyageCommand,
   renderArmadaSupervisionPlugin,
 } from "./generator.js"
 export { scaffold, uninstall, fillPrompt, fillTemplate } from "./scaffold.js"

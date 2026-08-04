@@ -4,7 +4,7 @@ import assert from "node:assert"
 import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify, validateTargetDir } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { agentNameFor } from "../src/role-display.js"
-import { renderArmadaFleetPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
+import { renderArmadaFleetCommand, renderArmadaVoyageCommand, renderArmadaFleetPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
 import { detectStack } from "../src/stack-detect.js"
 import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync, symlinkSync, realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -79,8 +79,11 @@ test("scaffold writes all expected files", () => {
     assert.ok(existsSync(join(dir, f)), `missing on disk: ${f}`)
   }
 
-  // .opencode/commands/ must NOT exist — slash commands are removed
-  assert.ok(!existsSync(join(dir, ".opencode/commands")), ".opencode/commands/ must NOT exist")
+  // .opencode/commands/ must exist — scaffold writes slash commands
+  assert.ok(existsSync(join(dir, ".opencode/commands")), ".opencode/commands/ must exist")
+  for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume", "armada-fleet", "armada-voyage"]) {
+    assert.ok(existsSync(join(dir, `.opencode/commands/${cmd}.md`)), `${cmd}.md must exist`)
+  }
 
   // devcontainer copied when enabled
   assert.ok(existsSync(join(dir, ".devcontainer/devcontainer.json")))
@@ -195,11 +198,11 @@ test("uninstall keeps user files under .opencode/ and warns", () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("scaffold does not create .opencode/commands directory", () => {
+test("scaffold creates .opencode/commands directory", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-uni4-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
-  assert.ok(!existsSync(join(dir, ".opencode/commands")), "commands dir must NOT exist")
+  assert.ok(existsSync(join(dir, ".opencode/commands")), "commands dir must exist")
 })
 
 test("supervision plugin written only when enabled, removed on uninstall", () => {
@@ -221,13 +224,35 @@ test("supervision plugin written only when enabled, removed on uninstall", () =>
   assert.ok(removed.includes(".opencode/plugins/armada-supervision.js"))
 })
 
-test("scaffold does not write any commands files", () => {
+test("scaffold writes all command files", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-fleet-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
 
-  assert.ok(!existsSync(join(dir, ".opencode/commands")), ".opencode/commands/ must NOT exist")
-  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-fleet.md")), "armada-fleet.md must NOT exist")
+  assert.ok(existsSync(join(dir, ".opencode/commands")), ".opencode/commands/ must exist")
+  assert.ok(existsSync(join(dir, ".opencode/commands/armada.md")), "armada.md must exist")
+  assert.ok(existsSync(join(dir, ".opencode/commands/armada-fleet.md")), "armada-fleet.md must exist")
+  assert.ok(existsSync(join(dir, ".opencode/commands/armada-voyage.md")), "armada-voyage.md must exist")
+
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("scaffold writes armada-voyage.md matching generator output", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-voyage-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+
+  const path = join(dir, ".opencode/commands/armada-voyage.md")
+  assert.ok(existsSync(path), "armada-voyage.md exists")
+
+  const content = readFileSync(path, "utf8")
+  assert.strictEqual(content, renderArmadaVoyageCommand(), "content matches generator output")
+  assert.match(content, /armada feature new/)
+  assert.match(content, /armada voyage sandbox\//)
+
+  const removed = uninstall(manifest)
+  assert.ok(!existsSync(path), "armada-voyage.md removed on uninstall")
+  assert.ok(removed.includes(".opencode/commands/armada-voyage.md"))
 
   rmSync(dir, { recursive: true, force: true })
 })

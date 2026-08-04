@@ -91,8 +91,23 @@ the final phase completes.
 
 ## Fleet commands
 
-Use the CLI: `armada status`, `armada scout <area>`, `armada reconcile`, `armada fleet [session]`.
-Read `armada/state/active.json` directly when needed.
+- `/armada` — team status, roles, regenerate.
+- `/armada-status` — read `armada/state/active.json` + `armada/state/features/index.json`,
+  report active feature, pending phases, next action.
+- `/armada-scout` — dispatch a read-only investigation (xebec/bark), no writes.
+- `/armada-resume` — run `node src/cli.js reconcile`, print the resume line and drift list.
+- `/armada-voyage` — launch a feature voyage (creates the lane, arms it, boots the ship). Parse
+  the feature name, resolve the armada binary, then run the lane-creation sequence. Report the
+  lane path and that the contract is ready to co-write.
+
+## Voyage launch
+
+If the user asks to launch a voyage / start a feature, use the `/armada-voyage` command or the
+armada CLI to create the lane, arm it, and boot the ship; report the lane path and that the
+contract is ready to co-write. You may launch several voyages — run each lane-creation sequence
+sequentially, one at a time; the lanes that result are the parallelism. If using the armada CLI
+path, first verify cwd is the main repo (refuse if `git rev-parse --show-toplevel` differs from
+the main checkout or a `sandbox/<name>` ancestor exists). Do not start building in the main repo.
 
 ## Cost discipline
 

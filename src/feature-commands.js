@@ -290,6 +290,17 @@ export function createFeature(repoDir, name, options = {}) {
 export function createWorktreeFeature(repoDir, name, options = {}) {
   validateName(name)
 
+  // Refuse nested worktree: target is itself inside a worktree
+  if (!existsSync(repoDir)) {
+    throw new Error(`target directory does not exist: ${repoDir}`)
+  }
+  const mainRepo = resolveMainRepo(repoDir)
+  const toplevel = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd: repoDir, encoding: "utf8" })
+  const toplevelAbs = toplevel.status === 0 ? toplevel.stdout.trim() : null
+  if (toplevelAbs && realpathSync(toplevelAbs) !== realpathSync(mainRepo)) {
+    throw new Error("cannot create a worktree from inside another worktree (nested lanes are not allowed)")
+  }
+
   // Verify we're inside a git working tree
   const revParse = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: repoDir, encoding: "utf8" })
   if (revParse.status !== 0 || revParse.stdout.trim() !== "true") {
@@ -297,7 +308,7 @@ export function createWorktreeFeature(repoDir, name, options = {}) {
   }
 
   const branch = `feat/${name}`
-  const worktreePath = join(repoDir, "sandbox", name)
+  const worktreePath = join(mainRepo, "sandbox", name)
 
   // Run git worktree add
   const addResult = spawnSync("git", ["worktree", "add", "-b", branch, worktreePath], { cwd: repoDir, encoding: "utf8" })
@@ -346,7 +357,6 @@ export function createWorktreeFeature(repoDir, name, options = {}) {
 
   // Append to the global registry in the main repo so feature list can see
   // worktree features from any location.
-  const mainRepo = resolveMainRepo(repoDir)
   let gIndex = readGlobalIndex(mainRepo)
   gIndex = gIndex.filter((e) => e.name !== name)
   gIndex.push({
