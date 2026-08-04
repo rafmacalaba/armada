@@ -166,17 +166,27 @@ test("pickTerminal: Linux no terminal available", () => {
 })
 
 // Windows
-test("pickTerminal: Windows Terminal (wt) preferred", () => {
+test("pickTerminal: Windows wezterm preferred over wt", () => {
   const r = pickTerminal({
     os: "windows",
     whichResults: { wt: "C:\\Program Files\\Windows Terminal\\wt.exe", wezterm: "C:\\wezterm.exe" },
+    hasDisplay: true,
+  })
+  assert.strictEqual(r.kind, "wezterm")
+  assert.strictEqual(r.available, true)
+})
+
+test("pickTerminal: Windows wt fallback when wezterm absent", () => {
+  const r = pickTerminal({
+    os: "windows",
+    whichResults: { wt: "C:\\Program Files\\Windows Terminal\\wt.exe" },
     hasDisplay: true,
   })
   assert.strictEqual(r.kind, "wt")
   assert.strictEqual(r.available, true)
 })
 
-test("pickTerminal: Windows wezterm fallback", () => {
+test("pickTerminal: Windows wezterm only", () => {
   const r = pickTerminal({
     os: "windows",
     whichResults: { wezterm: "C:\\wezterm.exe" },
@@ -194,7 +204,7 @@ test("pickTerminal: Windows no terminal available", () => {
   })
   assert.strictEqual(r.kind, "none")
   assert.strictEqual(r.available, false)
-  assert.match(r.reason, /no Windows Terminal/)
+  assert.match(r.reason, /no wezterm or Windows Terminal/)
 })
 
 // Other

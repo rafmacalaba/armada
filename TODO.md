@@ -102,7 +102,7 @@ The improvements that unlock the durable-implementation vision.
   drive prompt registered, resend once) and auto-open a visible terminal attached to the
   session. **Use wezterm (https://github.com/wezterm/wezterm) before anything else if possible** —
   it is the one cross-platform (macOS/Linux/Windows) terminal that can host an attached tmux
-  session; prefer it when installed (or via `--term wezterm`), fall back to per-OS defaults
+  session; prefer it when installed, fall back to per-OS defaults
   (Terminal.app/iTerm, x-terminal-emulator, Windows Terminal), `--no-open` for headless.
   Shipped in #52 (`armada drive`) + #55 (tab in primary terminal). Residual: wezterm-baseline
   refactor — see the Wave plan.
@@ -313,8 +313,7 @@ lane driving reliable and watchable. Live lane: `feat/lane-drive` in `sandbox/la
 - [x] **Auto-open visible terminal — wezterm first.** Open a visible terminal attached to the
   lane session. **Preferred: wezterm** (https://github.com/wezterm/wezterm) — the one terminal
   that's truly cross-platform (macOS/Linux/Windows) and can host an attached tmux session. Use it
-  whenever it's installed or explicitly requested (`--term wezterm`, `wezterm start -- tmux
-  attach -t <name>`). Fall back per-OS: macOS Terminal.app/iTerm, Linux
+  whenever it's installed. Fall back per-OS: macOS Terminal.app/iTerm, Linux
   `x-terminal-emulator`/`gnome-terminal`/`konsole`, Windows Terminal. `--no-open` (headless/CI)
   prints the `tmux attach -t <name>` hint instead — never fails the drive.
 - [x] **Tab in the primary terminal, not a new window.** The current auto-open *spawns a fresh
