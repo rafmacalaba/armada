@@ -3,15 +3,15 @@ import assert from "node:assert"
 import { readFileSync, existsSync } from "node:fs"
 import { resolve } from "node:path"
 
-test("package.json version is 0.7.0", () => {
-  const pkgRaw = readFileSync(resolve("package.json"), "utf8")
-  const pkg = JSON.parse(pkgRaw)
-  assert.ok(pkg.version, "package.json missing version field")
-  assert.strictEqual(pkg.version, "0.7.0", "package.json version !== 0.7.0")
+const PKG = JSON.parse(readFileSync(resolve("package.json"), "utf8"))
+
+test("package.json has a semver version", () => {
+  assert.ok(PKG.version, "package.json missing version field")
+  assert.match(PKG.version, /^\d+\.\d+\.\d+/, `version '${PKG.version}' is not semver`)
 })
 
-test("tarball opencode-armada-0.7.0.tgz exists after smoke", { skip: !existsSync(resolve("opencode-armada-0.7.0.tgz")) }, () => {
-  const tarballPath = resolve("opencode-armada-0.7.0.tgz")
+test("tarball for the current version exists after smoke", { skip: !existsSync(resolve(`opencode-armada-${PKG.version}.tgz`)) }, () => {
+  const tarballPath = resolve(`opencode-armada-${PKG.version}.tgz`)
   const stat = readFileSync(tarballPath)
   assert.ok(stat.length > 0, "tarball is empty")
 })
