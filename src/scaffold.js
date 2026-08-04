@@ -7,7 +7,7 @@ import { join, resolve } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { buildTeam, renderAgentFile } from "./generator.js"
+import { buildTeam, renderAgentFile, renderSkillFile } from "./generator.js"
 import {
   renderOpenCodeJson,
   renderAgentsMd,
@@ -26,6 +26,7 @@ import { ROLES } from "./model-catalog.js"
 import { formatStack } from "./stack-detect.js"
 import { validateRequirementsFile } from "./manifest.js"
 import { agentNameFor } from "./role-display.js"
+import { skillRegistry } from "./skills/index.js"
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -242,6 +243,17 @@ const LEGACY_ROLE_NAMES = new Set([
   "adversary", "security", "docs", "architect",
 ])
 
+// Write rendered skill files to .opencode/skills/<name>/SKILL.md in workdir.
+// Armada-owned; always overwritten on init. Mirror of the agent write pattern.
+export function writeSkills(workdir, skills) {
+  for (const skill of skills) {
+    const rel = `.opencode/skills/${skill.name}/SKILL.md`
+    const full = join(workdir, rel)
+    mkdirSync(dirname(full), { recursive: true })
+    writeFileSync(full, renderSkillFile(skill), "utf8")
+  }
+}
+
 // Main entry. target = repo root. Returns { written, removed }.
 export function scaffold(manifest, stack, opts = {}) {
   const target = manifest.targetDir || "."
@@ -306,6 +318,24 @@ export function scaffold(manifest, stack, opts = {}) {
   if (!opts.dryRun && existsSync(staleJsonc)) rmSync(staleJsonc, { force: true })
   const staleDir = join(target, ".opencode/oh-my-opencode-slim")
   if (!opts.dryRun && existsSync(staleDir)) rmSync(staleDir, { recursive: true, force: true })
+
+  // 1c. Armada skill files: one .opencode/skills/<name>/SKILL.md per configured skill.
+  // Default (undefined): write all starter skills. Empty list: write none.
+  const configuredSkills = manifest.project.skills !== undefined
+    ? manifest.project.skills
+    : skillRegistry.map((s) => s.name)
+  if (configuredSkills.length > 0) {
+    for (const skillName of configuredSkills) {
+      const skill = skillRegistry.find((s) => s.name === skillName)
+      if (!skill) continue
+      const skillRel = `.opencode/skills/${skill.name}/SKILL.md`
+      if (!opts.dryRun) {
+        ensure(dirname(skillRel))
+        writeFileSync(out(skillRel), renderSkillFile(skill), "utf8")
+      }
+      files.push(skillRel)
+    }
+  }
 
   // 3. opencode.json — only write if absent (never clobber project config).
   if (!existsSync(out("opencode.json"))) {
@@ -443,6 +473,12 @@ export function uninstall(manifest, opts = {}) {
     }
   }
   removeEmptyDir(".opencode/agent")
+  // Remove armada skill files.
+  for (const skill of skillRegistry) {
+    removeFile(`.opencode/skills/${skill.name}/SKILL.md`)
+    removeEmptyDir(`.opencode/skills/${skill.name}`)
+  }
+  removeEmptyDir(".opencode/skills")
   // Prune stale omo-slim artifacts (old layout) if present.
   removeFile(".opencode/oh-my-opencode-slim.jsonc")
   const stalePromptDir = join(target, ".opencode/oh-my-opencode-slim")

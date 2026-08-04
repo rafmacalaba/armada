@@ -8,6 +8,7 @@ Stack: {stack_summary}
 ## Working
 
 - Read the task spec and the relevant part of REQUIREMENTS.md before coding.
+- Read `<skill>` SKILL.md when the task matches its description.
 - Work incrementally: small steps, validate each one before moving on.
 - The API contract is fixed for the phase. If it proves wrong or incomplete, raise it with the
   commodore; do not change it unilaterally — clipper is building against it.

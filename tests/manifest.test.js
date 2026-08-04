@@ -371,3 +371,154 @@ test("parseManifestYaml rejects project.feature with .. traversal", () => {
     /schema/
   )
 })
+
+// -- Phase 2: skills field --
+
+test("parseManifestYaml defaults skills to undefined when omitted", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: free",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+    "",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.skills, undefined)
+})
+
+test("parseManifestYaml accepts empty skills list", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: free",
+    "  skills: []",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+    "",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.deepStrictEqual(parsed.project.skills, [])
+})
+
+test("parseManifestYaml parses skills list with entries", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: free",
+    "  skills:",
+    "    - armada-contract",
+    "    - armada-gate",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+    "",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.deepStrictEqual(parsed.project.skills, ["armada-contract", "armada-gate"])
+})
+
+test("parseManifestYaml parses custom skills list", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: free",
+    "  skills:",
+    "    - armada-contract",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+    "",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.deepStrictEqual(parsed.project.skills, ["armada-contract"])
+})
+
+test("parseManifestYaml rejects non-array skills", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: free\n  skills: 'armada-contract'\nteam:\n  - role: qa\n    model: x\n    enabled: true"
+    ),
+    /skills.*must be a list/
+  )
+})
+
+test("parseManifestYaml rejects skills with non-string element", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: free\n  skills:\n    - 42\nteam:\n  - role: qa\n    model: x\n    enabled: true"
+    ),
+    /skills.*must be strings/
+  )
+})
+
+test("skills survives parse -> render -> parse round-trip", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "  skills:",
+    "    - armada-contract",
+    "  stack:",
+    "    frontend: null",
+    "    backend: null",
+    "    database: null",
+    "    testing: null",
+    "    srcDirs: []",
+    "    languages: []",
+    "    instructions: []",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    fallback: null",
+    "    enabled: true",
+    "",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.deepStrictEqual(parsed.project.skills, ["armada-contract"])
+  const yaml2 = renderManifestYaml(parsed, buildTeam(parsed))
+  const parsed2 = parseManifestYaml(yaml2)
+  assert.deepStrictEqual(parsed2.project.skills, ["armada-contract"])
+})
+
+test("skills empty list survives round-trip", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "  skills: []",
+    "  stack:",
+    "    frontend: null",
+    "    backend: null",
+    "    database: null",
+    "    testing: null",
+    "    srcDirs: []",
+    "    languages: []",
+    "    instructions: []",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    fallback: null",
+    "    enabled: true",
+    "",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.deepStrictEqual(parsed.project.skills, [])
+  const yaml2 = renderManifestYaml(parsed, buildTeam(parsed))
+  const parsed2 = parseManifestYaml(yaml2)
+  assert.deepStrictEqual(parsed2.project.skills, [])
+})
+
+test("skills omitted round-trips (stays undefined, not rendered)", () => {
+  const m = makeManifest()
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  assert.doesNotMatch(yaml, /skills:/)
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.skills, undefined)
+})

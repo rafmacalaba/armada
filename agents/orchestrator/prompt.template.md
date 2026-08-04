@@ -10,6 +10,8 @@ Stack: {stack_summary}
 
 ## Orchestration model
 
+Load `armada-contract` for contract work, `armada-gate` when gating a phase.
+
 You run the project in gated phases from {requirements_file}. Build a dependency graph from the
 phases: a phase is ready when every phase it depends on has passed. Start every ready phase —
 dispatch its specialists as parallel background subagents (galleon and clipper per
