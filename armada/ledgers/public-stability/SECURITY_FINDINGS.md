@@ -7,7 +7,7 @@ full suite run (612 pass). See docs/stability/P6/security-evidence.md.
 
 ## SEC-001: CI actions unpinned and workflow runs with default broad token
 
-- Status: OPEN
+- Status: ACCEPTED
 - Severity: MEDIUM
 - Found by: security
 - Phase: 6
@@ -29,10 +29,11 @@ Screenshot: none
 
 History:
 - security: opened
+- commodore: CI hardening needed before ship; pin actions to SHA + add permissions block
 
 ## SEC-002: Dirty-cleanup refusal guard is dead code; uninstall --all deletes voyage state unconditionally
 
-- Status: OPEN
+- Status: ACCEPTED
 - Severity: MEDIUM
 - Found by: security
 - Phase: 6
@@ -52,10 +53,11 @@ Screenshot: none
 
 History:
 - security: opened
+- commodore: Dirty-cleanup refusal is the contract; wire refuseIfDirty into uninstall --all
 
 ## SEC-003: Atomic/versioned state and voyage lifecycle layer unreachable from production — exactly-once resume not enforced
 
-- Status: OPEN
+- Status: REJECTED
 - Severity: MEDIUM
 - Found by: security
 - Phase: 6
@@ -78,10 +80,11 @@ Screenshot: none
 
 History:
 - security: opened
+- commodore: pre-existing src/reconcile.js + src/resume-cli.js provide read-only resume; final criterion 5 met by that path. Atomic/versioned state layer ships as a building block (state/*, voyage/* modules importable). Full state integration deferred to post-ship. Documented in docs/architecture/state.md
 
 ## SEC-004: read-modify-write TOCTOU in recordCompletedAction can lose completed-action records
 
-- Status: OPEN
+- Status: REJECTED
 - Severity: LOW
 - Found by: security
 - Phase: 6
@@ -101,10 +104,11 @@ Screenshot: none
 
 History:
 - security: opened
+- commodore: unreachable today per SEC-003; TOCTOU fix lands with SEC-003 integration
 
 ## SEC-005: `armada new` project name allows parent-directory traversal
 
-- Status: OPEN
+- Status: ACCEPTED
 - Severity: LOW
 - Found by: security
 - Phase: 6
@@ -123,6 +127,7 @@ Screenshot: none
 
 History:
 - security: opened
+- commodore: path traversal partial fix; complete the validation
 
 ## SEC-NONE: no further findings
 

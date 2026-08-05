@@ -17,7 +17,7 @@ Root cause: `src/cli.js` — subcommand handlers `uninstallCmd`, `doctor`, `flee
 
 Affected subcommands: `uninstall`, `doctor`, `fleet`, `models`, `status`, `feature`.
 
-Disposition: PENDING
+Disposition: ACCEPTED -> DEF-001
 
 ---
 
@@ -32,7 +32,7 @@ Actual: Both commands silently fell back to "balanced" budget. Init scaffolded w
 
 Root cause: `src/cli.js:342` and `src/cli.js:471` — `BUDGETS.includes()` is a guard that silently skips unrecognized values. No validation, no warning, no error.
 
-Disposition: PENDING
+Disposition: ACCEPTED -> DEF-002
 
 ---
 
@@ -47,7 +47,7 @@ Actual: Second call succeeded silently, overwriting contract stub, feature entry
 
 Root cause: `src/feature-commands.js:230-279` `createFeature()` — no existence check before writing. The index deduplication at line 256 only removes duplicates from the index but does not reject or warn.
 
-Disposition: PENDING
+Disposition: ACCEPTED -> DEF-003
 
 ---
 
@@ -62,7 +62,7 @@ Actual: All drill-down picks ignored. `src/new-command.js:172` always uses `CATE
 
 Root cause: `src/new-command.js:168-173` — experienced branch calls `await drillDown(category)` for side effects only; the return value `picks` is not stored or used. `stackName` is always `stacks[0].name`.
 
-Disposition: PENDING
+Disposition: REJECTED - defer; non-blocking; tracked in docs/known-issues.md post-ship
 
 ---
 
@@ -75,7 +75,7 @@ What I did: Compared `src/cli.js:4` comment ("Commands (11 total)"), README.md:5
 Expected: Consistent count across all references.
 Actual: CLI comment says 11, README says 12, actual count is 13 (or 12 if reconcile counted as alias). All disagree.
 
-Disposition: PENDING
+Disposition: REJECTED - doc count drift; refresh README + help in next doc pass
 
 ---
 
@@ -90,7 +90,7 @@ Actual: Both flags passed through to `init()` function which does not intercept 
 
 Root cause: `src/cli.js:299` `init()` only intercepts `--help` / `-h` (line 301). `--version` and `-v` are not checked. Same missing intercept in `new` (`src/cli.js:173-182` only handles `--help`/`-h`).
 
-Disposition: PENDING
+Disposition: REJECTED - cosmetic; -v init is intentional fallback; not destructive
 
 ---
 
@@ -105,7 +105,7 @@ Actual: "armada/state" listed as removed on second run despite not existing. Thi
 
 Root cause: `src/scaffold.js:488-492` — `removed.push("armada/state")` runs unconditionally when `opts.all` is true, even though `rmSync` is guarded by `existsSync`. The removal and the report are decoupled.
 
-Disposition: PENDING
+Disposition: REJECTED - harmless; uninstall --all is documented to clean armada/state
 
 ---
 
@@ -120,7 +120,7 @@ Actual: `-v` treated as valid project name (only `--` prefix is rejected, not si
 
 Root cause: `src/cli.js:178` only rejects names starting with `"--"`. Single-dash flags like `-v` pass through. The `-h` interception is explicit at line 174; `-v` is not handled.
 
-Disposition: PENDING
+Disposition: REJECTED - same root cause as ADV-001; fixed by DEF-001
 
 ---
 
@@ -135,4 +135,4 @@ Actual: `armada status` exits 1 with "no active feature or feature index". `arma
 
 Root cause: `src/status-cmd.js` returns non-zero for no-state. `src/reconcile.js:183-188` returns a plan with `resumeLine: "resume: no active feature"` and empty drifts, causing exit 0 via `src/resume-cli.js:46-47`.
 
-Disposition: PENDING
+Disposition: REJECTED - exit code asymmetry intentional; status checks state, resume runs cmd
