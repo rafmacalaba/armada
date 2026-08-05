@@ -45,9 +45,8 @@ All in-flight lanes merged. `feat/fleet-dashboard` (#59), `feat/artifacts-under-
 
 - [ ] **Skills integration** (spec below). Requires: per-role configurability (shipped #52).
   Files: `src/skills/`, generator, manifest, prompts.
-- [ ] **Security findings ledger** (spec below). Requires: artifacts ledgers (shipped #58).
-  Files: security prompt, `armada/ledgers/`. Note: spec body to write (backlog line 163 is a
-  question, not a spec).
+- [x] **Security findings ledger** (#58). Shipped in `feat/artifacts-under-armada` + `src/ledgers.js`.
+  Per-feature `SECURITY_FINDINGS.md` schema, generator rendering, and security prompt integration.
 
 ### Wave 3 — systemic self-improvement (sequential)
 
@@ -60,8 +59,8 @@ Shared orchestrator-prompt + findings files → sequence, don't parallelize.
 
 ### Wave 4 — product surface + cleanup (parallel)
 
-- [ ] **Re-evaluate 8-role roster** (spec below). Result folds into the role-display map.
-  Note: spec body to write.
+- [x] **Re-evaluate 8-role roster** (#96). Shipped: "Meet the Fleet" roster, role display mapping,
+  and SDK-enforced permission matrix (`edit: deny` for orchestrator, security, architect).
 - [ ] **Dashboard `--watch` TUI follow-up** (fleet-dashboard spec). Requires: fleet-dashboard
   (shipped #59) + wezterm baseline (shipped #66). Files: `src/fleet-tracker.js`,
   `armada fleet --watch`.
@@ -171,10 +170,10 @@ Design re-evaluations, model hygiene. Not urgent.
   Generator audit PASS. No catalog edits required. Contract listed `opencode-go/deepseek-v4-flash`;
   catalog uses `opencode/deepseek-v4-flash-free` (both live; contract text is a snapshot from
   before the catalog was finalized).
-- [ ] **Re-evaluate the 8-role roster** against real multi-agent sessions — do `docs` and
-  `architect` earn their slot, or should they be opt-in-only?
-- [ ] **Security findings ledger** — should `security` own a findings ledger (like DEFECTS.md /
-  ADVERSARIAL_REVIEW.md) instead of inline reports?
+- [x] **Re-evaluate the 8-role roster** against real multi-agent sessions — shipped in #96:
+  "Meet the Fleet" roster, role display mapping, and SDK-enforced permission matrix (`edit: deny` for orchestrator, security, architect).
+- [x] **Security findings ledger** — shipped in #58 (`feat/artifacts-under-armada` + `src/ledgers.js`):
+  per-feature `SECURITY_FINDINGS.md` ledger schema, generator rendering, and security prompt integration.
 
 ### Deferred
 
@@ -831,3 +830,5 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 - [x] **Voyage-completion workflow** (#92) (2026-08-05). Orchestrator prompt template gained a `## Voyage completion` section: TODO.md auto-update, auto-merge guard (`mergeable` + CI green), local merge after origin merge. No new CLI commands — pure prompt rules.
 
 - [x] **Orchestrator dispatch narration uses shipName [role]** (#95) (2026-08-05). Orchestrator prompt template gained a hard MUST `## Dispatch narration` section + carve-out from the Output contract. New `tests/orchestrator-prompt.test.js` (3 regex assertions) guards the rule. Round-trip re-scaffold preserves it.
+
+- [x] **README & Documentation Overhaul + Meet the Fleet** (#96) (2026-08-05). Full pitch rewrite in README.md, hand-painted logo & 4-step ship workflow mechanism artwork, simplified quickstart (`armada new my-app`), Meet the Fleet roster & permissions matrix, Cookiecutter/Harness/Loop engineering section, manifest path alignment (`armada/armada.yaml`), bracket role notation (`[role]`), and new docs (`WHY.md`, `getting-started.md`, `self-improvement.md`, `CONTRIBUTING.md`).
