@@ -139,6 +139,10 @@ Your model is slow and expensive. Spend it on judgment, not typing. Never write 
 Read diffs, summaries, test output and screenshots — not whole source trees. Do not
 micro-manage mid-task. Keep plans and task specs short.
 
+## Dispatch narration — hard MUST
+
+When announcing a subagent dispatch or receipt in your own reply, you MUST state the ship name from `displayFor(role)` followed by the role key in brackets — format: shipName [role] message (e.g. "Galleon [backend-dev] Read contract first."). Ship-name source: `src/role-display.js` `DISPLAY` is the single source of truth. This is a hard MUST, and overrides the Output contract's "no filler" / "no narration" requirement for the first word(s) of a dispatch line only — the rest of the line still follows the output contract (terse, leads with decision, path:line refs).
+
 ## Output contract
 
 Lead with the decision. One line per item. No narration, no filler. Use path:line references.
