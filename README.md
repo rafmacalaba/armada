@@ -42,8 +42,8 @@ armada turns your repository into a **self-organizing AI engineering fleet**. In
 # 1. Install globally (enables 'armada' command anywhere)
 npm install -g armada
 
-# 2. New project (uses Cookiecutter-style presets)
-armada new my-app
+# 2. New project (your template of choice)
+armada new my-app --template https://github.com/cookiecutter/cookiecutter-django
 cd my-app
 opencode                              # Commodore welcomes you
 
@@ -207,7 +207,7 @@ armada uses itself. The fleet built armada's own session-based state system auto
 | Command | What it does |
 |---|---|
 | `armada init` | Scaffold the team into an existing repo |
-| `armada new <name>` | Create a new project from a curated starter |
+| `armada new <name>` | Create a new project from a cookiecutter template |
 | `armada doctor` | Environment health check |
 | `armada status` | Where the fleet is: active feature, phase, next action |
 | `armada fleet` | Cross-repo per-lane progress dashboard |
@@ -223,19 +223,23 @@ Four slash commands run inside the opencode TUI: `/armada`, `/armada-scout`, `/a
 
 ---
 
-## Starters
+## armada new: Cookiecutter templates
 
-`armada new` ships curated project templates with agentic best practices baked in:
-
-| Template | Stack |
-|---|---|
-| `web-app` | Next.js 15 + Tailwind 4 + TypeScript |
-| `ml-training` | Python + PyTorch + uv |
-| `research-paper` | LaTeX + Makefile |
+`armada new` now takes any cookiecutter-compatible template. We dropped the built-in starter list; use the cookiecutter ecosystem for project templates.
 
 ```bash
-armada new my-app --type web-app --beginner --yes
+# Built-in agents, your template of choice
+armada new my-app --template https://github.com/cookiecutter/cookiecutter-django
+armada new my-app --template https://github.com/your-org/your-template
+armada new my-app --template ./my-local-template
+
+# Pass variables without prompts
+armada new my-app --template <url> --config ./vars.json
 ```
+
+The CLI is cookiecutter-compatible: any template with `{{ cookiecutter.varname }}` placeholders works. Variables are resolved from `--config <file.json>`, `COOKIECUTTER_*` env vars, or interactive prompts. Git URL templates are fetched via `git clone --depth 1`. Supported patterns: `{{ cookiecutter.varname }}` (Jinja2 conditionals and loops are not supported in v1).
+
+The cookiecutter substitution is best-effort for v1.0.0 — only `{{ cookiecutter.varname }}` patterns. Jinja2 expressions, conditionals, and loops are not evaluated.
 
 ---
 
