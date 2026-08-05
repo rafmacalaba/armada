@@ -34,6 +34,7 @@ import { openTerminal, buildAttachCommand } from "./terminal-open.js"
 import { listRuns, readRun } from "./fleet-tracker.js"
 import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cmd.js"
 import { main as statusMain } from "./status-cmd.js"
+import { formatHandoffBlock } from "./handoff.js"
 
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
@@ -61,6 +62,7 @@ Usage:
   armada status [--json] [--feature <name>]  feature status from armada/state (table by default)
   armada fleet [session] [--json] [--open]   per-lane progress dashboard (table by default)
   armada voyage <lane-path> [--heartbeat]    boot a lane session and send the voyage prompt (TUI-ready handshake)
+  armada voyage-handoff <name> [<name>...]  print handoff block for dispatched voyages
   armada feature new <name>                  create per-feature contract + register
   armada feature list                        list open/in-progress/shipped features
   armada feature close <name>                verify evidence + mark shipped
@@ -194,6 +196,8 @@ export async function main(argv = process.argv.slice(2)) {
       console.error("armada scout: removed; use '/armada-scout' inside the opencode TUI")
       process.exitCode = 1
       return 1
+    case "voyage-handoff":
+      return voyageHandoffCmd(rest)
     case "help":
     case "-h":
     case "--help":
@@ -608,6 +612,18 @@ async function driveCmd(args, cmdName = "drive") {
     return 0
   }
 
+  // Subcommand: armada voyage attach <name>
+  if (args[0] === "attach") {
+    const attachName = args[1]
+    if (!attachName || attachName.startsWith("--")) {
+      console.error(`Usage: armada ${cmdName} attach <name>`)
+      process.exitCode = 1
+      return 1
+    }
+    console.log(buildAttachCommand(attachName))
+    return 0
+  }
+
   // Positional arg: <lane-path>, default "."
   const lanePath = args.find((a) => !a.startsWith("--")) || "."
 
@@ -787,6 +803,14 @@ function statusCmd(args) {
   return code
 }
 
+function voyageHandoffCmd(names) {
+  if (!names || names.length === 0) {
+    console.error("Usage: armada voyage-handoff <name> [<name>...]")
+    return 1
+  }
+  console.log(formatHandoffBlock(names))
+  return 0
+}
 async function featureCmd(args) {
   const targetIdx = args.indexOf("--target")
   const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--")

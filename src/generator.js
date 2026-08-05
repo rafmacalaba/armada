@@ -523,6 +523,7 @@ export function renderRequirementsMd(manifest) {
 export function renderArmadaCommand() {
   return `---
 description: opencode-armada — team status, roles, regenerate
+subtask: true
 ---
 You are the armada helper. Report: the configured team (from .opencode/agent/),
 the active preset, and how to regenerate (armada init --from-armada armada/armada.yaml).
@@ -531,10 +532,12 @@ Xebec, Frigate, Caravel, Bark). Keep it terse.
 `
 }
 
+
 // Build the `.opencode/commands/armada-scout.md` command descriptor.
 export function renderArmadaScoutCommand() {
   return `---
 description: opencode-armada — read-only investigation dispatch
+subtask: true
 agent: ${agentNameFor("orchestrator")}
 ---
 Dispatch a read-only investigation of the requested area. Route to the xebec
@@ -547,16 +550,19 @@ never change code, never open a PR. Deliver a findings report in chat.
 export function renderArmadaResumeCommand() {
   return `---
 description: opencode-armada — resume after an interrupted session
+subtask: true
 agent: ${agentNameFor("orchestrator")}
 ---
 Run \`armada reconcile\` and print the resume line plus any drift list. If \`armada\` is not on PATH, report the missing binary.
 `
 }
 
+
 // Build the `.opencode/commands/armada-voyage.md` command descriptor.
 export function renderArmadaVoyageCommand() {
   return `---
 description: opencode-armada — launch a feature voyage (creates the lane, arms it, boots the ship)
+subtask: true
 agent: ${agentNameFor("orchestrator")}
 ---
 You are the Commodore. The user has asked to launch a feature voyage. Parse the feature
