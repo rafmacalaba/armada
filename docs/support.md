@@ -6,7 +6,7 @@ response to expect.
 ## Where to ask
 
 - **GitHub issues** — the single public channel for both questions and bugs:
-  <https://github.com/rafmacalaba/opencode-armada/issues>
+  <https://github.com/rafmacalaba/armada/issues>
 - **Bugs and feature requests** — file an issue with the template below. There are no issue
   templates in the repo yet (P0 audit, `docs/stability/P0/public-presentation.md` P-12);
   use the checklist below instead.
@@ -62,7 +62,7 @@ upstream issue with the details — see the "What to include" checklist above.
 
 Files read to verify every claim:
 
-- `.git/config` — remote URL `git@github.com:rafmacalaba/opencode-armada.git` (the issues
+- `.git/config` — remote URL `git@github.com:rafmacalaba/armada.git` (the issues
   link derives from it).
 - `package.json` — version 0.9.2, license MIT. Note: no `repository`/`bugs` fields yet —
   flagged in `docs/stability/P5/release-checklist.md`.

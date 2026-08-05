@@ -847,7 +847,7 @@ test("renderAgentsMd: parallel lanes produce identical armada blocks", () => {
     const manifest = {
       targetDir: ".",
       project: {
-        name: "opencode-armada",
+        name: "armada",
         budget: "balanced",
         browserTesting: false,
         devcontainer: false,

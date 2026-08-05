@@ -19,7 +19,7 @@ dispatch, node, and the global armada binary (`src/doctor.js:82-225`).
 ### New project
 
 ```bash
-npx opencode-armada new my-app --type web-app --beginner --yes
+npx @rafmacalaba/armada new my-app --type web-app --beginner --yes
 cd my-app
 opencode
 ```
@@ -31,7 +31,7 @@ so `opencode` boots straight into the orchestrator.
 
 ```bash
 cd your-repo
-npx opencode-armada init --yes --yolo
+npx @rafmacalaba/armada init --yes --yolo
 opencode
 ```
 
@@ -183,7 +183,7 @@ Details in [operator-guide.md#uninstall](./operator-guide.md#uninstall).
 
 ```bash
 armada help
-armada --version                      # opencode-armada v0.9.2
+armada --version                      # armada v1.0.0
 ```
 
 `armada <cmd> --help` prints the same global help block; there is no per-command help. The
