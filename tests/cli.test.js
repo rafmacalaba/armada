@@ -724,3 +724,58 @@ test("drive --help prints deprecation hint exactly once", async () => {
   const matches = (r.stderr.match(/armada drive: deprecated/g) || [])
   assert.strictEqual(matches.length, 1, `deprecation hint appeared ${matches.length} times, expected 1`)
 })
+
+// -- cli-routing (P1 fixes) --
+
+test("reconcile exits 0 when no state dir exists (no drift)", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["reconcile", "--repo", dir], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+})
+
+test("reconcile appears in help text", async () => {
+  const r = await runCli(["help"])
+  assert.match(r.stdout, /reconcile/)
+})
+
+test("uninstall --all removes armada/state directory", async () => {
+  const dir = makeTempRepo({ "armada/armada.yaml": manifestYaml() })
+  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
+  mkdirSync(join(dir, "armada", "state", "features"), { recursive: true })
+  writeFileSync(join(dir, "armada", "state", "active.json"), JSON.stringify({ feature: "test" }))
+  writeFileSync(join(dir, "armada", "state", "features", "index.json"), JSON.stringify([]))
+  const r = await runCli(["uninstall", "--all", "--force"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.ok(!existsSync(join(dir, "armada", "state")), "armada/state must be removed")
+  assert.ok(!existsSync(join(dir, "armada")), "armada must be removed")
+})
+
+test("uninstall --all removes empty opencode dir left after cleanup", async () => {
+  const dir = makeTempRepo({ "armada/armada.yaml": manifestYaml() })
+  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
+  mkdirSync(join(dir, "armada", "state"), { recursive: true })
+  writeFileSync(join(dir, "armada", "state", "active.json"), JSON.stringify({ feature: "test" }))
+  const r = await runCli(["uninstall", "--all", "--force"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.ok(!existsSync(join(dir, "armada")), "armada dir must be fully removed")
+  assert.ok(!existsSync(join(dir, ".opencode")), ".opencode dir must be fully removed")
+})
+
+test("doctor uses running binary for global armada check", async () => {
+  const expectedVersion = process.env.ARMADA_EXPECTED_VERSION || "armada v1.0.0"
+  const r = await runCli(["doctor"])
+  assert.match(r.stdout, /global armada binary: pass/)
+  assert.match(r.stdout, new RegExp(`— ${expectedVersion.replace(/\./g, "\\.")}`))
+})
+
+test("armada new --help prints help, not project named --help", async () => {
+  const r = await runCli(["new", "--help"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
+})
+
+test("armada new with name starting with -- rejects with error", async () => {
+  const r = await runCli(["new", "--weirdname"])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /project name cannot start with --|invalid project name/i)
+})
