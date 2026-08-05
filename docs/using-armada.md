@@ -1,14 +1,16 @@
 # Using armada
 
-> If you're new, read README.md; if you're operating, read this top-to-bottom; if you're looking up a flag, jump to the CLI reference section.
+> **New here?** Start with [Getting Started](./getting-started.md) for install + first project +
+> first feature. This document is the **operator manual** — the full reference for day-to-day use.
 
-The operator manual. README pitches; this doc runs the day-to-day: install and upgrade, the 11
-commands in detail, the contract co-write flow, multi-feature work, observability, lifecycle,
-the full flag table, the role roster, the model catalog, the four user-facing skills, and fleet
-terminology.
+The operator manual. README pitches; [Getting Started](./getting-started.md) teaches; this doc
+is the reference: the 11 commands in detail, the contract co-write flow, multi-feature work,
+observability, lifecycle, the full flag table, the role roster, the model catalog, the four
+user-facing skills, and fleet terminology.
 
 For running armada on armada itself (dock worktrees in `sandbox/<name>/`), see
-[docs/armada-improves-armada.md](./armada-improves-armada.md) instead.
+[Self-Improvement](./self-improvement.md) instead.
+
 
 ## Install / upgrade
 
@@ -334,16 +336,19 @@ Full flag table. `armada <cmd> --help` is always the canonical list.
 
 ## The role roster
 
-| Role key | Job | Can it write code? |
-|---|---|---|
-| `orchestrator` | delivery lead: plans, delegates, gates phases | No — delegates all writes |
-| `backend-dev` | server, API, storage, backend tests | Yes (backend files) |
-| `frontend-dev` | UI/UX implementation, frontend tests | Yes (frontend files) |
-| `qa` | e2e tests, screenshots, owns DEFECTS.md, closes defects | `armada/e2e/`, `armada/screenshots/`, `armada/ledgers/` only |
-| `adversary` | hostile review, breaks the running app | No — read-only |
-| `security` | vulnerability/authz audit | No — read-only |
-| `docs` | README, API docs, changelog | Docs only |
-| `architect` | architecture, refactor risk, review | No — read-only |
+The fleet consists of 8 AI specialists under your command:
+
+| Role key | Title / Display name | Job | Can it write code? |
+|---|---|---|---|
+| `user` | **Admiral** | Directs the fleet, approves contracts (You) | N/A |
+| `orchestrator` | **Commodore** | Delivery lead: plans, delegates, gates phases | No — delegates all writes |
+| `backend-dev` | **Galleon** | Server, API, storage, backend tests | Yes (backend files) |
+| `frontend-dev` | **Clipper** | UI/UX implementation, frontend tests | Yes (frontend files) |
+| `qa` | **Corvette** | E2E tests, screenshots, owns DEFECTS.md, closes defects | `armada/e2e/`, `armada/screenshots/`, `armada/ledgers/` only |
+| `adversary` | **Xebec** | Hostile review, breaks the running app | No — read-only |
+| `security` | **Frigate** | Vulnerability/authz audit | No — read-only |
+| `docs` | **Caravel** | README, API docs, changelog | Docs only |
+| `architect` | **Bark** | Architecture, refactor risk, review | No — read-only |
 
 Boundaries are enforced by SDK permissions in the agent frontmatter, not by prompt politeness.
 The SDK resolves the most specific rule first.
@@ -396,7 +401,9 @@ never appear in user copy. Ship a custom subset via `armada.yaml` → `project.s
 
 ## See also
 
-- [docs/armada-improves-armada.md](./armada-improves-armada.md) — using armada on armada itself (dock worktrees).
+- [Getting Started](./getting-started.md) — install, first project, first feature.
+- [Why armada?](./WHY.md) — the full narrative: problem, solution, proof.
+- [Self-Improvement](./self-improvement.md) — using armada on armada itself (dock worktrees).
 - [docs/sandbox.md](./sandbox.md) — dock worktrees, lifecycle, cleanup.
 - [SPEC.md](../SPEC.md) — manifest schema and contract format.
 - [TODO.md](../TODO.md) — the roadmap.
