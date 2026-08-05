@@ -2,7 +2,7 @@ export function formatHandoffBlock(sessions) {
   if (!sessions || sessions.length === 0) return ""
 
   const lines = sessions.map(
-    (name) => `  - ${name}  (tmux session: ${name})  attach: armada voyage --print-attach ${name}`
+    (name) => `  - ${name}  (tmux session: ${name})  attach: armada voyage attach ${name}`
   )
 
   return `--- HANDOFF ---
