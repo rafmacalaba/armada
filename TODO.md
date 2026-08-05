@@ -831,3 +831,5 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 - [x] **Voyage-completion workflow** (#92) (2026-08-05). Orchestrator prompt template gained a `## Voyage completion` section: TODO.md auto-update, auto-merge guard (`mergeable` + CI green), local merge after origin merge. No new CLI commands — pure prompt rules.
 
 - [x] **Orchestrator dispatch narration uses shipName [role]** (#95) (2026-08-05). Orchestrator prompt template gained a hard MUST `## Dispatch narration` section + carve-out from the Output contract. New `tests/orchestrator-prompt.test.js` (3 regex assertions) guards the rule. Round-trip re-scaffold preserves it.
+
+- [ ] **public-stability — make opencode-armada public-stable** (#<pr>) (2026-08-05). P5 docs: README 60-second path, canonical npx commands, user/operator/contributor/support/auth-cost/troubleshooting docs, SPEC/ARCHITECTURE drift fixes, release checklist. P0 drift items closed: A-01..A-04, B-01, C-01, D-01..D-06, E-01..E-06, G-01..G-03 (C-02 + E-07 live AGENTS.md and F-01/F-02 generated-tree remain, see docs/stability/P5/exec-summary.md).
