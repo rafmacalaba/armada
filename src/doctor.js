@@ -2,6 +2,10 @@ import { execFile } from "node:child_process"
 import { existsSync, lstatSync, realpathSync } from "node:fs"
 import { join } from "node:path"
 import { displayFor, agentNameFor } from "./role-display.js"
+import { CATALOG, ROLES, BUDGETS, modelFor } from "./model-catalog.js"
+
+// Minimum supported Opencode version for armada compatibility.
+export const MIN_OPENCODE = "1.18.0"
 
 function run(bin, args, env) {
   return new Promise((resolve) => {
@@ -24,6 +28,106 @@ function findOnPath(name, env) {
     } catch {}
   }
   return null
+}
+
+// Parse an opencode version string from its --version output.
+// Accepts: "1.18.11", "opencode v1.18.11", "v1.18.11", etc.
+export function parseOpenCodeVersion(output) {
+  if (!output || typeof output !== "string") return null
+  // Match x.y.z (semver with 3 numeric parts)
+  const m = output.match(/(\d+\.\d+\.\d+)/)
+  if (!m) return null
+  return m[1]
+}
+
+// Check whether a parsed opencode version is within the supported range.
+// Returns { status, detail } suitable for doctor check output.
+export function checkOpenCodeVersion(versionOrOutput, minVersion = MIN_OPENCODE) {
+  const parsed = parseOpenCodeVersion(versionOrOutput)
+  if (!parsed) {
+    return {
+      status: "fail",
+      detail: `unrecognized version format — expected semver like 1.18.0, got "${versionOrOutput?.slice(0, 80) ?? ""}"`,
+    }
+  }
+  const parts = parsed.split(".").map(Number)
+  const minParts = minVersion.split(".").map(Number)
+  for (let i = 0; i < 3; i++) {
+    const a = parts[i] ?? 0
+    const b = minParts[i] ?? 0
+    if (a > b) break
+    if (a < b) {
+      return {
+        status: "fail",
+        detail: `${parsed} is below minimum supported version (>= ${minVersion} required) — "${parsed}" is unsupported`,
+      }
+    }
+  }
+  return {
+    status: "pass",
+    detail: `${parsed} — within supported range (>= ${minVersion})`,
+  }
+}
+
+export function checkCatalogConsistency() {
+  const checks = []
+
+  for (const role of ROLES) {
+    const entry = CATALOG[role]
+    if (!entry) {
+      checks.push({
+        name: "catalog consistency",
+        status: "fail",
+        detail: `role "${role}" missing from CATALOG`,
+      })
+      continue
+    }
+    for (const budget of BUDGETS) {
+      let model
+      try {
+        model = modelFor(role, budget)
+      } catch {
+        model = null
+      }
+      if (!model) {
+        checks.push({
+          name: "catalog consistency",
+          status: "fail",
+          detail: `role "${role}" has no model for budget "${budget}"`,
+        })
+      } else {
+        const parts = model.split("/")
+        if (parts.length < 2 || !parts[0] || !parts.slice(1).join("/")) {
+          checks.push({
+            name: "catalog consistency",
+            status: "fail",
+            detail: `role "${role}" budget "${budget}": model "${model}" is not provider/model format`,
+          })
+        }
+      }
+    }
+    // Check that balanced tier defaults to opencode-go or opencode for dev roles
+    if (["orchestrator", "backend-dev", "frontend-dev", "adversary"].includes(role)) {
+      const primary = entry.primary
+      if (!primary.startsWith("opencode-go/") && !primary.startsWith("opencode/")) {
+        checks.push({
+          name: "catalog consistency",
+          status: "warn",
+          detail: `role "${role}" primary "${primary}" should use opencode-go or opencode provider for balanced tier`,
+        })
+      }
+    }
+  }
+
+  if (checks.length === 0) {
+    checks.push({
+      name: "catalog consistency",
+      status: "pass",
+      detail: "all roles have valid provider/model entries for every budget tier",
+    })
+  }
+
+  return checks
 }
 
 function extractFrontmatterModel(mdContent) {
@@ -88,6 +192,11 @@ export async function runDoctor(opts = {}) {
     name: "opencode CLI",
     status: v.ok ? "pass" : "fail",
     detail: v.ok ? v.out || "exit 0" : firstLine(v.out, "command failed"),
+  })
+
+  checks.push({
+    name: "opencode version range",
+    ...(v.ok ? checkOpenCodeVersion(v.out) : { status: "fail", detail: "opencode --version failed" }),
   })
 
   const auth = await run("opencode", ["providers", "list"], env)
@@ -221,6 +330,8 @@ export async function runDoctor(opts = {}) {
   if (opts.targetDir) {
     checks.push(...(await checkModelDrift(opts.targetDir)))
   }
+
+  checks.push(...checkCatalogConsistency())
 
   return checks
 }
