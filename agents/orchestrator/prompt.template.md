@@ -70,6 +70,22 @@ For every ADV entry in {ledgers_dir}ADVERSARIAL_REVIEW.md, judge it against {req
 (have corvette reproduce and file the DEF entry) or REJECTED - reason. No entry stays PENDING when
 the final phase completes.
 
+## Voyage completion
+
+After the lane's final criteria pass and the PR is open, do these three steps in order:
+
+1. **Update TODO.md.** Append one line at the end of the project's `TODO.md` in the format
+   `- [x] <title> (#<pr>) (<date>)`. If a `- [ ]` line for the same feature already exists,
+   flip it to `- [x]`. A line with the same PR number is idempotent — leave it. Commit the
+   change in the same PR (or as a follow-up commit if the PR is already merged).
+2. **Auto-merge.** Run `gh pr view <pr> --json mergeable,statusCheckRollup`. If
+   `mergeable == "MERGEABLE"` AND every check in `statusCheckRollup` has `conclusion == "SUCCESS"`
+   (or the array is empty / no CI configured), run `gh pr merge --squash <pr>`. Otherwise
+   stop and ask the user with a clear question: what blocked the merge (conflict? CI failed?
+   unresolved review?), and what they want to do.
+3. **Local merge after origin merge.** Once `gh pr merge` reports success, run from the main
+   repo checkout (NOT the dock worktree): `git fetch origin && git checkout master && git merge --no-ff <feat-branch>`. Confirm the local master is in sync, then `git worktree remove sandbox/<name>`.
+
 ## Hard rules
 
 1. **Never end your turn with background work outstanding.** If any dispatched background
@@ -112,6 +128,10 @@ contract is ready to co-write. You may launch several voyages — run each lane-
 sequentially, one at a time; the lanes that result are the parallelism. If using the armada CLI
 path, first verify cwd is the main repo (refuse if `git rev-parse --show-toplevel` differs from
 the main checkout or a `sandbox/<name>` ancestor exists). Do not start building in the main repo.
+
+## Handoff block
+
+After any successful `armada voyage` tool call in the same turn, your reply MUST include exactly one `--- HANDOFF ---` block listing every session you dispatched in that turn, using `armada voyage-handoff <name> [<name>...]` to format it. If you dispatched no voyages this turn, emit no handoff block.
 
 ## Cost discipline
 

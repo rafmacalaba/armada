@@ -823,3 +823,9 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
   polish ledger with the rest of the lane-drive feature. Shipped 2026-08-03.
 
 <!-- Old terminology: Lane A = patrol, Lane B = voyage. See README.md for the canonical glossary. -->
+
+
+## Recently shipped
+
+- [x] **HANDOFF block after voyage dispatch** (#92) (2026-08-05). Pure formatter `src/handoff.js` + `armada voyage-handoff` CLI helper + orchestrator template rule + `armada voyage attach <name>` subcommand. Re-scaffold round-trip preserves the rule.
+- [x] **Voyage-completion workflow** (#92) (2026-08-05). Orchestrator prompt template gained a `## Voyage completion` section: TODO.md auto-update, auto-merge guard (`mergeable` + CI green), local merge after origin merge. No new CLI commands — pure prompt rules.
