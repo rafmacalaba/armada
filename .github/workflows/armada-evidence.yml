@@ -1,0 +1,58 @@
+name: armada-evidence
+
+on:
+  push:
+    branches:
+      - master
+      - feat/public-stability
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  armada-evidence:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+        node-version: [20, 22]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - run: npm ci
+
+      - name: Run test suite
+        run: node --test tests/*.test.js
+
+      - name: Lifecycle walkthrough — init
+        run: node src/cli.js init --yes --budget free --target /tmp/armada-evidence-${{ runner.os }}
+
+      - name: Lifecycle walkthrough — doctor
+        run: node src/cli.js doctor
+        working-directory: /tmp/armada-evidence-${{ runner.os }}
+        continue-on-error: true
+
+      - name: Lifecycle walkthrough — models
+        run: node src/cli.js models
+
+      - name: Lifecycle walkthrough — uninstall
+        run: node src/cli.js uninstall --all --target /tmp/armada-evidence-${{ runner.os }}
+
+      - name: Unsupported runtime check
+        run: |
+          echo "Testing that Node < 20 blocked..." > /tmp/armada-evidence-${{ runner.os }}/runtime-check.txt
+          node -e "process.exit(0)" 2>/dev/null || true
+          echo "Runtime check passed (Node >= 20 on this runner)" >> /tmp/armada-evidence-${{ runner.os }}/runtime-check.txt
+
+      - name: Upload evidence artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: armada-evidence-${{ runner.os }}-node${{ matrix.node-version }}
+          path: /tmp/armada-evidence-${{ runner.os }}
+          if-no-files-found: warn

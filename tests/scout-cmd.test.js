@@ -13,28 +13,27 @@ function runCli(args) {
   return { code: result.status, stdout: result.stdout, stderr: result.stderr }
 }
 
-// Phase 2: armada scout is hard-removed
-test("scout: any args print removal message and exit 1", () => {
+// Phase 2: armada scout is hard-removed (no switch case — falls through to unknown command)
+test("scout: any args print unknown command and exit 1", () => {
   const result = runCli(["scout", "src/auth/middleware.js"])
   assert.strictEqual(result.code, 1)
-  assert.match(result.stderr, /armada scout: removed/)
-  assert.match(result.stderr, /\/armada-scout/)
+  assert.match(result.stderr, /Unknown command/)
 })
 
-test("scout: --help prints removal message and exits 1", () => {
+test("scout: --help prints unknown command and exits 1", () => {
   const result = runCli(["scout", "--help"])
   assert.strictEqual(result.code, 1)
-  assert.match(result.stderr, /armada scout: removed/)
+  assert.match(result.stderr, /Unknown command/)
 })
 
-test("scout: -h prints removal message and exits 1", () => {
+test("scout: -h prints unknown command and exits 1", () => {
   const result = runCli(["scout", "-h"])
   assert.strictEqual(result.code, 1)
-  assert.match(result.stderr, /armada scout: removed/)
+  assert.match(result.stderr, /Unknown command/)
 })
 
-test("scout: no args prints removal message and exits 1", () => {
+test("scout: no args prints unknown command and exits 1", () => {
   const result = runCli(["scout"])
   assert.strictEqual(result.code, 1)
-  assert.match(result.stderr, /armada scout: removed/)
+  assert.match(result.stderr, /Unknown command/)
 })

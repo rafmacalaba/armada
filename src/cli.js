@@ -10,9 +10,27 @@
 //   armada voyage <path>        boot a lane + send voyage prompt
 //   armada feature new|list|close  per-feature contract management
 //   armada models [--refresh]   curated model catalog
+//   armada reconcile [--json] [--state-dir <p>] [--repo <p>]
+//                           check for evidence drift; alias for resume
 //   armada help                 this help
 //   armada uninstall [--all]    remove armada-generated artifacts
 //   armada resume               resume after interrupted session
+
+// Check runtime before any imports or execution.
+// Block early: Node < 20 is unsupported.
+export function checkNodeRuntime(version = process.versions.node) {
+  const major = parseInt(version.split(".")[0], 10)
+  if (Number.isNaN(major) || major < 20) {
+    return `Unsupported runtime: Node.js >= 20 required (detected v${version}). Upgrade to Node 20 or later and retry.`
+  }
+  return null
+}
+
+const runtimeError = checkNodeRuntime()
+if (runtimeError) {
+  process.stderr.write(runtimeError + "\n")
+  process.exit(1)
+}
 
 import { existsSync, readFileSync, realpathSync } from "node:fs"
 import { basename, resolve } from "node:path"
@@ -70,9 +88,11 @@ Usage:
   armada models --refresh                    merge live provider models
   armada models --list-openrouter            live OpenRouter model list
   armada help                                this help
-  armada uninstall [--all] [--dry-run] [--target <dir>]  remove armada-generated artifacts
+  armada uninstall [--all] [--force] [--dry-run] [--target <dir>]  remove armada-generated artifacts
   armada resume [--json] [--state-dir <p>] [--repo <p>]
                            check for evidence drifts against contract (exit 2 if drifts)
+  armada reconcile [--json] [--state-dir <p>] [--repo <p>]
+                           alias for armada resume (check for evidence drifts)
 
 Deprecated (one-version aliases removed in v2.0):
   armada drive <lane-path>                   alias for voyage; prints deprecation hint, calls voyage
@@ -84,6 +104,33 @@ Removed:
   armada scout                               removed; use '/armada-scout' inside the opencode TUI
   armada ping                                removed; use 'armada help' to confirm the binary works
 `
+
+/**
+ * Validate project name for `armada new`.
+ * Rejects: empty, starts with `-`, contains `/`, `\\`, `..`, NUL, absolute paths.
+ * @param {string} name
+ * @throws {Error} if invalid
+ */
+function validateProjectName(name) {
+  if (!name || typeof name !== "string" || name.trim().length === 0) {
+    throw new Error("project name is required")
+  }
+  if (name.startsWith("-")) {
+    throw new Error(`invalid project name "${name}": project names cannot start with '-'`)
+  }
+  if (name.includes("/") || name.includes("\\")) {
+    throw new Error(`invalid project name "${name}": must not contain path separators`)
+  }
+  if (name.includes("..")) {
+    throw new Error(`invalid project name "${name}": must not contain ".."`)
+  }
+  if (name.includes("\0") || name.includes("\x00")) {
+    throw new Error(`invalid project name "${name}": must not contain null bytes`)
+  }
+  if (name.startsWith("/")) {
+    throw new Error(`invalid project name "${name}": must not be an absolute path`)
+  }
+}
 
 // Token -> stack field mappings for `--stack <hint>`. Only applied when the
 // detected stack leaves that field null/empty.
@@ -141,18 +188,33 @@ export async function main(argv = process.argv.slice(2)) {
     case "models":
       return models(rest)
     case "doctor":
-      return doctor()
+      return doctor(rest)
     case "uninstall":
       return uninstallCmd(rest)
     case "update":
       console.error("armada update: deprecated; use 'armada init --from-armada --restart'")
-      return init(rest)
-    case "ping":
-      console.error("armada ping: removed; use 'armada help' to confirm the binary works")
+      await init(rest)
       process.exitCode = 1
       return 1
     case "new": {
+      // Reject --help / -h as project name before passing to runNew
+      if (rest[0] === "--help" || rest[0] === "-h") {
+        console.log(HELP)
+        return 0
+      }
+      if (rest[0] && rest[0].startsWith("--")) {
+        console.error(`Invalid project name: "${rest[0]}" — project names cannot start with '--'`)
+        process.exitCode = 1
+        return 1
+      }
       const name = rest[0]
+      try {
+        validateProjectName(name)
+      } catch (err) {
+        console.error(err.message)
+        process.exitCode = 1
+        return 1
+      }
       const typeIdx = rest.indexOf("--type")
       const code = await runNew({
         name,
@@ -184,7 +246,9 @@ export async function main(argv = process.argv.slice(2)) {
       const target = targetIdx !== -1 && rest[targetIdx + 1] && !rest[targetIdx + 1].startsWith("--") ? rest[targetIdx + 1] : "."
       const initArgs = name ? ["--budget", name] : []
       if (target && target !== ".") initArgs.push("--target", target)
-      return init(initArgs)
+      await init(initArgs)
+      process.exitCode = 1
+      return 1
     }
     case "--version":
     case "-v":
@@ -192,10 +256,6 @@ export async function main(argv = process.argv.slice(2)) {
       return 0
     case "status":
       return statusCmd(rest)
-    case "scout":
-      console.error("armada scout: removed; use '/armada-scout' inside the opencode TUI")
-      process.exitCode = 1
-      return 1
     case "voyage-handoff":
       return voyageHandoffCmd(rest)
     case "help":
@@ -313,8 +373,13 @@ async function init(args) {
   manifest.targetDir = target
 
   const budgetIdx = args.indexOf("--budget")
-  if (budgetIdx !== -1 && BUDGETS.includes(args[budgetIdx + 1])) {
+  if (budgetIdx !== -1) {
     const budget = args[budgetIdx + 1]
+    if (!budget || !BUDGETS.includes(budget)) {
+      console.error(`unknown budget: "${budget || "(missing)"}". Available: ${BUDGETS.join(", ")}`)
+      process.exitCode = 1
+      return 1
+    }
     manifest.project.budget = budget
     // Budget tier selects per-role models (free/balanced/power). Without this,
     // default manifests bake balanced models and the flag only changes the
@@ -429,6 +494,8 @@ export function defaultManifest(target = ".") {
 }
 
 async function models(args) {
+  if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   if (args.includes("--list-openrouter")) {
     try {
       const models = await listOpenRouterModels()
@@ -442,8 +509,17 @@ async function models(args) {
   }
 
   const refresh = args.includes("--refresh")
-  const budget = args.find((a) => BUDGETS.includes(a)) ?? "balanced"
+  // Find the first non-flag arg as a budget candidate.
+  // Exclude values of flags that take a value (e.g. --cache <path>).
   const cacheIdx = args.indexOf("--cache")
+  const skipIdx = cacheIdx !== -1 ? cacheIdx + 1 : -1
+  const budgetCandidate = args.find((a, i) => !a.startsWith("-") && i !== skipIdx)
+  if (budgetCandidate && !BUDGETS.includes(budgetCandidate)) {
+    console.error(`unknown budget: "${budgetCandidate}". Available: ${BUDGETS.join(", ")}`)
+    process.exitCode = 1
+    return 1
+  }
+  const budget = budgetCandidate ?? "balanced"
   const cachePath =
     cacheIdx !== -1 && args[cacheIdx + 1] && !args[cacheIdx + 1].startsWith("--")
       ? args[cacheIdx + 1]
@@ -468,7 +544,9 @@ async function models(args) {
   return 0
 }
 
-async function doctor() {
+async function doctor(args = []) {
+  if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   console.log("armada doctor")
   // If the cwd has an armada manifest, surface its supervision.plugin setting so
   // the plugin-presence check runs.
@@ -484,6 +562,7 @@ async function doctor() {
     project: manifest?.project,
     team: manifest?.team,
     targetDir: ".",
+    selfPath: process.argv[1],
   })
   let anyFail = false
   for (const { name, status, detail } of checks) {
@@ -495,12 +574,15 @@ async function doctor() {
 }
 
 async function uninstallCmd(args) {
+  if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   const targetIdx = args.indexOf("--target")
   const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--") ? args[targetIdx + 1] : "."
   const fileIdx = args.indexOf("--from-armada")
   const file = fileIdx !== -1 ? args[fileIdx + 1] : "armada/armada.yaml"
   const dryRun = args.includes("--dry-run")
   const all = args.includes("--all")
+  const force = args.includes("--force")
   let manifest
   if (file && !file.startsWith("--") && existsSync(resolve(file))) {
     try {
@@ -520,7 +602,7 @@ async function uninstallCmd(args) {
   manifest.targetDir = target
   let removed
   try {
-    removed = uninstall(manifest, { all, dryRun })
+    removed = uninstall(manifest, { all, dryRun, force })
   } catch (err) {
     logError(err, `check permissions on the target directory`)
     process.exitCode = 1
@@ -546,12 +628,12 @@ async function resumeCmd(args) {
 }
 
 async function reconcileCmd(args) {
-  const DEPRECATION = "armada reconcile: deprecated; use 'armada resume' (this alias will be removed in v2.0)"
-  console.error(DEPRECATION)
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(HELP)
+    return 0
+  }
   try {
-    await resumeMain(args, { cwd: process.cwd() })
-    process.exitCode = 1  // force non-zero: deprecation alias
-    return 1
+    return await resumeMain(args, { cwd: process.cwd() })
   } catch (err) {
     logError(err)
     process.exitCode = 1
@@ -750,6 +832,8 @@ async function driveCmd(args, cmdName = "drive") {
 }
 
 async function fleetCmd(args) {
+  if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   const json = args.includes("--json")
   const open = args.includes("--open")
   const session = args.find((a) => !a.startsWith("--"))
@@ -793,6 +877,8 @@ async function fleetCmd(args) {
 }
 
 function statusCmd(args) {
+  if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   const { code, output } = statusMain(args, { cwd: process.cwd() })
   if (code === 0) {
     process.stdout.write(output)
@@ -812,6 +898,8 @@ function voyageHandoffCmd(names) {
   return 0
 }
 async function featureCmd(args) {
+  if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   const targetIdx = args.indexOf("--target")
   const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--")
     ? args[targetIdx + 1]
@@ -828,9 +916,10 @@ async function featureCmd(args) {
         return 1
       }
       const useWorktree = rest.includes("--worktree")
+      const force = rest.includes("--force")
       try {
         if (useWorktree) {
-          const paths = createWorktreeFeature(resolve(target), name)
+          const paths = createWorktreeFeature(resolve(target), name, { force })
           console.log(`feature "${name}" created (worktree)`)
           console.log(`  worktree: ${paths.worktreePath}`)
           console.log(`  branch:   ${paths.branch}`)
@@ -839,7 +928,7 @@ async function featureCmd(args) {
           console.log(`  index:    ${paths.indexPath}`)
           console.log(`  active:   ${paths.activePath}`)
         } else {
-          const paths = createFeature(resolve(target), name)
+          const paths = createFeature(resolve(target), name, { force })
           console.log(`feature "${name}" created`)
           console.log(`  contract: ${paths.contractPath}`)
           console.log(`  entry:    ${paths.entryPath}`)

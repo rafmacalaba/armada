@@ -9,8 +9,10 @@ you're contributing, dogfooding, or thinking about running a fleet on your own r
 
 armada is a **generator that turns any repository into a self-organizing AI engineering team**:
 a single orchestrator agent you talk to, backed by a crew of specialist subagents it dispatches
-in parallel, all governed by evidence — no plugin required (an opt-in supervision plugin is
-available but the default works with plain opencode).
+in parallel, all governed by evidence — no plugin required for the core loop. A thin
+fleet-tracker plugin is installed by default (so `armada fleet` shows live lane progress); a
+supervision plugin and a watchdog are opt-in. All three are one-file plugins under
+`.opencode/plugins/` (`src/scaffold.js:415-428`).
 
 ## The mental model
 
@@ -158,20 +160,37 @@ Features that share the checkout rely on the "disjoint files" prompt rule instea
 
 ```
 src/
-├── cli.js               entry + 11 subcommands (init/new/doctor/status/fleet/voyage/feature/models/help/uninstall/resume)
+├── cli.js               entry + dispatch — 12 commands + reconcile alias + deprecated/removed handling
 ├── index.js             library entry (programmatic API)
-├── model-catalog.js     the 8 roles, curated models, budget tiers (free/balanced/power)
+├── manifest.js          armada.yaml schema, default playbook, YAML parser (parseManifestYaml)
+├── model-catalog.js     the 8 roles, curated model recommendations, budget tiers, models cache
 ├── stack-detect.js      detect the tech stack from manifests/instruction files (monorepos too)
 ├── questionnaire.js     interactive setup (node readline, zero deps)
-├── generator.js         PURE renderers — team, agent files, opencode.json, AGENTS.md, commands
+├── ui.js                select/multiSelect/confirm prompts used by the questionnaire
+├── generator.js         PURE renderers — team, agent files, opencode.json, AGENTS.md, commands, plugins
 ├── scaffold.js          the I/O side — writes generated files, fills prompts, uninstall
 ├── state.js             the loop's memory — pure state schema + validators
-├── feature-commands.js  per-feature contracts — feature new/list/close
-├── doctor.js            environment health checks (opencode, providers, openrouter auth)
-└── manifest.js          the armada.yaml schema + parser
+├── feature-commands.js  per-feature contracts + worktrees — feature new/list/close
+├── doctor.js            environment health checks (opencode, providers, openrouter auth, model drift)
+├── new-command.js       `armada new` — starter-project generator
+├── recommendations.js   starter categories + stack recommendations (feeds new-command)
+├── role-display.js      role key <-> ship name map (commodore, galleon, ...)
+├── init-summary.js      init-end summary renderer + per-tier cost hints
+├── resume-cli.js        `armada resume`/`reconcile` CLI wrapper
+├── reconcile.js         evidence-drift engine (resume core)
+├── status-cmd.js        `armada status` renderer
+├── fleet-cmd.js         `armada fleet` dashboard renderers (table/detail/json)
+├── fleet-tracker.js     run store (~/.armada/runs/), staleness, STALLED marking
+├── drive.js             `armada voyage` — tmux boot, TUI-ready handshake, prompt send
+├── heartbeat.js         resident heartbeat for voyage sessions
+├── handoff.js           voyage-handoff block formatter
+├── terminal-open.js     auto-open a terminal attached to a lane session
+├── ledgers.js           per-feature ledger path helpers
+└── skills/              9 bundled skills (registry in skills/index.js)
 
 agents/<role>/prompt.template.md   per-role system prompt with {placeholders}
-presets/*.yaml                     budget presets
+presets/*.yaml                     budget presets (free / balanced / power)
+template/.devcontainer/            static devcontainer files
 starter/<category>/                cookiecutter-style repo templates (agentic best practices)
 ```
 
@@ -185,9 +204,9 @@ structure, not a side effect.
 ## The fleet, role by role
 
 The full roster — every role, its job, its file access, and whether it can write code — lives in
-[docs/using-armada.md#the-role-roster](./docs/using-armada.md#the-role-roster); the per-role
+[docs/user-guide.md#roles-and-ship-names](./docs/user-guide.md#roles-and-ship-names); the per-role
 model catalog (primary + fallback per budget tier) is at
-[docs/using-armada.md#the-model-catalog](./docs/using-armada.md#the-model-catalog).
+[docs/auth-and-cost.md#model-selection](./docs/auth-and-cost.md#model-selection).
 
 The one thing worth restating here: the boundaries are **enforced by permissions in the agent
 frontmatter** — not by prompt politeness. The SDK resolves the most specific rule first, so a
@@ -261,10 +280,14 @@ What the graph encodes:
   evidence-gated: it refuses until every criterion has a passing test or citation.
 - **CLI `armada status [--json] [--feature <name>]`** — reads `armada/state/active.json` + the
   features index.
-- **CLI `armada fleet [session]`** — cross-repo per-lane dashboard.
-- **CLI `armada resume`** — the human-facing restart wrapper (resume line + drift list).
+- **CLI `armada fleet [session]`** — cross-repo per-lane dashboard, fed by the default-on
+  fleet-tracker plugin or `armada voyage --heartbeat`.
+- **CLI `armada resume`** — the human-facing restart wrapper (resume line + drift list);
+  `armada reconcile` is a documented alias.
+- **CLI `armada voyage-handoff <name>`** — prints the dispatch handoff block for manual
+  voyage booting.
 - **`armada doctor`** — checks the harness: opencode, providers, openrouter auth, background
-  dispatch, supervision-plugin presence.
+  dispatch, plugin presence, model drift.
 - **`npm run test:smoke`** — live OpenRouter smoke against the cheapest model (opt-in).
 
 ---

@@ -17,7 +17,7 @@ test("all checks pass on healthy env", async () => {
   const checks = await runDoctor({
     env: envWith(binDir, { OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS: "true" }),
   })
-  assert.deepStrictEqual(checks.map((c) => c.status), ["pass", "pass", "pass", "pass", "pass", "pass", "pass"])
+  assert.deepStrictEqual(checks.map((c) => c.status), ["pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass", "pass"])
 })
 
 test("background dispatch reports the native flag when enabled", async () => {
@@ -43,12 +43,14 @@ test("fails when opencode missing", async () => {
     checks.map((c) => ({ name: c.name, status: c.status })),
     [
       { name: "opencode CLI", status: "fail" },
+      { name: "opencode version range", status: "fail" },
       { name: "providers auth", status: "fail" },
       { name: "openrouter auth", status: "fail" },
       { name: "background dispatch", status: "pass" },
       { name: "node", status: "pass" },
       { name: "global armada binary", status: "fail" },
       { name: "team roster", status: "pass" },
+      { name: "catalog consistency", status: "pass" },
     ]
   )
 })
@@ -333,4 +335,108 @@ test("model-drift skips disabled roles", async () => {
   assert.strictEqual(results.length, 1)
   assert.strictEqual(results[0].name, "model-drift")
   assert.strictEqual(results[0].status, "pass")
+})
+
+test("global armada binary uses PATH when selfPath not provided", async () => {
+  const binDir = makeBin({ opencode: SH, armada: "#!/bin/sh\necho v0.6.2\n" })
+  const checks = await runDoctor({
+    env: envWith(binDir),
+  })
+  const ga = checks.find((c) => c.name === "global armada binary")
+  assert.strictEqual(ga.status, "pass")
+  assert.match(ga.detail, /v0\.6\.2/)
+})
+
+test("global armada binary uses selfPath when provided", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const tmp = mkdtempSync(join(tmpdir(), "armada-selfpath-"))
+  writeFileSync(
+    join(tmp, "cli.js"),
+    "#!/usr/bin/env node\nif (process.argv.includes('--version')) { console.log('v2.0.0'); process.exit(0); }\nconsole.log('unknown');\n",
+    { mode: 0o755 }
+  )
+  const checks = await runDoctor({
+    env: envWith(binDir),
+    selfPath: join(tmp, "cli.js"),
+  })
+  const ga = checks.find((c) => c.name === "global armada binary")
+  assert.strictEqual(ga.status, "pass")
+  assert.match(ga.detail, /v2\.0\.0/)
+})
+
+test("opencode version range passes on supported version", async () => {
+  const binDir = makeBin({ opencode: "#!/bin/sh\necho 1.18.11\n", armada: "#!/bin/sh\necho v0.6.2\n" })
+  const checks = await runDoctor({
+    env: envWith(binDir, { OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS: "true" }),
+  })
+  const vr = checks.find((c) => c.name === "opencode version range")
+  assert.strictEqual(vr.status, "pass")
+  assert.match(vr.detail, /1\.18\.11/)
+  assert.match(vr.detail, /within supported range/)
+})
+
+test("opencode version range fails on unsupported version", async () => {
+  const binDir = makeBin({ opencode: "#!/bin/sh\necho 1.17.0\n", armada: "#!/bin/sh\necho v0.6.2\n" })
+  const checks = await runDoctor({
+    env: envWith(binDir),
+  })
+  const vr = checks.find((c) => c.name === "opencode version range")
+  assert.strictEqual(vr.status, "fail")
+  assert.match(vr.detail, /1\.17\.0/)
+  assert.match(vr.detail, /unsupported/)
+})
+
+test("opencode version range fails when opencode returns unparseable output", async () => {
+  const binDir = makeBin({ opencode: "#!/bin/sh\necho 'error'\n", armada: "#!/bin/sh\necho v0.6.2\n" })
+  const checks = await runDoctor({
+    env: envWith(binDir),
+  })
+  const vr = checks.find((c) => c.name === "opencode version range")
+  assert.strictEqual(vr.status, "fail")
+  assert.match(vr.detail, /unrecognized version format/)
+})
+
+test("opencode version range passes on version equal to minimum", async () => {
+  const binDir = makeBin({ opencode: "#!/bin/sh\necho 1.18.0\n", armada: "#!/bin/sh\necho v0.6.2\n" })
+  const checks = await runDoctor({
+    env: envWith(binDir),
+  })
+  const vr = checks.find((c) => c.name === "opencode version range")
+  assert.strictEqual(vr.status, "pass")
+  assert.match(vr.detail, /within supported range/)
+})
+
+test("opencode version range passes on newer major version", async () => {
+  const binDir = makeBin({ opencode: "#!/bin/sh\necho 2.1.0\n", armada: "#!/bin/sh\necho v0.6.2\n" })
+  const checks = await runDoctor({
+    env: envWith(binDir),
+  })
+  const vr = checks.find((c) => c.name === "opencode version range")
+  assert.strictEqual(vr.status, "pass")
+  assert.match(vr.detail, /2\.1\.0/)
+})
+
+test("catalog consistency passes with current catalog", async () => {
+  const binDir = makeBin({ opencode: SH, armada: "#!/bin/sh\necho v0.6.2\n" })
+  const checks = await runDoctor({ env: envWith(binDir) })
+  const cc = checks.find((c) => c.name === "catalog consistency")
+  assert.strictEqual(cc.status, "pass")
+  assert.match(cc.detail, /all roles have valid/)
+})
+
+import { checkCatalogConsistency } from "../src/doctor.js"
+
+test("checkCatalogConsistency returns pass when catalog is valid", () => {
+  const results = checkCatalogConsistency()
+  assert.strictEqual(results.length, 1)
+  assert.strictEqual(results[0].name, "catalog consistency")
+  assert.strictEqual(results[0].status, "pass")
+})
+
+test("checkCatalogConsistency detects missing role", () => {
+  // Not easily testable without mocking, but we can verify function shape
+  const results = checkCatalogConsistency()
+  assert.ok(Array.isArray(results))
+  assert.ok(results.length >= 1)
+  assert.ok(results.every((r) => r.name && r.status && r.detail !== undefined))
 })

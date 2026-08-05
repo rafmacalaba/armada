@@ -1,6 +1,6 @@
 /**
- * tests/resume.test.js — CLI tests for `armada resume` (the canonical name)
- * and the deprecated `armada reconcile` alias.
+ * tests/resume.test.js — CLI tests for `armada resume` (canonical)
+ * and `armada reconcile` (documented alias).
  */
 
 import { test } from "node:test"
@@ -28,21 +28,18 @@ test("resume --help exits 0 and prints help text", () => {
   assert.ok(stdout.length > 0, "stdout should have help text")
 })
 
-test("reconcile --help prints deprecation hint to stderr and exits 1", () => {
-  const { code, stderr } = runCli(["reconcile", "--help"])
-  assert.strictEqual(code, 1)
-  assert.ok(stderr.includes("deprecated"), "stderr should contain 'deprecated'")
-  assert.ok(stderr.includes("armada resume"), "stderr should mention 'armada resume'")
+test("reconcile --help exits 0 and prints help text (documented alias)", () => {
+  const { code, stdout } = runCli(["reconcile", "--help"])
+  assert.strictEqual(code, 0)
+  assert.ok(stdout.length > 0, "stdout should have help text")
 })
 
-test("reconcile (no args) prints deprecation hint to stderr and still runs the underlying job", () => {
-  const { code, stdout, stderr } = runCli(["reconcile"])
-  assert.ok(stderr.includes("deprecated"), "stderr should contain 'deprecated'")
-  assert.ok(stderr.includes("armada resume"), "stderr should mention 'armada resume'")
-  // The underlying job should still run (prints resume output to stdout)
+test("reconcile (no args) runs the underlying resume engine", () => {
+  const { stdout } = runCli(["reconcile"])
+  // Underlying resume engine prints resume output to stdout
   assert.ok(
-    stdout.includes("resume:") || stdout.includes("drifts") || stdout.includes("drift"),
+    stdout.includes("resume:") || stdout.includes("drifts") || stdout.includes("drift") || stdout.includes("{"),
     "stdout should contain reconciler output"
   )
-  assert.strictEqual(code, 1, "should exit 1 due to deprecation")
+  // Exit code reflects actual outcome, not forced non-zero
 })

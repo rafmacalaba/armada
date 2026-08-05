@@ -1,16 +1,16 @@
 {
   "name": "armada",
   "version": "0.9.2",
-  "description": "Turn any repo into a self-organizing AI engineering team — one command, 8 specialists, evidence-gated delivery. For opencode.",
+  "description": "Turn any repo into a self-organizing AI engineering team \u2014 one command, 8 specialists, evidence-gated delivery. For opencode.",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/rafmacalaba/armada.git"
+    "url": "git+https://github.com/rafmacalaba/opencode-armada.git"
   },
   "bugs": {
-    "url": "https://github.com/rafmacalaba/armada/issues"
+    "url": "https://github.com/rafmacalaba/opencode-armada/issues"
   },
-  "homepage": "https://github.com/rafmacalaba/armada#readme",
+  "homepage": "https://github.com/rafmacalaba/opencode-armada#readme",
   "bin": {
     "armada": "./src/cli.js",
     "opencode-armada": "./src/cli.js"
@@ -32,6 +32,7 @@
     "test": "node --test 'tests/*.test.js'",
     "test:smoke": "node --test 'tests/smoke/*.test.js'",
     "test:node": "node --test 'tests/*.test.js'",
+    "test:packed": "node tests/run-packed-test.js",
     "prepublishOnly": "node --test 'tests/*.test.js'"
   },
   "engines": {
@@ -52,7 +53,15 @@
     "ai-coding"
   ],
   "license": "MIT",
+  "peerDependencies": {
+    "opencode": "^1.18.0"
+  },
   "dependencies": {
     "yaml": "^2.9.0"
+  },
+  "peerDependenciesMeta": {
+    "opencode": {
+      "optional": true
+    }
   }
 }
