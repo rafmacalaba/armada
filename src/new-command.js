@@ -132,6 +132,28 @@ export async function runNew(opts = {}) {
     return
   }
 
+  // Validate name for path safety (DEF-006)
+  if (name.includes("/") || name.includes("\\")) {
+    console.error(`invalid project name "${name}": must not contain path separators`)
+    process.exitCode = 1
+    return
+  }
+  if (name.includes("..")) {
+    console.error(`invalid project name "${name}": must not contain ".."`)
+    process.exitCode = 1
+    return
+  }
+  if (name.startsWith("/")) {
+    console.error(`invalid project name "${name}": must not be an absolute path`)
+    process.exitCode = 1
+    return
+  }
+  if (name.startsWith("-")) {
+    console.error(`invalid project name "${name}": project names cannot start with '-'`)
+    process.exitCode = 1
+    return
+  }
+
   let category = opts.type
   if (!category) {
     if (opts.yes || !process.stdin.isTTY) {
