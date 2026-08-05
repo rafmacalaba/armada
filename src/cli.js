@@ -64,8 +64,8 @@ Evidence-gated AI-engineer teams for opencode, natively (no plugin).
 
 Usage:
   armada init                                interactive setup
-  armada new <name> [--type <c>] [--beginner|--experienced] [--yes]
-                          create new project from curated starter template
+  armada new <name> --template <url|path> [--config <file.json>] [--yes]
+                          create new project from cookiecutter template
   armada init --stack <s> --budget <b>       declarative setup
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
   armada init --yolo                         autonomous: no permission prompts (bash allow, edit boundaries kept)
@@ -215,12 +215,28 @@ export async function main(argv = process.argv.slice(2)) {
         process.exitCode = 1
         return 1
       }
-      const typeIdx = rest.indexOf("--type")
+      // --type is removed; reject with clear error
+      if (rest.includes("--type")) {
+        console.error("--type removed; use --template <cookiecutter-url> for any Cookiecutter-compatible template")
+        process.exitCode = 1
+        return 1
+      }
+      // Reject legacy flags
+      for (const flag of ["--beginner", "--experienced"]) {
+        if (rest.includes(flag)) {
+          console.error(`${flag} removed; use --template <cookiecutter-url> instead`)
+          process.exitCode = 1
+          return 1
+        }
+      }
+      const templateIdx = rest.indexOf("--template")
+      const template = templateIdx !== -1 ? rest[templateIdx + 1] : undefined
+      const configIdx = rest.indexOf("--config")
+      const config = configIdx !== -1 ? rest[configIdx + 1] : undefined
       const code = await runNew({
         name,
-        type: typeIdx !== -1 ? rest[typeIdx + 1] : undefined,
-        beginner: rest.includes("--beginner"),
-        experienced: rest.includes("--experienced"),
+        template,
+        config,
         yes: rest.includes("--yes"),
       })
       return code ?? process.exitCode ?? 0
