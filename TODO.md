@@ -829,3 +829,5 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 
 - [x] **HANDOFF block after voyage dispatch** (#92) (2026-08-05). Pure formatter `src/handoff.js` + `armada voyage-handoff` CLI helper + orchestrator template rule + `armada voyage attach <name>` subcommand. Re-scaffold round-trip preserves the rule.
 - [x] **Voyage-completion workflow** (#92) (2026-08-05). Orchestrator prompt template gained a `## Voyage completion` section: TODO.md auto-update, auto-merge guard (`mergeable` + CI green), local merge after origin merge. No new CLI commands — pure prompt rules.
+
+- [x] **Orchestrator dispatch narration uses shipName [role]** (#95) (2026-08-05). Orchestrator prompt template gained a hard MUST `## Dispatch narration` section + carve-out from the Output contract. New `tests/orchestrator-prompt.test.js` (3 regex assertions) guards the rule. Round-trip re-scaffold preserves it.
