@@ -2,7 +2,7 @@
 
 ## DEF-001: uninstall -v / -h / --version performs destructive operations
 
-- Status: OPEN
+- Status: CLOSED
 - Severity: HIGH
 - Found by: adversary (ADV-001)
 - Phase: 6
@@ -16,10 +16,11 @@ Root cause: src/cli.js — subcommand handlers do not intercept -h/-v/--version 
 
 History:
 - qa: opened
+- qa: closed (test cli-arg-flags.test.js:0 failed) — 2026-08-05
 
 ## DEF-002: armada init --budget and armada models silently ignore invalid budgets
 
-- Status: OPEN
+- Status: CLOSED
 - Severity: MEDIUM
 - Found by: adversary (ADV-002)
 - Phase: 6
@@ -34,10 +35,11 @@ Root cause: src/cli.js:342 and src/cli.js:471 — BUDGETS.includes() is a guard 
 
 History:
 - qa: opened
+- qa: closed (test budget-validation.test.js:0 failed) — 2026-08-05
 
 ## DEF-003: armada feature new overwrites existing feature without warning
 
-- Status: OPEN
+- Status: CLOSED
 - Severity: MEDIUM
 - Found by: adversary (ADV-003)
 - Phase: 6
@@ -51,10 +53,11 @@ Root cause: src/feature-commands.js:230-279 createFeature() — no existence che
 
 History:
 - qa: opened
+- qa: closed (test feature-new-duplicate.test.js:0 failed) — 2026-08-05
 
 ## DEF-004: CI actions unpinned and workflow runs with default broad token
 
-- Status: OPEN
+- Status: CLOSED
 - Severity: MEDIUM
 - Found by: security (SEC-001)
 - Phase: 6
@@ -67,10 +70,11 @@ Actual: mutable major-version tags used; no permissions block; default GITHUB_TO
 
 History:
 - qa: opened
+- qa: closed (test ci-workflow.test.js:0 failed) — 2026-08-05
 
 ## DEF-005: Dirty-cleanup refusal guard is dead code; uninstall --all deletes voyage state unconditionally
 
-- Status: OPEN
+- Status: CLOSED
 - Severity: MEDIUM
 - Found by: security (SEC-002)
 - Phase: 6
@@ -84,10 +88,11 @@ Actual: src/scaffold.js:485-494 calls rmSync(stateDir, recursive+force) with no 
 
 History:
 - qa: opened
+- qa: closed (test dirty-cleanup-refusal.test.js:0 failed) — 2026-08-05
 
 ## DEF-006: armada new project name allows parent-directory traversal
 
-- Status: OPEN
+- Status: CLOSED
 - Severity: LOW
 - Found by: security (SEC-005)
 - Phase: 6
@@ -101,3 +106,4 @@ Root cause: src/new-command.js:157-159 + src/cli.js:171-181 — only rejects `--
 
 History:
 - qa: opened
+- qa: closed (test new-name-validation.test.js:0 failed) — 2026-08-05
