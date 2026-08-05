@@ -4,7 +4,8 @@
   "description": "Turn any repo into a self-organizing AI engineering team — one command, 8 specialists, evidence-gated delivery. For opencode.",
   "type": "module",
   "bin": {
-    "armada": "./src/cli.js"
+    "armada": "./src/cli.js",
+    "opencode-armada": "./src/cli.js"
   },
   "exports": {
     ".": "./src/index.js"
