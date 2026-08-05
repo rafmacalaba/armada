@@ -13,12 +13,13 @@ function runCli(args) {
   return { code: result.status, stdout: result.stdout, stderr: result.stderr }
 }
 
-// Phase 2: armada update is deprecated, prints hint, calls init
-test("update: prints deprecation hint on stderr, calls init", () => {
-  // init without args in non-TTY prints a basic help/catalog
+// Phase 2: armada update is deprecated, prints hint, calls init, exits 1
+test("update: prints deprecation hint on stderr, calls init, exits 1", () => {
+  // init without args in non-TTY produces init output
   const result = runCli(["update"])
   assert.match(result.stderr, /armada update: deprecated/)
   assert.match(result.stderr, /armada init --from-armada --restart/)
   // init in non-TTY without cwd produces basic init output
   assert.match(result.stdout, /Scaffolded|Usage:/)
+  assert.strictEqual(result.code, 1, "deprecated aliases exit 1")
 })

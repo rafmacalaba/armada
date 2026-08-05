@@ -121,42 +121,54 @@ export async function runDoctor(opts = {}) {
 
   checks.push({ name: "node", status: "pass", detail: process.version })
 
-  const armadaDirOnPath = (env.PATH ?? "").split(":").some((dir) => {
-    try { return lstatSync(join(dir, "armada")).isDirectory() } catch { return false }
-  })
-  if (armadaDirOnPath) {
+  // Use the running binary (selfPath) if provided, otherwise check PATH.
+  // This prevents stale PATH entries from producing misleading output.
+  const selfPath = opts.selfPath ?? process.argv[1]
+  if (selfPath) {
+    const selfRun = await run(process.execPath, [selfPath, "--version"], env)
     checks.push({
       name: "global armada binary",
-      status: "fail",
-      detail: "a directory named armada is on PATH — remove it or ensure a proper binary has priority",
+      status: selfRun.ok ? "pass" : "fail",
+      detail: selfRun.ok ? selfRun.out || "exit 0" : firstLine(selfRun.out, "self-check failed"),
     })
   } else {
-    const armadaPath = findOnPath("armada", env)
-    if (armadaPath) {
-      try {
-        realpathSync(armadaPath)
-        const armadaRun = await run("armada", ["help"], env)
-        checks.push({
-          name: "global armada binary",
-          status: armadaRun.ok ? "pass" : "fail",
-          detail: armadaRun.ok ? armadaRun.out || "exit 0" : firstLine(armadaRun.out, "armada command failed"),
-        })
-      } catch (err) {
-        const isLoop = err?.code === 'ELOOP'
-        checks.push({
-          name: "global armada binary",
-          status: "fail",
-          detail: isLoop
-            ? `symlink loop detected at ${armadaPath} — remove the loop and re-link`
-            : "broken symlink — run npm link from ~/WBG/opencode-armada",
-        })
-      }
-    } else {
+    const armadaDirOnPath = (env.PATH ?? "").split(":").some((dir) => {
+      try { return lstatSync(join(dir, "armada")).isDirectory() } catch { return false }
+    })
+    if (armadaDirOnPath) {
       checks.push({
         name: "global armada binary",
         status: "fail",
-        detail: "armada not on PATH — run npm link from ~/WBG/opencode-armada",
+        detail: "a directory named armada is on PATH — remove it or ensure a proper binary has priority",
       })
+    } else {
+      const armadaPath = findOnPath("armada", env)
+      if (armadaPath) {
+        try {
+          realpathSync(armadaPath)
+          const armadaRun = await run("armada", ["help"], env)
+          checks.push({
+            name: "global armada binary",
+            status: armadaRun.ok ? "pass" : "fail",
+            detail: armadaRun.ok ? armadaRun.out || "exit 0" : firstLine(armadaRun.out, "armada command failed"),
+          })
+        } catch (err) {
+          const isLoop = err?.code === 'ELOOP'
+          checks.push({
+            name: "global armada binary",
+            status: "fail",
+            detail: isLoop
+              ? `symlink loop detected at ${armadaPath} — remove the loop and re-link`
+              : "broken symlink — run npm link from ~/WBG/opencode-armada",
+          })
+        }
+      } else {
+        checks.push({
+          name: "global armada binary",
+          status: "fail",
+          detail: "armada not on PATH — run npm link from ~/WBG/opencode-armada",
+        })
+      }
     }
   }
 

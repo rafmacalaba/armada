@@ -10,6 +10,8 @@
 //   armada voyage <path>        boot a lane + send voyage prompt
 //   armada feature new|list|close  per-feature contract management
 //   armada models [--refresh]   curated model catalog
+//   armada reconcile [--json] [--state-dir <p>] [--repo <p>]
+//                           check for evidence drift; alias for resume
 //   armada help                 this help
 //   armada uninstall [--all]    remove armada-generated artifacts
 //   armada resume               resume after interrupted session
@@ -73,6 +75,8 @@ Usage:
   armada uninstall [--all] [--dry-run] [--target <dir>]  remove armada-generated artifacts
   armada resume [--json] [--state-dir <p>] [--repo <p>]
                            check for evidence drifts against contract (exit 2 if drifts)
+  armada reconcile [--json] [--state-dir <p>] [--repo <p>]
+                           alias for armada resume (check for evidence drifts)
 
 Deprecated (one-version aliases removed in v2.0):
   armada drive <lane-path>                   alias for voyage; prints deprecation hint, calls voyage
@@ -146,12 +150,20 @@ export async function main(argv = process.argv.slice(2)) {
       return uninstallCmd(rest)
     case "update":
       console.error("armada update: deprecated; use 'armada init --from-armada --restart'")
-      return init(rest)
-    case "ping":
-      console.error("armada ping: removed; use 'armada help' to confirm the binary works")
+      await init(rest)
       process.exitCode = 1
       return 1
     case "new": {
+      // Reject --help / -h as project name before passing to runNew
+      if (rest[0] === "--help" || rest[0] === "-h") {
+        console.log(HELP)
+        return 0
+      }
+      if (rest[0] && rest[0].startsWith("--")) {
+        console.error(`Invalid project name: "${rest[0]}" — project names cannot start with '--'`)
+        process.exitCode = 1
+        return 1
+      }
       const name = rest[0]
       const typeIdx = rest.indexOf("--type")
       const code = await runNew({
@@ -184,7 +196,9 @@ export async function main(argv = process.argv.slice(2)) {
       const target = targetIdx !== -1 && rest[targetIdx + 1] && !rest[targetIdx + 1].startsWith("--") ? rest[targetIdx + 1] : "."
       const initArgs = name ? ["--budget", name] : []
       if (target && target !== ".") initArgs.push("--target", target)
-      return init(initArgs)
+      await init(initArgs)
+      process.exitCode = 1
+      return 1
     }
     case "--version":
     case "-v":
@@ -192,10 +206,6 @@ export async function main(argv = process.argv.slice(2)) {
       return 0
     case "status":
       return statusCmd(rest)
-    case "scout":
-      console.error("armada scout: removed; use '/armada-scout' inside the opencode TUI")
-      process.exitCode = 1
-      return 1
     case "voyage-handoff":
       return voyageHandoffCmd(rest)
     case "help":
@@ -484,6 +494,7 @@ async function doctor() {
     project: manifest?.project,
     team: manifest?.team,
     targetDir: ".",
+    selfPath: process.argv[1],
   })
   let anyFail = false
   for (const { name, status, detail } of checks) {
@@ -546,12 +557,12 @@ async function resumeCmd(args) {
 }
 
 async function reconcileCmd(args) {
-  const DEPRECATION = "armada reconcile: deprecated; use 'armada resume' (this alias will be removed in v2.0)"
-  console.error(DEPRECATION)
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(HELP)
+    return 0
+  }
   try {
-    await resumeMain(args, { cwd: process.cwd() })
-    process.exitCode = 1  // force non-zero: deprecation alias
-    return 1
+    return await resumeMain(args, { cwd: process.cwd() })
   } catch (err) {
     logError(err)
     process.exitCode = 1

@@ -482,6 +482,15 @@ export function uninstall(manifest, opts = {}) {
   removeFile("armada/ledgers/_template/SECURITY_FINDINGS.md")
   removeEmptyDir("armada/ledgers/_template")
   removeEmptyDir("armada/ledgers")
+  // Remove armada/state/ left by feature new / voyage commands when --all.
+  // Must run before removeEmptyDir("armada") so armada/ becomes empty.
+  if (opts.all) {
+    const stateDir = join(target, "armada", "state")
+    if (existsSync(stateDir) && !opts.dryRun) {
+      rmSync(stateDir, { recursive: true, force: true })
+    }
+    removed.push("armada/state")
+  }
   removeEmptyDir("armada")
   for (const cmd of ["armada", "armada-scout", "armada-resume", "armada-voyage"]) {
     removeFile(`.opencode/commands/${cmd}.md`)

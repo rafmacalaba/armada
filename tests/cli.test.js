@@ -38,10 +38,10 @@ test("-h and --help print usage", async () => {
   assert.match(r2.stdout, /Usage:/)
 })
 
-test("ping is removed, exits 1 with hint", async () => {
+test("ping is removed, exits 1 with unknown command", async () => {
   const r = await runCli(["ping"])
   assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /armada ping: removed/)
+  assert.match(r.stderr, /Unknown command/)
 })
 
 test("unknown command returns exit code 1", async () => {
