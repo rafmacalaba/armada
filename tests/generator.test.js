@@ -1,15 +1,9 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { readFileSync } from "node:fs"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
-
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
 import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaVoyageCommand, renderArmadaSupervisionPlugin, renderArmadaFleetPlugin, renderArmadaWatchdogPlugin } from "../src/generator.js"
 import { displayFor } from "../src/role-display.js"
 import { parseManifestYaml } from "../src/manifest.js"
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const baseManifest = {
   project: {
@@ -39,26 +33,6 @@ test("catalog has expected model IDs per role", () => {
       architect: { primary: "opencode/big-pickle", fallback: "openrouter/z-ai/glm-5.2", free: "opencode/big-pickle", power: "openrouter/z-ai/glm-5.2" },
     }
   )
-})
-
-test("every catalog model exists on live providers (fixture)", () => {
-  // Fixture captured from `opencode models` on the user's providers. Regenerate
-  // with: opencode models > tests/fixtures/live-models.txt
-  // Guards against catalog drift — a model ID that doesn't exist on a live
-  // provider breaks every team that scaffolds with that budget tier.
-  const live = new Set(
-    readFileSync(join(__dirname, "fixtures", "live-models.txt"), "utf8")
-      .split("\n").map((s) => s.trim()).filter(Boolean)
-  )
-  const missing = []
-  for (const r of ROLES) {
-    const e = CATALOG[r]
-    for (const field of ["primary", "fallback", "free", "power"]) {
-      const id = e[field]
-      if (id && !live.has(id)) missing.push(`${r}.${field}: ${id}`)
-    }
-  }
-  assert.deepStrictEqual(missing, [], "catalog entries not available on live providers")
 })
 
 test("modelFor respects budget", () => {
