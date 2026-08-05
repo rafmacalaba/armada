@@ -1,4 +1,4 @@
-# Contributing to opencode-armada
+# Contributing to armada
 
 Thanks for considering a contribution. armada is MIT-licensed and welcomes improvements.
 
@@ -19,8 +19,8 @@ Thanks for considering a contribution. armada is MIT-licensed and welcomes impro
 ## Development setup
 
 ```bash
-git clone https://github.com/rafmacalaba/opencode-armada.git
-cd opencode-armada
+git clone https://github.com/rafmacalaba/armada.git
+cd armada
 npm install
 node --test 'tests/*.test.js'         # run the test suite (must pass)
 node src/cli.js help                  # verify the CLI

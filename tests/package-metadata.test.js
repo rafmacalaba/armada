@@ -41,3 +41,9 @@ test("package.json has peerDependencies.opencode", () => {
   assert.ok(pkg.peerDependencies.opencode, "opencode peer dependency must exist")
   assert.strictEqual(pkg.peerDependencies.opencode, "^1.18.0")
 })
+
+test("package.json marks opencode peer dep as optional (npm ci compatibility)", () => {
+  assert.ok(pkg.peerDependenciesMeta, "peerDependenciesMeta field must exist")
+  assert.ok(pkg.peerDependenciesMeta.opencode, "peerDependenciesMeta.opencode must exist")
+  assert.strictEqual(pkg.peerDependenciesMeta.opencode.optional, true, "opencode must be marked optional so npm ci does not 404 on it")
+})

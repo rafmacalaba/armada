@@ -18,7 +18,7 @@
 ## Install
 
 ```bash
-npm install -g opencode-armada        # or: bun add -g opencode-armada
+npm install -g armada                 # or: bun add -g armada
 armada --version                      # confirm the binary works
 armada doctor                         # environment health check
 ```
@@ -191,7 +191,7 @@ armada resume                         # drift report after a crash
 ## Upgrade
 
 ```bash
-npm install -g opencode-armada@latest
+npm install -g armada@latest
 armada init --from-armada armada/armada.yaml   # re-scaffold from manifest
 armada doctor                                  # verify
 ```

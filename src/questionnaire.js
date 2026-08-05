@@ -72,7 +72,7 @@ function renderSummary(out, { name, budget, enabled, overrides, browserTesting }
 export async function runQuestionnaire(rootDir = ".", { input, output } = {}) {
   const out = output ?? stdout
   const detected = detectStack(rootDir)
-  out.write("\n=== opencode-armada setup ===\n")
+  out.write("\n=== armada setup ===\n")
   out.write(`Detected stack: ${formatStack(detected)}\n`)
 
   const name = await ask("Project name", { default: guessName(rootDir), input, output })

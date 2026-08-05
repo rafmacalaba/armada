@@ -58,7 +58,7 @@ function buildMinimalArmadaYaml(opts = {}) {
   const name = opts.name || "test-project"
   const budget = opts.budget || "balanced"
   return [
-    "# armada.yaml — opencode-armada manifest (source of truth)",
+    "# armada.yaml — armada manifest (source of truth)",
     `project:`,
     `  name: "${name}"`,
     `  budget: "${budget}"`,

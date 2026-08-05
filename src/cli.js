@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// opencode-armada CLI — entry point.
+// armada CLI — entry point.
 //
 // Commands (11 total):
 //   armada init                 interactive questionnaire -> writes team config
@@ -59,7 +59,7 @@ const activeHeartbeats = new Map()
 
 export const VERSION = "0.9.2"
 
-const HELP = `opencode-armada v${VERSION}
+const HELP = `armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).
 
 Usage:
@@ -252,7 +252,7 @@ export async function main(argv = process.argv.slice(2)) {
     }
     case "--version":
     case "-v":
-      process.stdout.write("opencode-armada v" + VERSION + "\n")
+      process.stdout.write("armada v" + VERSION + "\n")
       return 0
     case "status":
       return statusCmd(rest)
@@ -461,7 +461,7 @@ async function init(args) {
     process.exitCode = 1
     return 1
   }
-  console.log(`\n${dryRun ? "(dry-run) " : ""}Scaffolded opencode-armada team:`)
+  console.log(`\n${dryRun ? "(dry-run) " : ""}Scaffolded armada team:`)
   for (const f of files) console.log(`  ${dryRun ? "(dry-run) + " : "+ "}${f}`)
   console.log(renderInitSummary(manifest))
   if (!gitignore) console.log("\nNote: .gitignore block was skipped. Re-run 'armada init --from-armada armada/armada.yaml' to add it later.")
@@ -546,8 +546,8 @@ async function models(args) {
 
 async function doctor(args = []) {
   if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
-  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("opencode-armada v" + VERSION + "\n"); return 0 }
-  console.log("opencode-armada doctor")
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
+  console.log("armada doctor")
   // If the cwd has an armada manifest, surface its supervision.plugin setting so
   // the plugin-presence check runs.
   let manifest

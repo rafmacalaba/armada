@@ -15,14 +15,14 @@ For running armada on armada itself (dock worktrees in `sandbox/<name>/`), see
 ## Install / upgrade
 
 ```bash
-npm install -g opencode-armada        # or: bun add -g opencode-armada
+npm install -g armada                 # or: bun add -g armada
 armada --version
 armada doctor                         # environment health check
 ```
 
 Upgrade an armed repo in two steps:
 
-1. `npm install -g opencode-armada@latest` (or bump in your package manager).
+1. `npm install -g armada@latest` (or bump in your package manager).
 2. `armada init --from-armada armada/armada.yaml` — re-scaffolds `.opencode/` and `armada.yaml`
    from the manifest and surgically merges the armada-owned keys into `opencode.json` (`model`,
    `default_agent`, `permission`, `provider.openrouter.models`); every other `opencode.json` key
