@@ -113,6 +113,10 @@ sequentially, one at a time; the lanes that result are the parallelism. If using
 path, first verify cwd is the main repo (refuse if `git rev-parse --show-toplevel` differs from
 the main checkout or a `sandbox/<name>` ancestor exists). Do not start building in the main repo.
 
+## Handoff block
+
+After any successful `armada voyage` tool call in the same turn, your reply MUST include exactly one `--- HANDOFF ---` block listing every session you dispatched in that turn, using `armada voyage-handoff <name> [<name>...]` to format it. If you dispatched no voyages this turn, emit no handoff block.
+
 ## Cost discipline
 
 Your model is slow and expensive. Spend it on judgment, not typing. Never write or edit code.

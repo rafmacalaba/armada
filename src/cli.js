@@ -35,6 +35,7 @@ import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cm
 import { runUpdate } from "./update.js"
 import { main as statusMain } from "./status-cmd.js"
 import { main as scoutMain } from "./scout-cmd.js"
+import { formatHandoffBlock } from "./handoff.js"
 
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
@@ -77,9 +78,10 @@ Usage:
   armada voyage <lane-path> [--heartbeat]  boot a lane session and send the voyage prompt (TUI-ready handshake)
   armada drive <lane-path>              (alias for voyage)
                                            auto-opens in wezterm (preferred) or per-OS emulator as fallback
-  armada voyage --print-attach <name>     print tmux attach command and exit
-  armada drive --print-attach <name>      (same, via drive alias)
-  armada ping                                sanity check
+   armada voyage --print-attach <name>     print tmux attach command and exit
+   armada drive --print-attach <name>      (same, via drive alias)
+   armada voyage-handoff <name> [<name>...]  print handoff block for dispatched voyages
+   armada ping                                sanity check
   armada help                                this help
 `
 
@@ -179,6 +181,8 @@ export async function main(argv = process.argv.slice(2)) {
       return statusCmd(rest)
     case "scout":
       return scoutCmd(rest)
+    case "voyage-handoff":
+      return voyageHandoffCmd(rest)
     case "help":
     case "-h":
     case "--help":
@@ -780,6 +784,15 @@ function scoutCmd(args) {
   }
   if (code !== 0) process.exitCode = code
   return code
+}
+
+function voyageHandoffCmd(names) {
+  if (!names || names.length === 0) {
+    console.error("Usage: armada voyage-handoff <name> [<name>...]")
+    return 1
+  }
+  console.log(formatHandoffBlock(names))
+  return 0
 }
 
 async function featureCmd(args) {
