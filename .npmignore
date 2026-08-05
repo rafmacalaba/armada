@@ -1,0 +1,18 @@
+# npm packaging excludes
+# Planning artifacts are gitignored but the docs/ whitelist in package.json
+# would otherwise include them. Block them explicitly here.
+docs/superpowers/
+
+# Tests never ship via npm (not in the `files` whitelist, but be explicit)
+tests/
+
+# Local scripts + state
+scripts/
+armada/state/
+armada/ledgers/_template/
+
+# OS / editor cruft
+.DS_Store
+*.log
+*.swp
+*.tgz
