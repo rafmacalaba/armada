@@ -64,7 +64,7 @@ test("uninstall --all removes empty opencode dir left after cleanup", async () =
 // Fix 5: doctor global binary check uses running binary, not PATH
 
 test("doctor uses running binary for global armada check", async () => {
-  const expectedVersion = "armada v0.9.2"
+  const expectedVersion = process.env.ARMADA_EXPECTED_VERSION || "armada v1.0.0"
   const r = await runCli(["doctor"])
   // The global armada binary check should report from the running binary,
   // which always succeeds since we're running it.

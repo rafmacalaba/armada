@@ -1,6 +1,6 @@
 {
   "name": "armada",
-  "version": "0.9.2",
+  "version": "1.0.0",
   "description": "Turn any repo into a self-organizing AI engineering team \u2014 one command, 8 specialists, evidence-gated delivery. For opencode.",
   "type": "module",
   "repository": {
