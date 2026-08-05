@@ -43,6 +43,23 @@ node --test tests/cli.test.js tests/cli-routing.test.js tests/preset-update-depr
 | reconcile | no drift | error | drifts |
 | resume | no drift | error | drifts |
 
+## Hotfix: doctor selfPath default
+
+`src/doctor.js:126` — changed `selfPath` default from `process.argv[1]` to `null`.
+In test context `process.argv[1]` is the test file, causing `runDoctor` to spawn
+`node <test-file> --version` recursively — infinite hang. Defaulting to `null` makes
+the PATH check (the intended fallback) run instead.
+
+Two new tests in `tests/doctor.test.js`:
+- `global armada binary uses PATH when selfPath not provided` — asserts PATH-based armada resolution when `selfPath` is undefined
+- `global armada binary uses selfPath when provided` — asserts explicit `selfPath` check works
+
+Test results after fix:
+```
+node --test 'tests/*.test.js'
+512 pass, 0 fail (23s)
+```
+
 ## Contract notes
 
 All 6 items from Phase 0 commands-inventory addressed. No contract changes needed.

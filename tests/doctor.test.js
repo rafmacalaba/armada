@@ -334,3 +334,30 @@ test("model-drift skips disabled roles", async () => {
   assert.strictEqual(results[0].name, "model-drift")
   assert.strictEqual(results[0].status, "pass")
 })
+
+test("global armada binary uses PATH when selfPath not provided", async () => {
+  const binDir = makeBin({ opencode: SH, armada: "#!/bin/sh\necho v0.6.2\n" })
+  const checks = await runDoctor({
+    env: envWith(binDir),
+  })
+  const ga = checks.find((c) => c.name === "global armada binary")
+  assert.strictEqual(ga.status, "pass")
+  assert.match(ga.detail, /v0\.6\.2/)
+})
+
+test("global armada binary uses selfPath when provided", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const tmp = mkdtempSync(join(tmpdir(), "armada-selfpath-"))
+  writeFileSync(
+    join(tmp, "cli.js"),
+    "#!/usr/bin/env node\nif (process.argv.includes('--version')) { console.log('v2.0.0'); process.exit(0); }\nconsole.log('unknown');\n",
+    { mode: 0o755 }
+  )
+  const checks = await runDoctor({
+    env: envWith(binDir),
+    selfPath: join(tmp, "cli.js"),
+  })
+  const ga = checks.find((c) => c.name === "global armada binary")
+  assert.strictEqual(ga.status, "pass")
+  assert.match(ga.detail, /v2\.0\.0/)
+})

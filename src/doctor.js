@@ -123,7 +123,7 @@ export async function runDoctor(opts = {}) {
 
   // Use the running binary (selfPath) if provided, otherwise check PATH.
   // This prevents stale PATH entries from producing misleading output.
-  const selfPath = opts.selfPath ?? process.argv[1]
+  const selfPath = opts.selfPath ?? null
   if (selfPath) {
     const selfRun = await run(process.execPath, [selfPath, "--version"], env)
     checks.push({
