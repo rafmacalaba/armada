@@ -78,10 +78,10 @@ Usage:
   armada voyage <lane-path> [--heartbeat]  boot a lane session and send the voyage prompt (TUI-ready handshake)
   armada drive <lane-path>              (alias for voyage)
                                            auto-opens in wezterm (preferred) or per-OS emulator as fallback
-   armada voyage --print-attach <name>     print tmux attach command and exit
-   armada drive --print-attach <name>      (same, via drive alias)
-   armada voyage-handoff <name> [<name>...]  print handoff block for dispatched voyages
-   armada ping                                sanity check
+  armada voyage --print-attach <name>     print tmux attach command and exit
+  armada drive --print-attach <name>      (same, via drive alias)
+  armada voyage-handoff <name> [<name>...]  print handoff block for dispatched voyages
+  armada ping                                sanity check
   armada help                                this help
 `
 

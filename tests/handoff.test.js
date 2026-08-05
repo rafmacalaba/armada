@@ -1,5 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
+import { join } from "node:path"
 import { formatHandoffBlock } from "../src/handoff.js"
 
 test("formatHandoffBlock: single session", () => {
@@ -27,4 +29,13 @@ Current window: free \u2014 hand off here.
 test("formatHandoffBlock: zero sessions returns empty string", () => {
   const result = formatHandoffBlock([])
   assert.equal(result, "")
+})
+
+test("armada help: voyage-handoff line has 2-space indent", () => {
+  const cli = join(process.cwd(), "src", "cli.js")
+  const result = spawnSync(process.execPath, [cli, "help"], { encoding: "utf8" })
+  assert.equal(result.status, 0, `help failed: ${result.stderr}`)
+  const expected = "  armada voyage-handoff <name> [<name>...]  print handoff block for dispatched voyages"
+  const found = result.stdout.split("\n").find(line => line.includes("voyage-handoff"))
+  assert.equal(found, expected, `expected "${expected}", got "${found}"`)
 })
