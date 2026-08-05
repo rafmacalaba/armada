@@ -39,8 +39,8 @@ test("uninstall --all removes armada/state directory", async () => {
   mkdirSync(join(dir, "armada", "state", "features"), { recursive: true })
   writeFileSync(join(dir, "armada", "state", "active.json"), JSON.stringify({ feature: "test" }))
   writeFileSync(join(dir, "armada", "state", "features", "index.json"), JSON.stringify([]))
-  // Uninstall --all
-  const r = await runCli(["uninstall", "--all"], { cwd: dir })
+  // Uninstall --all --force (force needed because we created dirty state)
+  const r = await runCli(["uninstall", "--all", "--force"], { cwd: dir })
   assert.strictEqual(r.code, 0)
   // armada/state should be gone
   const { existsSync } = await import("node:fs")
@@ -54,7 +54,7 @@ test("uninstall --all removes empty opencode dir left after cleanup", async () =
   // Create a state dir that init doesn't touch
   mkdirSync(join(dir, "armada", "state"), { recursive: true })
   writeFileSync(join(dir, "armada", "state", "active.json"), JSON.stringify({ feature: "test" }))
-  const r = await runCli(["uninstall", "--all"], { cwd: dir })
+  const r = await runCli(["uninstall", "--all", "--force"], { cwd: dir })
   assert.strictEqual(r.code, 0)
   const { existsSync } = await import("node:fs")
   assert.ok(!existsSync(join(dir, "armada")), "armada dir must be fully removed")

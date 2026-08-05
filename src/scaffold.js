@@ -27,6 +27,7 @@ import { formatStack } from "./stack-detect.js"
 import { validateRequirementsFile } from "./manifest.js"
 import { agentNameFor } from "./role-display.js"
 import { skillRegistry } from "./skills/index.js"
+import { refuseDirtyCleanup } from "./voyage/isolation.js"
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 
@@ -453,6 +454,10 @@ export function scaffold(manifest, stack, opts = {}) {
 // is logged via console.warn. Returns the list of removed relative paths.
 export function uninstall(manifest, opts = {}) {
   const target = manifest?.targetDir || "."
+  // Refuse --all if dirty state exists (unless --force)
+  if (opts.all) {
+    refuseDirtyCleanup(target, { force: opts.force })
+  }
   const removed = []
   const warnings = []
 
