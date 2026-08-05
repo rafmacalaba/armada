@@ -230,6 +230,13 @@ function writeFeatureEntry(repoDir, entry) {
 export function createFeature(repoDir, name, options = {}) {
   validateName(name)
 
+  // Check if feature already exists — refuse unless --force
+  const contractsDir = join(repoDir, "armada", "contracts")
+  const contractPath = join(contractsDir, `${name}.md`)
+  if (!options.force && existsSync(contractPath)) {
+    throw new Error(`feature "${name}" already exists at ${contractPath}. Use --force to overwrite.`)
+  }
+
   // Refuse in-tree feature creation from inside a worktree (DEF-005)
   // Use realpath to handle macOS /tmp → /private/tmp symlink
   const mainRepo = resolveMainRepo(repoDir)
@@ -237,10 +244,8 @@ export function createFeature(repoDir, name, options = {}) {
     throw new Error("cannot create in-tree feature from inside a worktree (use --worktree or run from main repo)")
   }
 
-  const contractsDir = join(repoDir, "armada", "contracts")
   ensureDir(contractsDir)
 
-  const contractPath = join(contractsDir, `${name}.md`)
   const contractContent = contractStub(name, options.phaseGraph)
   writeFileSync(contractPath, contractContent, "utf8")
 
@@ -265,7 +270,7 @@ export function createFeature(repoDir, name, options = {}) {
   const historyDir = join(repoDir, "armada", "state", "history")
   ensureDir(historyDir)
   appendJsonl(join(historyDir, `${name}.jsonl`), {
-    event: "created",
+    event: options.force ? "recreated" : "created",
     name,
     at: nowISO(),
   })
