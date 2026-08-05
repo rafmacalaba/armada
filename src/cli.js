@@ -619,6 +619,38 @@ async function resumeCmd(args) {
     return 0
   }
   try {
+    const repoRoot = flagValue(args, "--repo") || process.cwd()
+    const stateDir = flagValue(args, "--state-dir") || resolve(repoRoot, "armada", "state")
+
+    // Try P3 state layer first
+    const { resumeState } = await import("./voyage/lifecycle.js")
+    const updated = await resumeState(resolve(repoRoot))
+
+    if (updated) {
+      // P3 state found — report resume result
+      const voyage = updated.voyage
+      const done = updated.completedActions.length
+      const drift = 0
+      const nextAction = updated.inFlightAction
+        ? `complete "${updated.inFlightAction}"`
+        : "continue"
+      const resumeLine = `resume: voyage ${voyage}, status ${updated.status}, completed ${done}, drift ${drift}, next ${nextAction}`
+      if (args.includes("--json")) {
+        console.log(JSON.stringify({
+          activeFeature: voyage,
+          currentPhase: null,
+          drifts: [],
+          resumeLine,
+          voyageState: updated,
+          generatedAt: new Date().toISOString(),
+        }, null, 2))
+      } else {
+        console.log(resumeLine)
+      }
+      return 0
+    }
+
+    // No P3 state — fall back to read-only reconcile
     return await resumeMain(args, { cwd: process.cwd() })
   } catch (err) {
     logError(err)
@@ -633,6 +665,51 @@ async function reconcileCmd(args) {
     return 0
   }
   try {
+    const repoRoot = flagValue(args, "--repo") || process.cwd()
+
+    const { readState } = await import("./voyage/lifecycle.js")
+    const p3State = readState(resolve(repoRoot))
+
+    if (p3State) {
+      // P3 state exists — include it in drift report
+      const voyage = p3State.voyage
+      const done = p3State.completedActions.length
+      const drifts = []
+      if (p3State.inFlightAction) {
+        drifts.push({
+          kind: "in-flight-action-unresolved",
+          phase: "voyage",
+          criterion: p3State.inFlightAction,
+          ref: "armada/state/voyage.json",
+        })
+      }
+      const resumeLine = p3State.inFlightAction
+        ? `resume: voyage ${voyage}, status ${p3State.status}, completed ${done}, drift ${drifts.length}, next record "${p3State.inFlightAction}"`
+        : `resume: voyage ${voyage}, status ${p3State.status}, completed ${done}, drift 0, next continue`
+
+      if (args.includes("--json")) {
+        console.log(JSON.stringify({
+          activeFeature: voyage,
+          currentPhase: null,
+          drifts,
+          resumeLine,
+          voyageState: p3State,
+          generatedAt: new Date().toISOString(),
+        }, null, 2))
+      } else {
+        console.log(resumeLine)
+        if (drifts.length > 0) {
+          console.log(`drifts (${drifts.length}):`)
+          for (const d of drifts) {
+            console.log(`  - [${d.kind}] ${d.criterion}: ${d.ref}`)
+          }
+        }
+      }
+
+      return drifts.length > 0 ? 2 : 0
+    }
+
+    // No P3 state — fall back to read-only reconcile
     return await resumeMain(args, { cwd: process.cwd() })
   } catch (err) {
     logError(err)
@@ -919,7 +996,7 @@ async function featureCmd(args) {
       const force = rest.includes("--force")
       try {
         if (useWorktree) {
-          const paths = createWorktreeFeature(resolve(target), name, { force })
+          const paths = await createWorktreeFeature(resolve(target), name, { force })
           console.log(`feature "${name}" created (worktree)`)
           console.log(`  worktree: ${paths.worktreePath}`)
           console.log(`  branch:   ${paths.branch}`)

@@ -7,8 +7,10 @@ import { execFile, execSync } from "node:child_process"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { buildTeam, renderManifestYaml } from "../src/generator.js"
 import { GITIGNORE_START } from "../src/scaffold.js"
-import { runCli, makeTempRepo, makeBin, parseFrontmatter } from "./helpers.js"
+import { runCli, makeTempRepo, makeTempGitRepo, makeBin, parseFrontmatter } from "./helpers.js"
 import { main } from "../src/cli.js"
+
+const EXPECTED_VERSION = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).version
 
 function manifestYaml() {
   const m = { project: { name: "e2e", budget: "free", browserTesting: false, devcontainer: false,
@@ -723,4 +725,153 @@ test("drive --help prints deprecation hint exactly once", async () => {
   const r = await runCli(["drive", "--help"])
   const matches = (r.stderr.match(/armada drive: deprecated/g) || [])
   assert.strictEqual(matches.length, 1, `deprecation hint appeared ${matches.length} times, expected 1`)
+})
+
+// -- cli-routing (P1 fixes) --
+
+test("reconcile exits 0 when no state dir exists (no drift)", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["reconcile", "--repo", dir], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+})
+
+test("reconcile appears in help text", async () => {
+  const r = await runCli(["help"])
+  assert.match(r.stdout, /reconcile/)
+})
+
+test("uninstall --all removes armada/state directory", async () => {
+  const dir = makeTempRepo({ "armada/armada.yaml": manifestYaml() })
+  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
+  mkdirSync(join(dir, "armada", "state", "features"), { recursive: true })
+  writeFileSync(join(dir, "armada", "state", "active.json"), JSON.stringify({ feature: "test" }))
+  writeFileSync(join(dir, "armada", "state", "features", "index.json"), JSON.stringify([]))
+  const r = await runCli(["uninstall", "--all", "--force"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.ok(!existsSync(join(dir, "armada", "state")), "armada/state must be removed")
+  assert.ok(!existsSync(join(dir, "armada")), "armada must be removed")
+})
+
+test("uninstall --all removes empty opencode dir left after cleanup", async () => {
+  const dir = makeTempRepo({ "armada/armada.yaml": manifestYaml() })
+  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
+  mkdirSync(join(dir, "armada", "state"), { recursive: true })
+  writeFileSync(join(dir, "armada", "state", "active.json"), JSON.stringify({ feature: "test" }))
+  const r = await runCli(["uninstall", "--all", "--force"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  assert.ok(!existsSync(join(dir, "armada")), "armada dir must be fully removed")
+  assert.ok(!existsSync(join(dir, ".opencode")), ".opencode dir must be fully removed")
+})
+
+test("doctor uses running binary for global armada check", async () => {
+  const expectedVersion = process.env.ARMADA_EXPECTED_VERSION || "armada v1.0.0"
+  const r = await runCli(["doctor"])
+  assert.match(r.stdout, /global armada binary: pass/)
+  assert.match(r.stdout, new RegExp(`— ${expectedVersion.replace(/\./g, "\\.")}`))
+})
+
+test("armada new --help prints help, not project named --help", async () => {
+  const r = await runCli(["new", "--help"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
+})
+
+test("armada new with name starting with -- rejects with error", async () => {
+  const r = await runCli(["new", "--weirdname"])
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /project name cannot start with --|invalid project name/i)
+})
+
+// -- cli-arg-flags (P6 DEF-001: subcommand -v/-h/--version intercept) --
+
+test("uninstall -v prints version and exits 0, no fs mutation", async () => {
+  const dir = makeTempGitRepo({ "armada/armada.yaml": manifestYaml() })
+  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
+  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should exist before uninstall -v")
+  assert.ok(existsSync(join(dir, "armada", "armada.yaml")), "armada/armada.yaml should exist before uninstall -v")
+
+  const r = await runCli(["uninstall", "-v"], { cwd: dir })
+  assert.strictEqual(r.code, 0, "uninstall -v should exit 0")
+  assert.match(r.stdout, /armada v/, "should print version")
+  assert.match(r.stdout, new RegExp(EXPECTED_VERSION.replace(/\./g, "\\.")), `should include version ${EXPECTED_VERSION}`)
+
+  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should still exist after uninstall -v")
+})
+
+test("uninstall -h prints help and exits 0, no fs mutation", async () => {
+  const dir = makeTempGitRepo({ "armada/armada.yaml": manifestYaml() })
+  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
+  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should exist before uninstall -h")
+
+  const r = await runCli(["uninstall", "-h"], { cwd: dir })
+  assert.strictEqual(r.code, 0, "uninstall -h should exit 0")
+  assert.match(r.stdout, /Usage:/, "should print help")
+
+  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should still exist after uninstall -h")
+})
+
+test("uninstall --version prints version and exits 0, no fs mutation", async () => {
+  const dir = makeTempGitRepo({ "armada/armada.yaml": manifestYaml() })
+  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
+  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should exist before uninstall --version")
+
+  const r = await runCli(["uninstall", "--version"], { cwd: dir })
+  assert.strictEqual(r.code, 0, "uninstall --version should exit 0")
+  assert.match(r.stdout, /armada v/, "should print version")
+
+  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should still exist after uninstall --version")
+})
+
+test("doctor -v prints version and exits 0", async () => {
+  const r = await runCli(["doctor", "-v"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /armada v/)
+})
+
+test("doctor -h prints help and exits 0", async () => {
+  const r = await runCli(["doctor", "-h"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
+})
+
+test("fleet -v prints version and exits 0", async () => {
+  const r = await runCli(["fleet", "-v"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /armada v/)
+})
+
+test("fleet -h prints help and exits 0", async () => {
+  const r = await runCli(["fleet", "-h"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
+})
+
+test("models -v prints version and exits 0", async () => {
+  const r = await runCli(["models", "-v"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /armada v/)
+})
+
+test("models -h prints help and exits 0", async () => {
+  const r = await runCli(["models", "-h"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
+})
+
+test("status -v prints version and exits 0", async () => {
+  const r = await runCli(["status", "-v"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /armada v/)
+})
+
+test("status -h prints help and exits 0", async () => {
+  const r = await runCli(["status", "-h"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
+})
+
+test("feature -h prints help and exits 0", async () => {
+  const r = await runCli(["feature", "-h"])
+  assert.strictEqual(r.code, 0)
+  assert.match(r.stdout, /Usage:/)
 })

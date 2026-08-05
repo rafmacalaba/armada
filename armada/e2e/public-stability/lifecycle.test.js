@@ -1,11 +1,11 @@
 /**
- * P4 - Full canonical lifecycle.
+ * Lifecycle - Full canonical happy path.
  *
  * init -> doctor -> Opencode load (mocked) -> bounded voyage (mocked)
  * -> evidence collection -> update (re-init) -> repeat -> uninstall.
  *
- * The opencode binary is mocked throughout. Voyage uses a mock tmux
- * that immediately reports the pane as "ready" so bootLane succeeds.
+ * Also covers: armada new, repeated init idempotency, doctor failure
+ * when opencode is missing, uninstall --all.
  */
 
 import { test } from "node:test"
@@ -41,10 +41,10 @@ case "$1" in
 esac
 `
 
-function manifestYaml() {
+function manifestYaml(name = "lifecycle-test") {
   const m = {
     project: {
-      name: "lifecycle-test",
+      name,
       budget: "balanced",
       browserTesting: false,
       devcontainer: false,
@@ -66,7 +66,9 @@ function manifestYaml() {
   return renderManifestYaml(m, buildTeam(m))
 }
 
-test("P4 lifecycle: init -> doctor -> voyage -> evidence -> update -> repeat -> uninstall", async () => {
+// --- Main lifecycle ---------------------------------------------------------
+
+test("lifecycle: init -> doctor -> voyage -> evidence -> update -> repeat -> uninstall", async () => {
   const dir = makeTempGitRepo({
     "armada/armada.yaml": manifestYaml(),
   })
@@ -92,8 +94,6 @@ test("P4 lifecycle: init -> doctor -> voyage -> evidence -> update -> repeat -> 
 
   // Step 3: voyage (mocked tmux) - should not hang
   const voyageR = await runCli(["voyage", dir, "--timeout", "5000", "--no-open", "--no-track"], { env })
-  // Voyage may fail because we need to be in a git repo properly, but
-  // the key assertion is it does not hang for >5s (test timeout covers this)
   assert.ok(
     voyageR.stdout.includes("session") || voyageR.stderr.includes("session") || voyageR.code !== 0,
     "voyage should attempt session creation"
@@ -119,7 +119,9 @@ test("P4 lifecycle: init -> doctor -> voyage -> evidence -> update -> repeat -> 
   assert.ok(!existsSync(join(dir, "armada/armada.yaml")), "armada.yaml should be removed")
 })
 
-test("P4 lifecycle: repeated init does not corrupt opencode.json", async () => {
+// --- Idempotency -----------------------------------------------------------
+
+test("lifecycle: repeated init does not corrupt opencode.json", async () => {
   const dir = makeTempGitRepo({
     "armada/armada.yaml": manifestYaml(),
   })
@@ -141,7 +143,9 @@ test("P4 lifecycle: repeated init does not corrupt opencode.json", async () => {
   assert.ok(parsed.default_agent, "opencode.json should have default_agent field")
 })
 
-test("P4 lifecycle: uninstall --all removes all armada files", async () => {
+// --- Uninstall --------------------------------------------------------------
+
+test("lifecycle: uninstall --all removes all armada files", async () => {
   const dir = makeTempGitRepo({
     "armada/armada.yaml": manifestYaml(),
     "user-code.js": "const x = 1",
@@ -162,4 +166,45 @@ test("P4 lifecycle: uninstall --all removes all armada files", async () => {
   assert.ok(!existsSync(join(dir, "opencode.json")))
   // User file preserved
   assert.ok(existsSync(join(dir, "user-code.js")))
+})
+
+// --- Doctor failure ---------------------------------------------------------
+
+test("lifecycle: doctor fails when opencode is missing", async () => {
+  const dir = makeTempGitRepo({
+    "armada/armada.yaml": manifestYaml(),
+  })
+  const emptyBin = mkdtempSync(join(tmpdir(), "armada-empty-"))
+
+  const r = await runCli(["doctor"], {
+    cwd: dir,
+    env: { ...process.env, PATH: emptyBin },
+  })
+  // doctor reports fail
+  assert.match(r.stdout, /opencode CLI.*fail/)
+})
+
+// --- armada new -------------------------------------------------------------
+
+test("lifecycle: armada new creates project with expected structure", async () => {
+  const workspace = mkdtempSync(join(tmpdir(), "armada-new-workspace-"))
+  // Initialize git so armada new works
+  spawnSync("git", ["init", "-b", "main"], { cwd: workspace, encoding: "utf8" })
+  spawnSync("git", ["config", "user.email", "t@t"], { cwd: workspace, encoding: "utf8" })
+  spawnSync("git", ["config", "user.name", "t"], { cwd: workspace, encoding: "utf8" })
+
+  const r = await runCli(["new", "my-new-app", "--yes"], { cwd: workspace })
+  assert.strictEqual(r.code, 0, `armada new should succeed: ${r.stderr}`)
+  assert.match(r.stdout, /Created my-new-app/)
+
+  const projectDir = join(workspace, "my-new-app")
+  assert.ok(existsSync(projectDir), "project directory should exist")
+  assert.ok(existsSync(join(projectDir, "armada/armada.yaml")), "armada.yaml should exist")
+  assert.ok(existsSync(join(projectDir, "AGENTS.md")), "AGENTS.md should exist")
+
+  // Agent files present
+  for (const role of ROLES) {
+    const name = agentNameFor(role)
+    assert.ok(existsSync(join(projectDir, `.opencode/agent/${name}.md`)), `missing: .opencode/agent/${name}.md`)
+  }
 })

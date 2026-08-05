@@ -292,7 +292,7 @@ export function createFeature(repoDir, name, options = {}) {
  * @param {{ phaseGraph?: object }} [options]
  * @returns {{ worktreePath: string, branch: string, contractPath: string, entryPath: string, indexPath: string, activePath: string }}
  */
-export function createWorktreeFeature(repoDir, name, options = {}) {
+export async function createWorktreeFeature(repoDir, name, options = {}) {
   validateName(name)
 
   // Refuse nested worktree: target is itself inside a worktree
@@ -376,6 +376,22 @@ export function createWorktreeFeature(repoDir, name, options = {}) {
   // Also write the per-feature entry JSON in the main repo's global features dir
   // so readFeatureEntry / closeFeature can find it.
   writeFeatureEntry(mainRepo, entry)
+
+  // Write P3 voyage state in the worktree (best-effort, don't block feature creation)
+  try {
+    const { createVoyageState } = await import("./state/versioned.js")
+    const voyageState = createVoyageState({
+      voyage: name,
+      branch: `feat/${name}`,
+      worktree: `sandbox/${name}`,
+      contract: `armada/contracts/${name}.md`,
+    })
+    const stateDir = join(worktreePath, "armada", "state")
+    ensureDir(stateDir)
+    writeJson(join(stateDir, "voyage.json"), voyageState)
+  } catch {
+    // P3 state write is best-effort — don't block feature creation
+  }
 
   return {
     worktreePath,
@@ -559,6 +575,20 @@ export function closeFeature(repoDir, name, options = {}) {
     at: nowISO(),
     evidence: criteria.map((c) => ({ text: c.text, evidence: c.evidence })),
   })
+
+  // Mark P3 voyage state as completed if it exists (best-effort)
+  try {
+    const statePath = join(mainRepo, "armada", "state", "voyage.json")
+    if (existsSync(statePath)) {
+      const state = readJson(statePath)
+      state.status = "completed"
+      state.inFlightAction = null
+      state.updatedAt = nowISO()
+      writeJson(statePath, state)
+    }
+  } catch {
+    // best-effort
+  }
 
   return { entry: shippedEntry, removedWorktree: false }
 }
