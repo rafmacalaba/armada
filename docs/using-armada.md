@@ -1,11 +1,25 @@
 # Using armada
 
-> If you're new, read README.md; if you're operating, read this top-to-bottom; if you're looking up a flag, jump to the CLI reference section.
+> **SUPERSEDED (2026-08-05).** This doc is kept for historical reference only. The operator
+> manual moved to [operator-guide.md](./operator-guide.md) (install/upgrade/uninstall/rollback,
+> full flag table, exit codes, file ownership) and [user-guide.md](./user-guide.md) (quickstart,
+> every command with an example). Sections below that contradict the current code:
+> - "surgically merges the armada-owned keys into opencode.json" (lines 24-27) is wrong —
+>   `opencode.json` is regenerated only with `--restart` (`src/scaffold.js:360-364`);
+> - "11 commands" counts are stale — there are 12 commands plus the `reconcile` alias;
+> - "opt-in fleet-tracker plugin" (line 276) is wrong — the fleet tracker is default-on,
+>   opt out with `--no-fleet-tracker` (`src/scaffold.js:420-423`);
+> - "4 user-facing skills" (lines 369-381) — 9 skills ship (`src/skills/index.js:31-41`);
+> - "`armada <cmd> --help` is always the canonical list" (line 294) — every `--help` prints
+>   the same global block; the canonical reference is operator-guide.md#cli-reference;
+> - "`armada drive` remains a hidden alias" (line 159) — drive is a public deprecated alias
+>   listed in help (`src/cli.js:81-85`);
+> - reconcile is a documented alias of resume, not deprecated (`docs/stability/P1/aliases-audit.md`).
 
-The operator manual. README pitches; this doc runs the day-to-day: install and upgrade, the 11
-commands in detail, the contract co-write flow, multi-feature work, observability, lifecycle,
-the full flag table, the role roster, the model catalog, the four user-facing skills, and fleet
-terminology.
+The operator manual (superseded). README pitches; this doc ran the day-to-day: install and
+upgrade, the 12 commands in detail, the contract co-write flow, multi-feature work,
+observability, lifecycle, the full flag table, the role roster, the model catalog, the
+bundled skills, and fleet terminology.
 
 For running armada on armada itself (dock worktrees in `sandbox/<name>/`), see
 [docs/armada-improves-armada.md](./armada-improves-armada.md) instead.
