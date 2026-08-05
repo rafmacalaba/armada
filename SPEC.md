@@ -24,7 +24,7 @@ agents, prompts, and playbooks that a human (or another agent) runs with opencod
 | Dependency | Role | Required |
 |---|---|---|
 | opencode | host + runtime (agents, permissions, background subagents) | yes |
-| OpenCode Go / Zen auth | free model provider | yes for free tier |
+| opencode provider auth (opencode-go / opencode model IDs) | primary model provider; free tier available | yes for default tier |
 | OpenRouter auth | fallback / power model provider | optional |
 
 ---
@@ -36,8 +36,9 @@ agents, prompts, and playbooks that a human (or another agent) runs with opencod
 2. **Configurable via setup questionnaire, manifest, or repo learning.** The questionnaire
    asks; the manifest overrides; stack detection + existing instruction files (AGENTS.md,
    CLAUDE.md, DEVELOPER.md) provide defaults.
-3. **Model choice per role with recommendations.** Primary = opencode/go-zen (free where
-   available); fallback = equivalent OpenRouter model. Budget tiers free / balanced / power.
+3. **Model choice per role with recommendations.** Primary = opencode provider models
+   (`opencode-go/...` / `opencode/...`, free tier available); fallback = equivalent OpenRouter
+   model. Budget tiers free / balanced / power.
 4. **Browser/e2e ready when needed.** Optional devcontainer + agent-browser wiring for qa and
    adversary.
 5. **Token-lean.** Terse (caveman-style) output contracts in every agent prompt; orchestrator
@@ -81,11 +82,15 @@ remote (.well-known/opencode)
 
 **What armada guarantees:**
 
-- Project agents live in `.opencode/agent/`; no name collisions (unique role names).
+- Project agents live in `.opencode/agent/` (ship-named files: commodore.md, galleon.md, ...);
+  no name collisions (unique role names).
 - Project config overrides global **only on conflicting keys**.
 - Each repo controls its team's behavior via its own agent files and playbook.
-- `armada init` never writes `opencode.json` / `AGENTS.md` / `REQUIREMENTS.md` if they already
-  exist (no clobber). It always (re)writes `armada.yaml` and the `.opencode/` artifacts it owns.
+- `armada init` writes `opencode.json` and `REQUIREMENTS.md` only if absent (no clobber); it
+  marker-merges `AGENTS.md` (the armada section between `<!-- armada:start -->` and
+  `<!-- armada:end -->` is replaced in place, user content outside it is preserved, the file
+  is created if absent). It always (re)writes `armada.yaml` and the `.opencode/` artifacts it
+  owns (`src/scaffold.js:360-401`).
 
 ---
 
@@ -93,7 +98,7 @@ remote (.well-known/opencode)
 
 | Role | Permissions (edit) | Notes |
 |---|---|---|
-| orchestrator | `*` deny; `*.md` allow; REQUIREMENTS/AGENTS/.opencode/armada deny; ledgers allow | plan/delegate/review only |
+| orchestrator | `*` deny; `*.md` allow; REQUIREMENTS/AGENTS/.opencode/armada deny; DEFECTS.md + ADVERSARIAL_REVIEW.md allow | plan/delegate/review only |
 | backend-dev | product code; deny armada/ledgers, armada/e2e, armada/screenshots, armada/state, REQUIREMENTS, AGENTS, .opencode, opencode.json, armada | server/API/storage |
 | frontend-dev | product code; deny same set | UI/UX |
 | qa | `*` deny; armada/e2e, armada/ledgers, armada/screenshots allow | owns defect lifecycle; read-only on product |
@@ -109,9 +114,11 @@ The playbook in AGENTS.md reiterates: a developer's word never closes a defect �
 
 ## 6. Model catalog
 
-Curated static catalog in `src/model-catalog.js` — roles × provider (opencode/go-zen +
-openrouter) × budget tier (free/balanced/power). `armada models --refresh` is a stub for
-merging live provider availability (see TODO).
+Curated static catalog in `src/model-catalog.js:34-100` — roles × provider (opencode
+`opencode-go/...` / `opencode/...` + openrouter `openrouter/...`) × budget tier
+(free/balanced/power). `armada models --refresh` merges live provider availability into the
+models cache (`~/.armada/models.cache.json`, `src/model-catalog.js:116-118`);
+`armada models --list-openrouter` lists live OpenRouter models.
 
 Budget semantics:
 
@@ -121,7 +128,8 @@ Budget semantics:
 | balanced (default) | free workers, paid/strong judges (orchestrator, adversary) |
 | power | strongest models on every role (OpenRouter) |
 
-See README §Model catalog for the current table.
+See [docs/auth-and-cost.md#model-selection](./docs/auth-and-cost.md#model-selection) for the
+current per-role table.
 
 ---
 
@@ -129,13 +137,20 @@ See README §Model catalog for the current table.
 
 | File | Owner | Written if... |
 |---|---|---|
-| `.opencode/agent/<role>.md` | armada | always (re-written) |
-| `.opencode/commands/armada.md` | armada | always (re-written) |
+| `.opencode/agent/<ship-name>.md` | armada | always (re-written; ship names, see role-display.js) |
+| `.opencode/commands/*.md` (4) | armada | always (re-written) |
+| `.opencode/skills/*/SKILL.md` (9) | armada | always (re-written; subset via `project.skills`) |
+| `.opencode/plugins/armada-fleet.js` | armada | default-on (`supervision.fleet !== false`) |
+| `.opencode/plugins/armada-supervision.js` / `armada-watchdog.js` | armada | opt-in flags |
 | `armada.yaml` | armada | always (re-written) |
-| `opencode.json` | armada | only if absent |
-| `AGENTS.md` | armada | only if absent |
+| `opencode.json` | armada | only if absent, unless `--restart` |
+| `AGENTS.md` | armada + user | always; marker-merged in place, user content preserved |
 | `REQUIREMENTS.md` | armada | only if absent |
-| `.devcontainer/*` | armada | only when browser testing enabled |
+| `.gitignore` (managed block) | armada + user | append-only, marker-based, removed on uninstall |
+| `.devcontainer/*` | armada | when manifest `project.devcontainer` is true (default false; independent of browserTesting) |
+
+Sources: `src/scaffold.js:360-444` (write rules, devcontainer gate),
+`src/scaffold.js:415-428` (plugin defaults).
 
 ---
 
@@ -143,22 +158,29 @@ See README §Model catalog for the current table.
 
 ```
 opencode-armada/
-├── src/               CLI + library (model-catalog, stack-detect, questionnaire,
-│                      generator, scaffold)
+├── src/               CLI + library (27 modules: cli, manifest, model-catalog, stack-detect,
+│                      questionnaire, ui, generator, scaffold, state, feature-commands,
+│                      doctor, new-command, recommendations, role-display, init-summary,
+│                      resume-cli, reconcile, status-cmd, fleet-cmd, fleet-tracker, drive,
+│                      heartbeat, handoff, terminal-open, ledgers, skills/, index)
 ├── agents/            reusable agent library (prompt templates, one dir per role)
 ├── presets/           budget presets (free/balanced/power yaml)
 ├── template/          static template files (devcontainer)
-├── commands/          in-session opencode command scaffold
-├── tests/             node:test suites
-└── docs               (this spec + architecture + todo)
+├── starter/           cookiecutter-style repo templates (web-app, ml-training, research-paper)
+├── tests/             node:test suites (+ fixtures)
+└── docs               (user/operator/contributor/support/auth-cost/troubleshooting + this spec)
 ```
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the full module map.
 
 ---
 
 ## 9. Non-goals (v0)
 
-- Runtime hooks / custom opencode tools (armada writes files; opencode owns the runtime).
+- Runtime hooks / custom opencode tools beyond the three one-file plugins (armada writes
+  files; opencode owns the runtime).
 - Auto-generating REQUIREMENTS.md content from a PRD (single scaffold only).
 - Training or fine-tuning models.
 - Multi-repo fleet management / scheduling beyond one repo at a time.
-- Live model availability probing (stub only, see TODO).
+- Live model availability probing at runtime — `armada models --refresh` is an explicit,
+  on-demand merge, not a background probe.
