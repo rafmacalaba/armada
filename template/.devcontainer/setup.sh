@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Devcontainer setup for an opencode-armada project.
+# Devcontainer setup for an armada project.
 # Installs opencode, agent-browser (for qa/adversary e2e work), and chromium.
 set -euo pipefail
 

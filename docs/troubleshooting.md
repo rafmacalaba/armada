@@ -8,15 +8,15 @@ providers, openrouter auth, background dispatch, node, and the global armada bin
 ## armada: command not found
 
 - **Cause:** the package is not installed, or its bin dir is not on PATH.
-- **Fix:** `npm install -g opencode-armada`, then open a new shell. Verify with
+- **Fix:** `npm install -g @rafmacalaba/armada`, then open a new shell. Verify with
   `armada --version`.
 - **Detection:** `armada doctor` reports "armada not on PATH — run npm link from
-  ~/WBG/opencode-armada" for the in-tree case (`src/doctor.js:165-171`).
+  ~/WBG/armada" for the in-tree case (`src/doctor.js:165-171`).
 
 ## Broken armada symlink / symlink loop
 
 - **Cause:** a `npm link` pointing at a deleted worktree, or a looped symlink.
-- **Fix:** remove the stale link and re-link: `npm unlink -g opencode-armada`, then
+- **Fix:** remove the stale link and re-link: `npm unlink -g @rafmacalaba/armada`, then
   `npm link` from the repo root. For an `ELOOP`, remove the loop and re-link.
 - **Detection:** `src/doctor.js:155-163` — "symlink loop detected at <path>" or
   "broken symlink".

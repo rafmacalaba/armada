@@ -1,6 +1,6 @@
 # Contributor guide
 
-How to develop opencode-armada itself: dev setup, the test loop, the release flow, and the
+How to develop armada itself: dev setup, the test loop, the release flow, and the
 contract workflow (how feature work runs through armada). For using armada on armada's own
 repo, see [armada-improves-armada.md](./armada-improves-armada.md) and
 [sandbox.md](./sandbox.md).
@@ -24,8 +24,8 @@ docs/                user, operator, contributor, support, auth/cost, troublesho
 - No build step. `npm ci`, then `npm start` / `node src/cli.js`.
 
 ```bash
-git clone git@github.com:rafmacalaba/opencode-armada.git
-cd opencode-armada
+git clone git@github.com:rafmacalaba/armada.git
+cd armada
 npm ci
 node src/cli.js help
 ```

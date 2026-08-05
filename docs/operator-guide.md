@@ -17,14 +17,14 @@ manual; [user-guide.md](./user-guide.md) is the quickstart. Supersedes the older
 Two equivalent ways to get the `armada` binary:
 
 ```bash
-npm install -g opencode-armada        # global install; bin is `armada`
-npx opencode-armada <command>         # no install; package has a single bin, npx uses it
+npm install -g @rafmacalaba/armada    # global install; bin is `armada`
+npx @rafmacalaba/armada <command>     # no install; package has a single bin, npx uses it
 ```
 
 Verify:
 
 ```bash
-armada --version      # opencode-armada v0.9.2
+armada --version      # armada v1.0.0
 armada doctor         # all checks pass
 ```
 
@@ -39,7 +39,7 @@ Two steps:
 1. Upgrade the package:
 
    ```bash
-   npm install -g opencode-armada@latest
+   npm install -g @rafmacalaba/armada@latest
    ```
 
 2. Re-scaffold each armed repo from its manifest:
@@ -65,7 +65,7 @@ If `armada/armada.yaml` is missing, run `armada init` first, then upgrade.
 1. Install the previous version:
 
    ```bash
-   npm install -g opencode-armada@0.9.1    # or whatever the previous release was
+   npm install -g @rafmacalaba/armada@0.9.2  # or whatever the previous release was
    ```
 
 2. Re-scaffold: `armada init --from-armada armada/armada.yaml --restart` (as above).

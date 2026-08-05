@@ -157,7 +157,7 @@ Sources: `src/scaffold.js:360-444` (write rules, devcontainer gate),
 ## 8. Directory layout
 
 ```
-opencode-armada/
+armada/
 ├── src/               CLI + library (27 modules: cli, manifest, model-catalog, stack-detect,
 │                      questionnaire, ui, generator, scaffold, state, feature-commands,
 │                      doctor, new-command, recommendations, role-display, init-summary,

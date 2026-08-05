@@ -61,10 +61,10 @@ gh run list --workflow=release.yml --limit 1   # expect completed/success
    release job may race you; creating it explicitly is fine):
 
    ```bash
-   gh release create v0.3.0 --title "opencode-armada v0.3.0" --notes "…"
+   gh release create v0.3.0 --title "armada v0.3.0" --notes "…"
    ```
 
-4. Verify: `npm view opencode-armada version` and
+4. Verify: `npm view @rafmacalaba/armada version` and
    `gh release view v0.3.0`.
 
 ## Gotchas learned the hard way
