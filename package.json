@@ -1,8 +1,16 @@
 {
-  "name": "opencode-armada",
+  "name": "armada",
   "version": "0.9.2",
   "description": "Turn any repo into a self-organizing AI engineering team — one command, 8 specialists, evidence-gated delivery. For opencode.",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rafmacalaba/armada.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rafmacalaba/armada/issues"
+  },
+  "homepage": "https://github.com/rafmacalaba/armada#readme",
   "bin": {
     "armada": "./src/cli.js",
     "opencode-armada": "./src/cli.js"

@@ -1,4 +1,4 @@
-// opencode-armada model catalog
+// armada model catalog
 //
 // Curated, static model recommendations per role. Each role has:
 //   - primary:    opencode / opencode-go / opencode-zen model (preferred provider)

@@ -148,14 +148,14 @@ export async function runDoctor(opts = {}) {
           status: "fail",
           detail: isLoop
             ? `symlink loop detected at ${armadaPath} — remove the loop and re-link`
-            : "broken symlink — run npm link from ~/WBG/opencode-armada",
+            : "broken symlink — run npm link from ~/WBG/armada",
         })
       }
     } else {
       checks.push({
         name: "global armada binary",
         status: "fail",
-        detail: "armada not on PATH — run npm link from ~/WBG/opencode-armada",
+        detail: "armada not on PATH — run npm link from ~/WBG/armada",
       })
     }
   }

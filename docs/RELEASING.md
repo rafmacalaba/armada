@@ -1,4 +1,4 @@
-# Releasing opencode-armada
+# Releasing armada
 
 How to cut a release: publish to npm + tag a GitHub release. Two parts, both keyed off a git
 tag `vX.Y.Z`.
@@ -7,7 +7,7 @@ tag `vX.Y.Z`.
 
 | Artifact | How | Trigger |
 |---|---|---|
-| npm package `opencode-armada@X.Y.Z` | `npm publish` (workflow or manual) | tag push |
+| npm package `armada@X.Y.Z` | `npm publish` (workflow or manual) | tag push |
 | GitHub release `vX.Y.Z` | `.github/workflows/release.yml` `release` job | tag push |
 
 `.github/workflows/release.yml` runs on any `v*` tag: **test** → **publish** (npm, skipped when
@@ -42,7 +42,7 @@ That's it. The workflow: tests (must pass) → `npm publish --access public` →
 with auto-generated notes. Verify:
 
 ```bash
-npm view opencode-armada version      # expect X.Y.Z
+npm view armada version               # expect X.Y.Z
 gh run list --workflow=release.yml --limit 1   # expect completed/success
 ```
 

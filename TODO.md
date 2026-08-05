@@ -1,4 +1,4 @@
-# opencode-armada — TODO / Roadmap
+# armada — TODO / Roadmap
 
 Living backlog. Pick up the next item in the next session. Add new ideas at the bottom and
 link them to an issue/PR when relevant.
@@ -551,7 +551,7 @@ Design sketch:
   file via `gh issue create` against the armada repo (remote URL from the manifest or a config).
   The subagent reads the armada repo's issue template if present.
 - **Cross-repo wiring.** Armada-armed repos know their own repo; armada's repo URL ships in
-  armada.yaml (`project.upstreamRepo` or similar, default `rafmacalaba/opencode-armada`),
+  armada.yaml (`project.upstreamRepo` or similar, default `rafmacalaba/armada`),
   overridable. `gh` must be authed (doctor already checks provider auth); no gh → the draft is
   written to a local file the user can paste.
 - **Relation to audit lane.** This is the *distributed* half of patrol: audits are armada's own
