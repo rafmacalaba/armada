@@ -495,7 +495,7 @@ export function defaultManifest(target = ".") {
 
 async function models(args) {
   if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
-  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("opencode-armada v" + VERSION + "\n"); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   if (args.includes("--list-openrouter")) {
     try {
       const models = await listOpenRouterModels()
@@ -575,7 +575,7 @@ async function doctor(args = []) {
 
 async function uninstallCmd(args) {
   if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
-  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("opencode-armada v" + VERSION + "\n"); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   const targetIdx = args.indexOf("--target")
   const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--") ? args[targetIdx + 1] : "."
   const fileIdx = args.indexOf("--from-armada")
@@ -833,7 +833,7 @@ async function driveCmd(args, cmdName = "drive") {
 
 async function fleetCmd(args) {
   if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
-  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("opencode-armada v" + VERSION + "\n"); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   const json = args.includes("--json")
   const open = args.includes("--open")
   const session = args.find((a) => !a.startsWith("--"))
@@ -878,7 +878,7 @@ async function fleetCmd(args) {
 
 function statusCmd(args) {
   if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
-  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("opencode-armada v" + VERSION + "\n"); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   const { code, output } = statusMain(args, { cwd: process.cwd() })
   if (code === 0) {
     process.stdout.write(output)
@@ -899,7 +899,7 @@ function voyageHandoffCmd(names) {
 }
 async function featureCmd(args) {
   if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
-  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("opencode-armada v" + VERSION + "\n"); return 0 }
+  if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   const targetIdx = args.indexOf("--target")
   const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--")
     ? args[targetIdx + 1]

@@ -30,7 +30,7 @@ test("uninstall -v prints version and exits 0, no fs mutation", async () => {
 
   const r = await runCli(["uninstall", "-v"], { cwd: dir })
   assert.strictEqual(r.code, 0, "uninstall -v should exit 0")
-  assert.match(r.stdout, /opencode-armada/, "should print version")
+  assert.match(r.stdout, /armada v/, "should print version")
   assert.match(r.stdout, new RegExp(EXPECTED_VERSION.replace(/\./g, "\\.")), `should include version ${EXPECTED_VERSION}`)
 
   // .opencode/ must still exist (no mutation)
@@ -58,7 +58,7 @@ test("uninstall --version prints version and exits 0, no fs mutation", async () 
 
   const r = await runCli(["uninstall", "--version"], { cwd: dir })
   assert.strictEqual(r.code, 0, "uninstall --version should exit 0")
-  assert.match(r.stdout, /opencode-armada/, "should print version")
+  assert.match(r.stdout, /armada v/, "should print version")
 
   assert.ok(ex(join(dir, ".opencode")), ".opencode should still exist after uninstall --version")
 })
@@ -67,7 +67,7 @@ test("uninstall --version prints version and exits 0, no fs mutation", async () 
 test("doctor -v prints version and exits 0", async () => {
   const r = await runCli(["doctor", "-v"])
   assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /opencode-armada/)
+  assert.match(r.stdout, /armada v/)
 })
 
 test("doctor -h prints help and exits 0", async () => {
@@ -79,7 +79,7 @@ test("doctor -h prints help and exits 0", async () => {
 test("fleet -v prints version and exits 0", async () => {
   const r = await runCli(["fleet", "-v"])
   assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /opencode-armada/)
+  assert.match(r.stdout, /armada v/)
 })
 
 test("fleet -h prints help and exits 0", async () => {
@@ -91,7 +91,7 @@ test("fleet -h prints help and exits 0", async () => {
 test("models -v prints version and exits 0", async () => {
   const r = await runCli(["models", "-v"])
   assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /opencode-armada/)
+  assert.match(r.stdout, /armada v/)
 })
 
 test("models -h prints help and exits 0", async () => {
@@ -103,7 +103,7 @@ test("models -h prints help and exits 0", async () => {
 test("status -v prints version and exits 0", async () => {
   const r = await runCli(["status", "-v"])
   assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /opencode-armada/)
+  assert.match(r.stdout, /armada v/)
 })
 
 test("status -h prints help and exits 0", async () => {
