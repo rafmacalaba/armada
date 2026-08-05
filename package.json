@@ -1,10 +1,11 @@
 {
   "name": "opencode-armada",
   "version": "0.9.2",
-  "description": "Evidence-gated AI-engineer teams for opencode: phases ship on proof, defects close on retest, boundaries enforced by the SDK",
+  "description": "Turn any repo into a self-organizing AI engineering team — one command, 8 specialists, evidence-gated delivery. For opencode.",
   "type": "module",
   "bin": {
-    "armada": "./src/cli.js"
+    "armada": "./src/cli.js",
+    "opencode-armada": "./src/cli.js"
   },
   "exports": {
     ".": "./src/index.js"
@@ -34,9 +35,14 @@
     "agents",
     "orchestrator",
     "multi-agent",
-    "yolo",
     "ai-engineer",
-    "cli"
+    "cli",
+    "code-generation",
+    "automation",
+    "devtools",
+    "scaffolding",
+    "evidence-gated",
+    "ai-coding"
   ],
   "license": "MIT",
   "repository": {
