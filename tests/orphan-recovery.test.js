@@ -8,7 +8,7 @@ import { makeTempGitRepo } from "./helpers.js"
 
 test("findOrphanWorktrees: detects worktree dirs not in git worktree list", async () => {
   const { findOrphanWorktrees } = await import("../src/voyage/worktree.js")
-  const dir = makeTempGitRepo({})
+  const dir = makeTempGitRepo({ "README.md": "# test\n" })
 
   // Create a sandbox directory with a fake worktree that's not tracked by git
   const { mkdirSync } = await import("node:fs")
@@ -42,7 +42,7 @@ test("findOrphanWorktrees: returns empty when no sandbox dir", async () => {
 test("recoverOrphanVoyage: creates state file for orphan worktree", async () => {
   const { findOrphanWorktrees, createVoyageWorktree } = await import("../src/voyage/worktree.js")
   const { createVoyageState, writeState, readState } = await import("../src/voyage/lifecycle.js")
-  const dir = makeTempGitRepo({})
+  const dir = makeTempGitRepo({ "README.md": "# test\n" })
 
   // Create an orphan worktree by creating the directory manually
   const { mkdirSync } = await import("node:fs")

@@ -8,7 +8,7 @@
  */
 
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, readdirSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, realpathSync } from "node:fs"
 import { join } from "node:path"
 
 // ---- public API ------------------------------------------------------------
@@ -131,16 +131,26 @@ export function findOrphanWorktrees(repoDir) {
   }
 
   const activeWorktrees = listVoyageWorktrees(repoDir)
-  const activePaths = new Set(activeWorktrees.map((w) => w.path))
+  // Normalize with realpath: on macOS, /var/folders/... is a symlink to
+  // /private/var/folders/...; git reports the real path while readdirSync
+  // returns the symlink path, so a naive string compare misclassifies real
+  // worktrees as orphans. We return the symlink path (matches caller input)
+  // but compare realpaths internally.
+  const activePaths = new Set(activeWorktrees.map((w) => safeRealpath(w.path)))
 
   const orphans = []
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
     const fullPath = join(sandboxDir, entry.name)
-    if (!activePaths.has(fullPath)) {
+    if (!activePaths.has(safeRealpath(fullPath))) {
       orphans.push(fullPath)
     }
   }
 
   return orphans
+}
+
+
+function safeRealpath(p) {
+  try { return realpathSync(p) } catch { return p }
 }
