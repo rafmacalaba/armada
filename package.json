@@ -19,6 +19,7 @@
   },
   "files": [
     "src",
+    "starter",
     "template",
     "agents",
     "presets",
