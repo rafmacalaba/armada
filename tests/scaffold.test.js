@@ -4,7 +4,7 @@ import assert from "node:assert"
 import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify, validateTargetDir } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { agentNameFor } from "../src/role-display.js"
-import { renderArmadaFleetCommand, renderArmadaVoyageCommand, renderArmadaFleetPlugin, renderArmadaWatchdogPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
+import { renderArmadaVoyageCommand, renderArmadaFleetPlugin, renderArmadaWatchdogPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
 import { detectStack } from "../src/stack-detect.js"
 import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync, symlinkSync, realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -80,11 +80,14 @@ test("scaffold writes all expected files", () => {
     assert.ok(existsSync(join(dir, f)), `missing on disk: ${f}`)
   }
 
-  // .opencode/commands/ must exist — scaffold writes slash commands
+  // .opencode/commands/ — exactly 4 slash commands
   assert.ok(existsSync(join(dir, ".opencode/commands")), ".opencode/commands/ must exist")
-  for (const cmd of ["armada", "armada-status", "armada-scout", "armada-resume", "armada-fleet", "armada-voyage"]) {
+  for (const cmd of ["armada", "armada-scout", "armada-voyage", "armada-resume"]) {
     assert.ok(existsSync(join(dir, `.opencode/commands/${cmd}.md`)), `${cmd}.md must exist`)
   }
+  // Phase 3: removed commands must NOT exist
+  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-status.md")), "armada-status.md must not exist")
+  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-fleet.md")), "armada-fleet.md must not exist")
 
   // devcontainer copied when enabled
   assert.ok(existsSync(join(dir, ".devcontainer/devcontainer.json")))
@@ -226,15 +229,18 @@ test("supervision plugin written only when enabled, removed on uninstall", () =>
   assert.ok(removed.includes(".opencode/plugins/armada-supervision.js"))
 })
 
-test("scaffold writes all command files", () => {
+test("scaffold writes exactly 4 command files", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-fleet-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
 
   assert.ok(existsSync(join(dir, ".opencode/commands")), ".opencode/commands/ must exist")
-  assert.ok(existsSync(join(dir, ".opencode/commands/armada.md")), "armada.md must exist")
-  assert.ok(existsSync(join(dir, ".opencode/commands/armada-fleet.md")), "armada-fleet.md must exist")
-  assert.ok(existsSync(join(dir, ".opencode/commands/armada-voyage.md")), "armada-voyage.md must exist")
+  const expected = ["armada.md", "armada-scout.md", "armada-voyage.md", "armada-resume.md"]
+  for (const f of expected) {
+    assert.ok(existsSync(join(dir, `.opencode/commands/${f}`)), `${f} must exist`)
+  }
+  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-status.md")), "armada-status.md must not exist")
+  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-fleet.md")), "armada-fleet.md must not exist")
 
   rmSync(dir, { recursive: true, force: true })
 })

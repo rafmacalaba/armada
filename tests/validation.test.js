@@ -104,11 +104,12 @@ test("Scenario A: mid-phase kill + reopen produces correct resume line", async (
   ]
   writeJson(activePath, active)
 
-  // Step 4: simulate reopen — run feature status
+  // Step 4: simulate reopen — run feature status (deprecation → status table)
   const status = await runCli(["feature", "status", "--target", cwd])
-  assert.strictEqual(status.code, 0, `feature status failed: ${status.stderr}`)
-  assert.match(status.stdout, /active feature: alpha/)
-  assert.match(status.stdout, new RegExp(`${firstPhase.id}:.*in_progress`))
+  assert.match(status.stderr, /deprecated/, "must print deprecation hint")
+  // status code from the deprecation wrapper: always exits 1
+  assert.strictEqual(status.code, 1, `feature status deprecated exit: ${status.stderr}`)
+  assert.match(status.stdout, /alpha/, "table must include alpha feature")
 
   // Step 5: build the resume line from active state (the orchestrator's job)
   const resumeLine = buildResumeLine(readJson(activePath))
@@ -218,26 +219,14 @@ test("Scenario C: write state via API, read back via CLI, fields match", async (
   const r = await runCli(["feature", "new", "gamma", "--target", cwd])
   assert.strictEqual(r.code, 0, `feature new failed: ${r.stderr}`)
 
-  // Read back via CLI feature status
+  // Read back via CLI feature status (deprecation → status table)
   const status = await runCli(["feature", "status", "--target", cwd])
-  assert.strictEqual(status.code, 0, `feature status failed: ${status.stderr}`)
+  assert.match(status.stderr, /deprecated/, "must print deprecation hint")
+  assert.strictEqual(status.code, 1, `feature status deprecated exit: ${status.stderr}`)
 
-  // Parse the CLI output to extract fields
-  const lines = status.stdout.split("\n").filter(Boolean)
-  const fieldMap = {}
-  for (const line of lines) {
-    const m = line.match(/^(\w[\w ]*?):\s+(.+)/)
-    if (m) fieldMap[m[1].trim()] = m[2].trim()
-  }
-
-  // Verify key fields round-trip correctly
-  assert.strictEqual(fieldMap["active feature"], "gamma")
-  assert.ok(fieldMap["contract"], "contract field must be present")
-  assert.match(fieldMap["contract"], /gamma/)
-
-  // The phases must be listed
-  const phaseLines = lines.filter((l) => /^\s+\w/.test(l) && /pending|in_progress|passed/.test(l))
-  assert.ok(phaseLines.length > 0, "must show at least one phase in status output")
+  // Table format: FEATURE, STATUS, CONTRACT, NEXT ACTION, PR
+  assert.match(status.stdout, /gamma/, "table must include gamma")
+  assert.match(status.stdout, /FEATURE/, "table must have FEATURE header")
 
   // Read the raw active.json and verify deep-equal of core fields
   const activePath = join(cwd, "armada", "state", "active.json")

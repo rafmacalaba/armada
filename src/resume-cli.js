@@ -1,16 +1,16 @@
 /**
- * reconcile-cli — CLI wrapper for the reconcile engine.
+ * resume-cli — CLI wrapper for the resume engine.
  *
- * @module reconcile-cli
+ * @module resume-cli
  */
 
 import { resolve } from "node:path"
 import { reconcile } from "./reconcile.js"
 
 /**
- * Run the reconcile CLI command.
+ * Run the resume CLI command.
  *
- * @param {string[]} argv - remaining args after "reconcile"
+ * @param {string[]} argv - remaining args after "resume"
  * @param {{ cwd?: string }} [opts]
  * @returns {Promise<number>} exit code (0 = no drifts/no active, 2 = drifts present)
  */

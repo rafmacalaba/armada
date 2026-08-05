@@ -13,6 +13,49 @@ import { resolve } from "node:path"
 // ---- public API ------------------------------------------------------------
 
 /**
+ * Render status for a single named feature.
+ * @param {string} stateDir
+ * @param {string} featureName
+ * @param {{ json?: boolean }} [opts]
+ * @returns {{ code: number, output: string }}
+ */
+export function renderSingleFeature(stateDir, featureName, opts = {}) {
+  const activePath = resolve(stateDir, "active.json")
+  const indexPath = resolve(stateDir, "features", "index.json")
+
+  let features = []
+  if (existsSync(indexPath)) {
+    const raw = JSON.parse(readFileSync(indexPath, "utf8"))
+    features = Array.isArray(raw) ? raw : []
+  }
+
+  let active = null
+  if (existsSync(activePath)) {
+    active = JSON.parse(readFileSync(activePath, "utf8"))
+  }
+
+  const match = features.find((f) => f.name === featureName)
+  if (!match && (!active || active.feature !== featureName)) {
+    return { code: 1, output: `feature "${featureName}" not found\n` }
+  }
+
+  const isActive = active && active.feature === featureName
+  const rows = [{
+    feature: featureName,
+    status: match ? match.status : (isActive ? "in_progress" : "unknown"),
+    contract: match ? match.contract : (active ? active.contract : "unknown"),
+    nextAction: isActive ? (active.nextAction || null) : null,
+    pr: isActive ? (active.prUrl || null) : null,
+  }]
+
+  if (opts.json) {
+    return { code: 0, output: JSON.stringify(rows[0], null, 2) + "\n" }
+  }
+
+  return { code: 0, output: _renderTable(rows) }
+}
+
+/**
  * Render a status table from state files.
  * @param {string} stateDir - path to armada/state directory
  * @param {{ json?: boolean }} [opts]
@@ -82,8 +125,22 @@ export function renderStatus(stateDir, opts = {}) {
  */
 export function main(argv = [], opts = {}) {
   const stateDir = opts.stateDir || resolve(opts.cwd || ".", "armada", "state")
+
+  const targetIdx = argv.indexOf("--target")
+  const target = targetIdx !== -1 && argv[targetIdx + 1] && !argv[targetIdx + 1].startsWith("--") ? argv[targetIdx + 1] : null
+  const resolvedStateDir = target ? resolve(target, "armada", "state") : stateDir
+
   const json = argv.includes("--json")
-  return renderStatus(stateDir, { json })
+
+  // Phase 5: --feature <name> flag — show only that feature's row
+  const featIdx = argv.indexOf("--feature")
+  const featureName = featIdx !== -1 && argv[featIdx + 1] && !argv[featIdx + 1].startsWith("--") ? argv[featIdx + 1] : null
+
+  if (featureName) {
+    return renderSingleFeature(resolvedStateDir, featureName, { json })
+  }
+
+  return renderStatus(resolvedStateDir, { json })
 }
 
 // ---- internal helpers (exported for tests) ---------------------------------

@@ -164,13 +164,14 @@ export function renderCatalog(budget = "balanced", availability = null) {
     const primary = modelFor(role, budget)
     const mark = availability ? (availability.has(primary) ? "✓" : "✗") : ""
     const recommended = ` (Recommended)`
-    return [displayFor(role), `${mark}${primary}${recommended}`, e.fallback || ""]
+    return [role, `${mark}${primary}${recommended}`, e.fallback || "", displayFor(role)]
   })
-  const roleWidth = Math.max("display name".length, ...rows.map((r) => r[0].length))
+  const roleWidth = Math.max("role".length, ...rows.map((r) => r[0].length))
   const modelWidth = Math.max("model".length, ...rows.map((r) => r[1].length))
   const fallbackWidth = Math.max("fallback".length, ...rows.map((r) => r[2].length))
-  const header = ["display name".padEnd(roleWidth), "model".padEnd(modelWidth), "fallback".padEnd(fallbackWidth)]
-  const body = rows.map((r) => [r[0].padEnd(roleWidth), r[1].padEnd(modelWidth), r[2].padEnd(fallbackWidth)])
+  const displayWidth = Math.max("display name".length, ...rows.map((r) => r[3].length))
+  const header = ["role".padEnd(roleWidth), "model".padEnd(modelWidth), "fallback".padEnd(fallbackWidth), "display name".padEnd(displayWidth)]
+  const body = rows.map((r) => [r[0].padEnd(roleWidth), r[1].padEnd(modelWidth), r[2].padEnd(fallbackWidth), r[3].padEnd(displayWidth)])
   return [header.join("  "), body.map((r) => r.join("  ")).join("\n")].join("\n")
 }
 

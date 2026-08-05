@@ -532,19 +532,6 @@ Xebec, Frigate, Caravel, Bark). Keep it terse.
 `
 }
 
-// Build the `.opencode/commands/armada-status.md` command descriptor.
-export function renderArmadaStatusCommand() {
-  return `---
-description: opencode-armada — fleet status, active feature, next action
-subtask: true
-agent: ${agentNameFor("orchestrator")}
----
-Read armada/state/active.json + armada/state/features/index.json if they exist. Report the
-active feature, pending phases (status != "passed"), the next action, and the PR URL from
-\`active.json\` field \`prUrl\` (or "PR pending" if absent). If no state exists, say "no active
-fleet". Keep it terse.
-`
-}
 
 // Build the `.opencode/commands/armada-scout.md` command descriptor.
 export function renderArmadaScoutCommand() {
@@ -570,16 +557,6 @@ Run \`armada reconcile\` and print the resume line plus any drift list. If \`arm
 `
 }
 
-// Build the `.opencode/commands/armada-fleet.md` command descriptor.
-export function renderArmadaFleetCommand() {
-  return `---
-description: opencode-armada — per-lane progress dashboard (sessions, phase, status, age, cost)
-subtask: true
-agent: ${agentNameFor("orchestrator")}
----
-Run \`armada fleet\` and print the result. For one-lane detail: \`armada fleet <session>\`. If \`armada\` is not on PATH, report the missing binary.
-`
-}
 
 // Build the `.opencode/commands/armada-voyage.md` command descriptor.
 export function renderArmadaVoyageCommand() {

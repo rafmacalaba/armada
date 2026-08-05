@@ -204,37 +204,39 @@ test("init --requirements wires active contract", async () => {
   assert.strictEqual(active.contract, "reqs.md")
 })
 
-test("feature status shows active feature", async () => {
+test("feature status shows active feature via deprecation hint, exits 1", async () => {
   const dir = makeTempRepo({})
   await runCli(["feature", "new", "foo", "--target", dir])
 
   const r = await runCli(["feature", "status", "--target", dir])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /active feature: foo/)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
+  assert.match(r.stdout, /FEATURE/)
 })
 
-test("feature status <name> shows named feature", async () => {
+test("feature status <name> shows named feature via deprecation hint, exits 1", async () => {
   const dir = makeTempRepo({})
   await runCli(["feature", "new", "foo", "--target", dir])
 
   const r = await runCli(["feature", "status", "foo", "--target", dir])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /feature: foo/)
-  assert.match(r.stdout, /status:  open/)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
+  assert.match(r.stdout, /foo/)
 })
 
-test("feature status <name> nonexistent fails", async () => {
+test("feature status <name> nonexistent fails via deprecation", async () => {
   const dir = makeTempRepo({})
   const r = await runCli(["feature", "status", "nope", "--target", dir])
   assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stderr, /not found/)
 })
 
-test("feature status no active shows message", async () => {
+test("feature status no active shows deprecation and runs status", async () => {
   const dir = makeTempRepo({})
   const r = await runCli(["feature", "status", "--target", dir])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /No active feature/)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
 })
 
 test("closeFeature throws when no final criteria", () => {

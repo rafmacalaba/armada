@@ -158,7 +158,7 @@ test("models --list-openrouter: help mentions flag + import is reachable", () =>
 
 // ---- Scenario 2: armada preset <name> CLI e2e -------------------------------
 
-test("preset: applies power preset, rewrites armada.yaml, unknown preset fails", async () => {
+test("preset: prints deprecation, forwards to init", async () => {
   const cwd = makeTmpDir()
   const armadaDir = join(cwd, "armada")
   mkdirp(armadaDir)
@@ -169,40 +169,11 @@ test("preset: applies power preset, rewrites armada.yaml, unknown preset fails",
     budget: "balanced",
   }))
 
-  // --- 2a: apply "power" preset ---
+  // Run armada preset power -- the deprecation hint should appear
   const result = runCli(["preset", "power", "--target", cwd])
-  assert.strictEqual(result.code, 0, `preset power failed (exit ${result.code}): ${result.stderr}`)
-
-  // stdout assertions
-  assert.match(result.stdout, /preset "power" applied/, "must print preset applied line")
-  assert.match(result.stdout, /budget: power/, "must show new budget")
-  assert.match(result.stdout, /changed: \d+ team entries/, "must show changed count")
-  assert.match(
-    result.stdout,
-    /Re-run 'armada init --from-armada armada\/armada\.yaml' to re-scaffold\./,
-    "must print re-init hint"
-  )
-
-  // Re-parse the written armada.yaml
-  const parseManifestYaml = await loadManifestParser()
-  const written = readFileSync(join(armadaDir, "armada.yaml"), "utf8")
-  const parsed = parseManifestYaml(written)
-
-  assert.strictEqual(parsed.project.budget, "power", "budget must be power after preset")
-
-  // At least one team entry must match the preset's power model for orchestrator
-  const orchEntry = parsed.team.find((t) => t.role === "orchestrator")
-  assert.ok(orchEntry, "orchestrator entry must exist")
-  assert.strictEqual(
-    orchEntry.model,
-    "openrouter/anthropic/claude-sonnet-4.6",
-    "orchestrator model must match power preset"
-  )
-
-  // --- 2b: unknown preset fails ---
-  const bad = runCli(["preset", "nonexistent", "--target", cwd])
-  assert.notStrictEqual(bad.code, 0, "nonexistent preset must exit non-zero")
-  assert.match(bad.stderr, /Unknown preset/, "stderr must mention Unknown preset")
+  // Deprecation hint on stderr
+  assert.match(result.stderr, /armada preset: deprecated/)
+  assert.match(result.stderr, /armada init --budget/)
 
   // Cleanup
   rmSync(cwd, { recursive: true, force: true })
@@ -236,8 +207,8 @@ test("init: prints Project/Team/Budget/Roster/Next steps summary", () => {
   // At least one role line: "  <display name>: <model>"
   assert.match(
     result.stdout,
-    /  (Commodore|Galleon|Clipper|Corvette|Xebec|Frigate|Caravel|Bark): \S+/,
-    "must print at least one display-name: model line"
+    /  (orchestrator|backend-dev|frontend-dev|qa|adversary|security|docs|architect): \S+/,
+    "must print at least one role-key: model line"
   )
 
   // Cleanup

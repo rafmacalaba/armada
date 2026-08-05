@@ -38,10 +38,10 @@ test("-h and --help print usage", async () => {
   assert.match(r2.stdout, /Usage:/)
 })
 
-test("ping returns ok", async () => {
+test("ping is removed, exits 1 with hint", async () => {
   const r = await runCli(["ping"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /armada ok/)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /armada ping: removed/)
 })
 
 test("unknown command returns exit code 1", async () => {
@@ -357,14 +357,15 @@ test("doctor exits 1 via script mode when a check fails", async () => {
   assert.match(r.stdout, /opencode CLI: fail/)
 })
 
-test("drive boots a lane session and prints success", async () => {
+test("drive boots a lane session and prints success, exits 1 (deprecated)", async () => {
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
   const lanePath = mkdtempSync(join(tmpdir(), "drive-lane-"))
   const r = await runCli(["drive", lanePath], { env: { PATH: binDir } })
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /session/)
   assert.match(r.stdout, /auto-attach skipped/)
   assert.doesNotMatch(r.stdout, /tmux attach -t/)
@@ -374,15 +375,19 @@ test("drive with nonexistent path exits 1", async () => {
   const r = await runCli(["drive", "/nonexistent/path/12345"])
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /lane path not found/)
+  // Deprecation hint also on stderr
+  assert.match(r.stderr, /deprecated/)
 })
 
-test("drive --help prints usage without booting a session", async () => {
+test("drive --help prints usage without booting a session, exits 1 (deprecated)", async () => {
   const r = await runCli(["drive", "--help"])
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /Usage:/)
   assert.doesNotMatch(r.stdout, /creating session/)
   const rh = await runCli(["drive", "-h"])
-  assert.strictEqual(rh.code, 0)
+  assert.strictEqual(rh.code, 1)
+  assert.match(rh.stderr, /deprecated/)
   assert.match(rh.stdout, /Usage:/)
 })
 
@@ -409,7 +414,8 @@ esac
   })
   const lanePath = mkdtempSync(join(tmpdir(), "drive-modal-"))
   const r = await runCli(["drive", lanePath], { env: { PATH: binDir, HOME: home } })
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /modal detected, dismissing with Escape/)
   assert.match(r.stdout, /session/)
 })
@@ -421,7 +427,8 @@ test("drive --no-open prints skipped message", async () => {
   })
   const lanePath = mkdtempSync(join(tmpdir(), "drive-noopen-"))
   const r = await runCli(["drive", "--no-open", lanePath], { env: { PATH: binDir } })
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /--no-open: skipped auto-attach/)
   assert.match(r.stdout, /session/)
 })
@@ -441,7 +448,8 @@ test("drive --timeout=abc falls back to default 30000", async () => {
   })
   const lanePath = mkdtempSync(join(tmpdir(), "drive-to-abc-"))
   const r = await runCli(["drive", "--timeout=abc", lanePath], { env: { PATH: binDir } })
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
 })
 
 // DEF-012: --timeout=0 exits 1
@@ -459,7 +467,8 @@ test("drive on existing session says already running", async () => {
   })
   const lanePath = mkdtempSync(join(tmpdir(), "drive-reattach-"))
   const r = await runCli(["drive", lanePath], { env: { PATH: binDir } })
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /already running|reattach/)
   assert.doesNotMatch(r.stdout, /prompt registered/)
 })
@@ -481,7 +490,8 @@ test("drive auto-open falls back with hint when no terminal available", async ()
   const r = await runCli(["drive", lanePath], {
     env: { PATH: binDir, DISPLAY: "" },
   })
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /session/)
   assert.match(r.stdout, /auto-attach skipped/)
   assert.doesNotMatch(r.stdout, /tmux attach -t/)
@@ -496,7 +506,8 @@ test("drive --no-open skips auto-open and prints skip message", async () => {
   })
   const lanePath = mkdtempSync(join(tmpdir(), "drive-noopen2-"))
   const r = await runCli(["drive", "--no-open", lanePath], { env: { PATH: binDir } })
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /--no-open: skipped auto-attach/)
   assert.match(r.stdout, /session/)
   assert.doesNotMatch(r.stdout, /auto-attach skipped/)
@@ -528,7 +539,8 @@ test("drive auto-open succeeds when terminal is available", async () => {
   const r = await runCli(["drive", lanePath], {
     env: { PATH: binDir, ...envExtra, TERM_PROGRAM: "", VSCODE_IPC_HOOK_CLI: "" },
   })
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /session/)
   assert.match(r.stdout, /auto-attached in/)
   assert.doesNotMatch(r.stdout, /auto-attach skipped/)
@@ -636,9 +648,10 @@ test("voyage --help prints usage and exits 0", async () => {
   assert.match(r.stdout, /armada drive.*alias for voyage/)
 })
 
-test("drive --help prints usage and exits 0", async () => {
+test("drive --help prints usage and exits 1 (deprecated)", async () => {
   const r = await runCli(["drive", "--help"])
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /Usage:/)
   assert.match(r.stdout, /armada voyage/)
   assert.match(r.stdout, /armada drive.*alias for voyage/)
@@ -697,9 +710,17 @@ test("voyage --print-attach prints attach command and exits 0", async () => {
   assert.match(r.stdout, /tmux attach -t/)
 })
 
-test("drive --print-attach prints attach command and exits 0", async () => {
+test("drive --print-attach prints attach command and exits 1 (deprecated)", async () => {
   const lanePath = mkdtempSync(join(tmpdir(), "drive-printattach-"))
   const r = await runCli(["drive", "--print-attach", lanePath])
-  assert.strictEqual(r.code, 0)
+  assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /tmux attach -t/)
+})
+
+// DEF-004: drive --help prints deprecation hint exactly once
+test("drive --help prints deprecation hint exactly once", async () => {
+  const r = await runCli(["drive", "--help"])
+  const matches = (r.stderr.match(/armada drive: deprecated/g) || [])
+  assert.strictEqual(matches.length, 1, `deprecation hint appeared ${matches.length} times, expected 1`)
 })

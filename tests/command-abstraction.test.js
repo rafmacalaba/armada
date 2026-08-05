@@ -2,19 +2,15 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import {
   renderArmadaCommand,
-  renderArmadaStatusCommand,
   renderArmadaScoutCommand,
   renderArmadaResumeCommand,
-  renderArmadaFleetCommand,
   renderArmadaVoyageCommand,
 } from "../src/generator.js"
 
 const RENDERERS = [
   ["renderArmadaCommand", renderArmadaCommand],
-  ["renderArmadaStatusCommand", renderArmadaStatusCommand],
   ["renderArmadaScoutCommand", renderArmadaScoutCommand],
   ["renderArmadaResumeCommand", renderArmadaResumeCommand],
-  ["renderArmadaFleetCommand", renderArmadaFleetCommand],
   ["renderArmadaVoyageCommand", renderArmadaVoyageCommand],
 ]
 
@@ -35,10 +31,8 @@ test("armada command frontmatter has description but no agent line", () => {
 
 test("agent-bearing commands have agent: commodore (or orchestrator) in frontmatter", () => {
   const agents = [
-    renderArmadaStatusCommand,
     renderArmadaScoutCommand,
     renderArmadaResumeCommand,
-    renderArmadaFleetCommand,
     renderArmadaVoyageCommand,
   ]
   for (const fn of agents) {
