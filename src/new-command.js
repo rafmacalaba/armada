@@ -1,15 +1,16 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync } from "node:fs"
-import { join } from "node:path"
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, cpSync, rmSync } from "node:fs"
+import { join, resolve } from "node:path"
 import { homedir } from "node:os"
-import { execSync } from "node:child_process"
+import { execSync, spawnSync } from "node:child_process"
 import { createInterface } from "node:readline/promises"
 import { stdin, stdout } from "node:process"
+import { tmpdir } from "node:os"
 
-import { CATEGORIES } from "./recommendations.js"
 import { scaffold } from "./scaffold.js"
 import { detectStack } from "./stack-detect.js"
-import { confirm } from "./questionnaire.js"
 import { ROLES, modelFor } from "./model-catalog.js"
+
+const VARIABLE_RE = /\{\{\s*cookiecutter\.(\w+)\s*\}\}/g
 
 export function detectExperience() {
   return experienceDetectForDir(homedir())
@@ -26,78 +27,161 @@ export function experienceDetectForDir(dir) {
   return score >= 2 && local > 0 ? "experienced" : "beginner"
 }
 
-export function renderTemplate(srcDir, destDir, subs) {
+/**
+ * Discover all unique {{ cookiecutter.NAME }} variables in a template tree.
+ * @param {string} templateDir
+ * @returns {string[]}
+ */
+export function discoverVariables(templateDir) {
+  const names = new Set()
+  _scanDir(templateDir)
+  return [...names].sort()
+
+  function _scanDir(dir) {
+    for (const entry of readdirSync(dir)) {
+      if (entry === ".git") continue
+      const p = join(dir, entry)
+      try {
+        const st = statSync(p)
+        if (st.isDirectory()) {
+          _scanDir(p)
+        } else if (st.isFile()) {
+          // Try to read as text; skip if binary
+          let content
+          try {
+            content = readFileSync(p, "utf8")
+          } catch {
+            continue
+          }
+          for (const m of content.matchAll(VARIABLE_RE)) {
+            names.add(m[1])
+          }
+        }
+      } catch {
+        // Skip files we can't access
+      }
+    }
+  }
+}
+
+/**
+ * Copy template from a local path, substituting {{ cookiecutter.NAME }} variables.
+ * @param {string} srcDir
+ * @param {string} destDir
+ * @param {Record<string, string>} vars
+ */
+export function renderCookiecutterTemplate(srcDir, destDir, vars) {
   mkdirSync(destDir, { recursive: true })
   for (const entry of readdirSync(srcDir)) {
+    if (entry === ".git") continue
     const srcPath = join(srcDir, entry)
     const destPath = join(destDir, entry)
-    if (entry === "starter.yaml") continue
-    if (statSync(srcPath).isDirectory()) {
-      renderTemplate(srcPath, destPath, subs)
+    let st
+    try {
+      st = statSync(srcPath)
+    } catch {
+      continue
+    }
+    if (st.isDirectory()) {
+      renderCookiecutterTemplate(srcPath, destPath, vars)
     } else {
-      let content = readFileSync(srcPath, "utf8")
-      content = content.replace(/\{(\w+)\}/g, (m, key) => subs[key] !== undefined ? subs[key] : m)
+      let content
+      try {
+        content = readFileSync(srcPath, "utf8")
+      } catch {
+        // Binary file — copy as-is
+        cpSync(srcPath, destPath)
+        continue
+      }
+      content = content.replace(VARIABLE_RE, (m, key) => vars[key] !== undefined ? vars[key] : m)
       writeFileSync(destPath, content, "utf8")
     }
   }
 }
 
-async function pickCategory() {
-  const keys = Object.keys(CATEGORIES)
-  console.log("\nProject category:")
-  keys.forEach((k, i) => console.log(`  ${i + 1}. ${CATEGORIES[k].label}`))
-  const rl = createInterface({ input: stdin, output: stdout })
-  const raw = await rl.question(`Pick 1-${keys.length} [1] `)
-  rl.close()
-  const idx = parseInt(raw, 10)
-  return keys[(Number.isInteger(idx) && idx >= 1 && idx <= keys.length ? idx : 1) - 1]
-}
-
-async function pickStack(category) {
-  const stacks = CATEGORIES[category].stacks
-  console.log(`\nPick a stack for ${CATEGORIES[category].label}:`)
-  stacks.forEach((s, i) => {
-    const tag = s.recommended ? " (Recommended)" : ""
-    console.log(`  ${i + 1}. ${s.label}${tag}`)
+/**
+ * Fetch a template from a URL (git clone) into a temp directory.
+ * @param {string} url
+ * @returns {string} path to the cloned template
+ */
+function cloneTemplate(url) {
+  const tmp = join(tmpdir(), "armada-cc-" + Date.now())
+  const result = spawnSync("git", ["clone", "--depth", "1", url, tmp], {
+    stdio: "pipe",
+    encoding: "utf8",
   })
-  const rl = createInterface({ input: stdin, output: stdout })
-  const def = stacks.findIndex((s) => s.recommended) + 1
-  const raw = await rl.question(`Pick 1-${stacks.length} [${def}] `)
-  rl.close()
-  const idx = parseInt(raw, 10)
-  return stacks[(Number.isInteger(idx) && idx >= 1 && idx <= stacks.length ? idx : def) - 1]
-}
-
-async function drillDown(category) {
-  const layers = CATEGORIES[category].layers || {}
-  const picks = {}
-  console.log("\nDrill-down configuration:")
-  for (const [layer, options] of Object.entries(layers)) {
-    console.log(`\n${layer}:`)
-    options.forEach((o, i) => {
-      const tag = i === 0 ? " (Recommended)" : ""
-      console.log(`  ${i + 1}. ${o.label}${tag}`)
-    })
-    const rl = createInterface({ input: stdin, output: stdout })
-    const raw = await rl.question(`Pick 1-${options.length} [1] `)
-    rl.close()
-    const idx = parseInt(raw, 10)
-    picks[layer] = options[(Number.isInteger(idx) && idx >= 1 && idx <= options.length ? idx : 1) - 1]
+  if (result.status !== 0) {
+    throw new Error(`failed to clone template '${url}': ${result.stderr?.trim() || "unknown error"}`)
   }
-  return picks
+  // Remove .git dir so it doesn't get copied to output
+  rmSync(join(tmp, ".git"), { recursive: true, force: true })
+  return tmp
 }
 
-function slugify(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
-}
+/**
+ * Resolve variables for a template.
+ * Precedence: --config JSON > COOKIECUTTER_ env vars > prompt (TTY) > empty string (non-TTY)
+ * @param {string[]} discovered names of variables found in template
+ * @param {{ config?: string, yes?: boolean }} opts
+ * @returns {Promise<[Record<string, string>, Record<string, string>]>} [resolved, applied]
+ */
+async function resolveVariables(discovered, opts) {
+  const vars = {}
+  const applied = {}
 
-function resolveTemplateDir(category, stackName) {
-  const root = join(import.meta.dirname || join(import.meta.url, ".."), "..", "starter")
-  const named = join(root, category, stackName)
-  if (existsSync(named)) return named
-  const rec = CATEGORIES[category]?.stacks?.[0]
-  if (rec) return join(root, category, rec.name)
-  return null
+  // 1. --config file
+  if (opts.config) {
+    const configPath = resolve(opts.config)
+    if (!existsSync(configPath)) {
+      console.error(`config file not found: ${opts.config}`)
+      process.exitCode = 1
+      return null
+    }
+    let raw
+    try {
+      raw = JSON.parse(readFileSync(configPath, "utf8"))
+    } catch (e) {
+      console.error(`invalid config JSON: ${e.message}`)
+      process.exitCode = 1
+      return null
+    }
+    for (const [k, v] of Object.entries(raw)) {
+      vars[k] = String(v)
+      applied[k] = "config"
+    }
+  }
+
+  // 2. env vars (only for vars not already resolved by config)
+  for (const name of discovered) {
+    if (name in vars) continue
+    const envKey = "COOKIECUTTER_" + name.toUpperCase()
+    if (envKey in process.env) {
+      vars[name] = process.env[envKey]
+      applied[name] = "env"
+    }
+  }
+
+  const unresolved = discovered.filter((n) => !(n in vars))
+
+  // 3. prompt (TTY) or blank (--yes / non-TTY)
+  if (unresolved.length > 0) {
+    if (opts.yes || !process.stdin.isTTY) {
+      for (const name of unresolved) {
+        vars[name] = ""
+        applied[name] = "default"
+      }
+    } else {
+      const rl = createInterface({ input: stdin, output: stdout })
+      for (const name of unresolved) {
+        const val = await rl.question(`${name}: `)
+        vars[name] = val || ""
+        applied[name] = "prompt"
+      }
+      rl.close()
+    }
+  }
+
+  return [vars, applied]
 }
 
 function defaultManifestFor(name) {
@@ -126,121 +210,107 @@ export async function runNew(opts = {}) {
   const cwd = opts.cwd || process.cwd()
   const name = opts.name
 
+  // Reset exit code for programmatic use
+  process.exitCode = 0
+
   if (!name) {
-    console.error("Usage: armada new <project-name> [--type <category>] [--beginner|--experienced] [--yes]")
+    console.error("Usage: armada new <project-name> --template <url|path> [--config <file.json>] [--yes]")
     process.exitCode = 1
-    return
+    return 1
   }
 
-  // Validate name for path safety (DEF-006)
+  // Validate name for path safety
   if (name.includes("/") || name.includes("\\")) {
     console.error(`invalid project name "${name}": must not contain path separators`)
     process.exitCode = 1
-    return
+    return 1
   }
   if (name.includes("..")) {
     console.error(`invalid project name "${name}": must not contain ".."`)
     process.exitCode = 1
-    return
+    return 1
   }
   if (name.startsWith("/")) {
     console.error(`invalid project name "${name}": must not be an absolute path`)
     process.exitCode = 1
-    return
+    return 1
   }
   if (name.startsWith("-")) {
     console.error(`invalid project name "${name}": project names cannot start with '-'`)
     process.exitCode = 1
-    return
+    return 1
   }
 
-  let category = opts.type
-  if (!category) {
-    if (opts.yes || !process.stdin.isTTY) {
-      category = Object.keys(CATEGORIES)[0]
-    } else {
-      category = await pickCategory()
-    }
-  }
-  if (!CATEGORIES[category]) {
-    console.error(`Unknown category: ${category}. Available: ${Object.keys(CATEGORIES).join(", ")}`)
+  // Require --template
+  if (!opts.template) {
+    console.error("missing required flag: --template <url|path>")
+    console.error("Usage: armada new <project-name> --template <url|path> [--config <file.json>] [--yes]")
     process.exitCode = 1
-    return
-  }
-
-  let level
-  if (opts.beginner) level = "beginner"
-  else if (opts.experienced) level = "experienced"
-  else level = detectExperience()
-
-  if (!opts.yes && !opts.beginner && !opts.experienced && process.stdin.isTTY) {
-    const ok = await confirm(`Detected experience: ${level}. Use this?`, true)
-    if (ok === null) return
-  }
-
-  let stackName
-  if (opts.beginner || level === "beginner") {
-    if (opts.yes || !process.stdin.isTTY) {
-      stackName = CATEGORIES[category].stacks[0].name
-    } else {
-      const chosen = await pickStack(category)
-      stackName = chosen.name
-    }
-  } else {
-    if (opts.yes || !process.stdin.isTTY) {
-      stackName = CATEGORIES[category].stacks[0].name
-    } else {
-      await drillDown(category)
-      stackName = CATEGORIES[category].stacks[0].name
-    }
+    return 1
   }
 
   const targetDir = join(cwd, name)
   if (existsSync(targetDir)) {
     console.error(`Directory already exists: ${targetDir}`)
     process.exitCode = 1
-    return
+    return 1
   }
 
-  const templateDir = resolveTemplateDir(category, stackName)
-  if (!templateDir || !existsSync(templateDir)) {
-    console.error(`Template not found for ${category}/${stackName}`)
-    process.exitCode = 1
-    return
-  }
-
-  const projectNameSlug = slugify(name)
-  const description = `A ${CATEGORIES[category].label.toLowerCase()} project.`
-  renderTemplate(templateDir, targetDir, {
-    project_name: name,
-    project_name_slug: projectNameSlug,
-    project_description: description,
-    project_year: String(new Date().getFullYear()),
-  })
-
-  let postInstall = null
+  // Fetch template
+  let templateDir
+  let tempCloned = false
   try {
-    const starterYaml = readFileSync(join(templateDir, "starter.yaml"), "utf8")
-    const lines = starterYaml.split("\n")
-    for (const line of lines) {
-      if (line.startsWith("postInstall:")) {
-        const val = line.split(":")[1]?.trim()
-        if (val && val !== "null") postInstall = val
-      }
+    if (opts.template.startsWith("http://") || opts.template.startsWith("https://") || opts.template.startsWith("git@") || opts.template.startsWith("ssh://")) {
+      templateDir = cloneTemplate(opts.template)
+      tempCloned = true
+    } else {
+      templateDir = resolve(opts.template)
     }
-  } catch { /* optional */ }
+  } catch (err) {
+    console.error(String(err?.message ?? err))
+    process.exitCode = 1
+    return 1
+  }
 
+  if (!existsSync(templateDir)) {
+    console.error(`template not found: ${opts.template}`)
+    process.exitCode = 1
+    return 1
+  }
+
+  // Discover variables in the template
+  const discovered = discoverVariables(templateDir)
+
+  // Resolve variables
+  const resolved = await resolveVariables(discovered, opts)
+  if (!resolved) return 1
+
+  const [vars] = resolved
+
+  // Render template to target
+  renderCookiecutterTemplate(templateDir, targetDir, vars)
+
+  // Clean up temp clone
+  if (tempCloned) {
+    try { rmSync(templateDir, { recursive: true, force: true }) } catch {}
+  }
+
+  // Scaffold armada team into the new project
   const manifest = defaultManifestFor(name)
   const stack = detectStack(targetDir)
   manifest.targetDir = targetDir
   const { written: files } = scaffold(manifest, stack)
 
   console.log(`\nCreated ${name}/`)
-  console.log(`Template: ${CATEGORIES[category].label} / ${stackName}`)
-  for (const f of files) console.log(`  + ${f}`)
+  if (discovered.length > 0) {
+    console.log(`Template variables (${discovered.length}): ${discovered.join(", ")}`)
+  }
+  for (const f of files.slice(0, 12)) console.log(`  + ${f}`)
+  if (files.length > 12) console.log(`  ... and ${files.length - 12} more armada files`)
   console.log("\nNext:")
   console.log(`  cd ${name}`)
-  if (postInstall) console.log(`  ${postInstall}`)
   console.log("  opencode")
   console.log("  armada status")
+
+  return 0
 }
