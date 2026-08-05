@@ -38,6 +38,17 @@
     "cli"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rafmacalaba/opencode-armada.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rafmacalaba/opencode-armada/issues"
+  },
+  "homepage": "https://github.com/rafmacalaba/opencode-armada#readme",
+  "peerDependencies": {
+    "opencode": "^1.18.0"
+  },
   "dependencies": {
     "yaml": "^2.9.0"
   }
