@@ -28,7 +28,7 @@ jobs:
       - run: npm ci
 
       - name: Run test suite
-        run: node --test 'tests/*.test.js'
+        run: node --test tests/*.test.js
 
       - name: Lifecycle walkthrough — init
         run: node src/cli.js init --yes --budget free --target /tmp/armada-evidence-${{ runner.os }}
