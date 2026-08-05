@@ -1,4 +1,4 @@
-# opencode-armada — Specification
+# armada — Specification
 
 Transparent design spec. What this is, what it isn't, how it works, and the decisions behind
 it. If you change behavior, update this file.
@@ -7,7 +7,7 @@ it. If you change behavior, update this file.
 
 ## 1. What it is
 
-`opencode-armada` is a **configuration generator** for building reproducible AI-engineer
+`armada` is a **configuration generator** for building reproducible AI-engineer
 multi-agent teams in [opencode](https://opencode.ai). It generates per-project native opencode
 agents, prompts, and playbooks that a human (or another agent) runs with opencode itself.
 

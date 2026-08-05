@@ -1,4 +1,4 @@
-# opencode-armada — Architecture
+# armada — Architecture
 
 *How armada works, and the ideas it's built on. Read this to understand the system — whether
 you're contributing, dogfooding, or thinking about running a fleet on your own repo.*
@@ -100,9 +100,9 @@ pattern; you need the loop + the harness.
 ### 0. Arm the repo (one-time)
 
 ```bash
-npx opencode-armada init --yes --yolo
+npx armada init --yes --yolo
 # or, for a fresh project:
-npx opencode-armada new my-app --type web-app --beginner --yes
+npx armada new my-app --type web-app --beginner --yes
 ```
 
 This writes the harness: `.opencode/agent/*.md`, `opencode.json`, `AGENTS.md`, and the

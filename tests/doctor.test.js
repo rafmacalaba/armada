@@ -144,7 +144,7 @@ test("global armada binary fail when missing", async () => {
   const checks = await runDoctor({ env: { ...process.env, PATH: empty } })
   const ga = checks.find((c) => c.name === "global armada binary")
   assert.strictEqual(ga.status, "fail")
-  assert.match(ga.detail, /npm link|~\/WBG\/opencode-armada/)
+  assert.match(ga.detail, /npm link|~\/WBG\/armada/)
 })
 
 test("global armada binary fail on broken symlink", async () => {
@@ -155,7 +155,7 @@ test("global armada binary fail on broken symlink", async () => {
   const checks = await runDoctor({ env: { ...process.env, PATH: `${tmp}:${process.env.PATH}` } })
   const ga = checks.find((c) => c.name === "global armada binary")
   assert.strictEqual(ga.status, "fail")
-  assert.match(ga.detail, /npm link|~\/WBG\/opencode-armada/)
+  assert.match(ga.detail, /npm link|~\/WBG\/armada/)
 })
 
 test("global armada binary resolves a valid two-hop symlink chain", async () => {

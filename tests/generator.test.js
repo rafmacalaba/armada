@@ -633,7 +633,7 @@ test("buildTeam instructions and prompt default to null", () => {
 // -- Phase 4: renderArmadaFleetPlugin --
 test("renderArmadaFleetPlugin emits valid JS with fleet handlers", () => {
   const src = renderArmadaFleetPlugin()
-  assert.match(src, /^\/\/ opencode-armada fleet plugin/)
+  assert.match(src, /^\/\/ armada fleet plugin/)
   assert.match(src, /export const ArmadaFleet/)
   assert.match(src, /session\.created/)
   assert.match(src, /session\.idle/)
@@ -778,7 +778,7 @@ test("renderArmadaSupervisionPlugin still denies old protected paths", () => {
 
 test("renderArmadaWatchdogPlugin starts with header comment", () => {
   const src = renderArmadaWatchdogPlugin()
-  assert.match(src, /^\/\/ opencode-armada watchdog plugin/)
+  assert.match(src, /^\/\/ armada watchdog plugin/)
   assert.match(src, /--watchdog/)
   assert.match(src, /Auto-loaded by opencode from \.opencode\/plugins/)
 })

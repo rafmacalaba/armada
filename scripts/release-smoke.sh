@@ -84,7 +84,7 @@ if [ "${VER_EXIT}" -ne 0 ]; then
   fail "--version exited ${VER_EXIT}"
 else
   case "${VER_OUT}" in
-    *"opencode-armada v"*) pass "--version shows opencode-armada v...";;
+    *"armada v"*) pass "--version shows armada v...";;
     *) fail "--version missing expected prefix";;
   esac
 fi

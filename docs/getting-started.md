@@ -191,7 +191,7 @@ armada resume                         # drift report after a crash
 ## Upgrade
 
 ```bash
-npm install -g opencode-armada@latest
+npm install -g armada@latest
 armada init --from-armada armada/armada.yaml   # re-scaffold from manifest
 armada doctor                                  # verify
 ```
