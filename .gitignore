@@ -16,8 +16,16 @@ build/
 # Planning artifacts (specs/plans) stay local, not in the repo; the repo keeps TODO.md
 /docs/superpowers/
 
-# armada runtime state (contracts, state, active) — not source
-/armada/
+# armada runtime state — contracts, state, active, scaffold — not source
+/armada/REQUIREMENTS.md
+/armada/armada.yaml
+/armada/state/
+/armada/contracts/
+/armada/ledgers/_template/
+# armada acceptance artifacts — tracked
+# (armada/e2e/, armada/ledgers/{feature}/DEFECTS.md + ADVERSARIAL_REVIEW.md + SECURITY_FINDINGS.md, armada/screenshots/)
+
+# Generated root opencode.json — not source
 /opencode.json
 
 # Validation evidence-target (sandbox facsimile of ~/WBG/data-ai-chatbot, gitignored build artifact)
@@ -28,9 +36,3 @@ build/
 /ADVERSARIAL_REVIEW.md
 /AUDIT.md
 # armada:process:end
-
-# armada:start
-/armada/
-/.opencode/
-/opencode.json
-# armada:end
