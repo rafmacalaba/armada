@@ -39,7 +39,7 @@ function checkArray(val, path) {
  * @param {string} [params.contract] - contract path
  * @returns {VoyageState}
  */
-export function createVoyageState({ voyage, branch, worktree, contract }) {
+export function createVoyageState({ voyage, branch, worktree, contract, status, inFlightAction }) {
   const now = nowISO()
   return {
     version: STATE_VERSION,
@@ -47,8 +47,9 @@ export function createVoyageState({ voyage, branch, worktree, contract }) {
     branch: branch || "",
     worktree: worktree || "",
     contract: contract || "armada/REQUIREMENTS.md",
-    status: "active",
+    status: status || "active",
     completedActions: [],
+    inFlightAction: inFlightAction || null,
     createdAt: now,
     updatedAt: now,
   }
@@ -67,6 +68,24 @@ export function recordAction(state, actionId) {
   if (state.completedActions.includes(actionId)) return state
   const next = structuredClone(state)
   next.completedActions.push(actionId)
+  next.updatedAt = nowISO()
+  // If this was the inFlightAction, clear it
+  if (next.inFlightAction === actionId) {
+    next.inFlightAction = null
+  }
+  return next
+}
+
+/**
+ * Mark a voyage state as completed. Returns a new state — original is not mutated.
+ *
+ * @param {VoyageState} state
+ * @returns {VoyageState}
+ */
+export function markCompleted(state) {
+  const next = structuredClone(state)
+  next.status = "completed"
+  next.inFlightAction = null
   next.updatedAt = nowISO()
   return next
 }
@@ -95,6 +114,7 @@ export function upgradeState(state) {
     if (!upgraded.contract) upgraded.contract = "armada/REQUIREMENTS.md"
     if (!upgraded.status) upgraded.status = "active"
     if (!upgraded.completedActions) upgraded.completedActions = []
+    if (upgraded.inFlightAction === undefined) upgraded.inFlightAction = null
   }
 
   return upgraded
@@ -113,8 +133,8 @@ export function validateVoyageState(obj) {
     throw new Error("voyageState.version: must be a positive integer")
   }
   checkNonEmptyString(obj.status, "voyageState.status")
-  if (!["active", "completed", "interrupted", "orphaned"].includes(obj.status)) {
-    throw new Error("voyageState.status: must be one of active|completed|interrupted|orphaned")
+  if (!["active", "completed", "interrupted", "orphaned", "in_progress", "paused", "aborted"].includes(obj.status)) {
+    throw new Error("voyageState.status: must be one of active|completed|interrupted|orphaned|in_progress|paused|aborted")
   }
   checkArray(obj.completedActions, "voyageState.completedActions")
   return obj

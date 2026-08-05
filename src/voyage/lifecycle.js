@@ -9,17 +9,19 @@
  */
 
 import { join } from "node:path"
+import { existsSync } from "node:fs"
 import { writeAtomic, readSafe } from "../state/atomic.js"
 import {
   createVoyageState as createBase,
   recordAction,
+  markCompleted,
   upgradeState,
   validateVoyageState,
 } from "../state/versioned.js"
 
 // ---- re-exported for convenience -------------------------------------------
 
-export { createVoyageState } from "../state/versioned.js"
+export { createVoyageState, markCompleted } from "../state/versioned.js"
 
 // ---- state path ------------------------------------------------------------
 
@@ -74,6 +76,49 @@ export async function recordCompletedAction(voyageDir, actionId) {
 }
 
 // ---- resume -----------------------------------------------------------------
+
+/**
+ * Resume state from the CLI: if a voyage state file exists, handle the
+ * in-flight action and transition status. Returns the updated state or null
+ * if no state file exists.
+ *
+ * - in_progress + inFlightAction: record inFlightAction as completed, set active
+ * - in_progress without inFlightAction: keep as active (no action needed)
+ * - paused + inFlightAction: record inFlightAction as completed, set active
+ * - interrupted: set to active (allow resume)
+ * - completed: return as-is (no change)
+ *
+ * @param {string} repoDir
+ * @returns {Promise<object|null>} the state after resume, or null if no state file
+ */
+export async function resumeState(repoDir) {
+  const state = readState(repoDir)
+  if (!state) return null
+
+  const { status, inFlightAction } = state
+  let updated = state
+
+  // Handle in-progress / paused states with an in-flight action
+  if ((status === "in_progress" || status === "paused") && inFlightAction) {
+    updated = recordAction(updated, inFlightAction)
+    updated.status = "active"
+    updated.updatedAt = new Date().toISOString()
+    await writeState(repoDir, updated)
+    return updated
+  }
+
+  // Handle in_progress/paused/aborted without in-flight action — just transition to active
+  if (status === "in_progress" || status === "paused" || status === "aborted" || status === "interrupted") {
+    updated = structuredClone(state)
+    updated.status = "active"
+    updated.updatedAt = new Date().toISOString()
+    await writeState(repoDir, updated)
+    return updated
+  }
+
+  // State exists but is already active or completed — no change needed
+  return state
+}
 
 /**
  * Resume a voyage: run all action handlers that have not been completed yet,
