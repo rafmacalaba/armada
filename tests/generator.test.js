@@ -878,3 +878,20 @@ test("renderArmadaWatchdogPlugin contains two-gate logic", () => {
   assert.match(src, /STALENESS_WINDOW_MS/)
   assert.match(src, /TIMEOUT_MS/)
 })
+
+test("all 6 armada command renderers emit subtask: true", () => {
+  const renderers = [
+    renderArmadaCommand,
+    renderArmadaStatusCommand,
+    renderArmadaScoutCommand,
+    renderArmadaResumeCommand,
+    renderArmadaFleetCommand,
+    renderArmadaVoyageCommand,
+  ]
+  for (const r of renderers) {
+    const md = r()
+    const m = md.match(/^---\n([\s\S]*?)\n---\n/)
+    assert.ok(m, `frontmatter found in ${r.name} output`)
+    assert.match(m[1], /subtask:\s*true/, `${r.name} frontmatter must include "subtask: true"`)
+  }
+})
