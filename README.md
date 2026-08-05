@@ -39,12 +39,15 @@ armada turns your repository into a **self-organizing AI engineering fleet**. In
 ## Quickstart
 
 ```bash
-# New project (uses Cookiecutter-style presets)
+# 1. Install globally (enables 'armada' command anywhere)
+npm install -g opencode-armada
+
+# 2. New project (uses Cookiecutter-style presets)
 armada new my-app
 cd my-app
 opencode                              # Commodore welcomes you
 
-# Existing repo (auto-detects stack & scaffolds team)
+# 3. Existing repo (auto-detects stack & scaffolds team)
 cd your-repo
 armada init
 opencode                              # start building
@@ -54,8 +57,8 @@ armada feature new my-feature --worktree
 armada voyage sandbox/my-feature
 ```
 
-> **Not sure it works?** Run `armada doctor` after init — it checks opencode, providers, model
-> availability, and background dispatch in one pass.
+> **Prefer zero install via `npx`?** Run `npx opencode-armada new my-app` or `npx opencode-armada init`.
+> **Not sure it works?** Run `armada doctor` after init to check opencode, providers, and models in one pass.
 
 ---
 
