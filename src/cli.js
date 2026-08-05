@@ -16,6 +16,22 @@
 //   armada uninstall [--all]    remove armada-generated artifacts
 //   armada resume               resume after interrupted session
 
+// Check runtime before any imports or execution.
+// Block early: Node < 20 is unsupported.
+export function checkNodeRuntime(version = process.versions.node) {
+  const major = parseInt(version.split(".")[0], 10)
+  if (Number.isNaN(major) || major < 20) {
+    return `Unsupported runtime: Node.js >= 20 required (detected v${version}). Upgrade to Node 20 or later and retry.`
+  }
+  return null
+}
+
+const runtimeError = checkNodeRuntime()
+if (runtimeError) {
+  process.stderr.write(runtimeError + "\n")
+  process.exit(1)
+}
+
 import { existsSync, readFileSync, realpathSync } from "node:fs"
 import { basename, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
