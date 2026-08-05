@@ -18,7 +18,7 @@
 ## Install
 
 ```bash
-npm install -g opencode-armada        # or: bun add -g opencode-armada
+npm install -g armada                 # or: bun add -g armada
 armada --version                      # confirm the binary works
 armada doctor                         # environment health check
 ```
