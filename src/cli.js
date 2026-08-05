@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 // opencode-armada CLI — entry point.
 //
-// Commands:
+// Commands (11 total):
 //   armada init                 interactive questionnaire -> writes team config
-//   armada init --stack ...     declarative flags
-//   armada init --from-armada armada/armada.yaml   re-scaffold from manifest
-//   armada models [budget]      print curated model catalog
-//   armada models --refresh     merge live provider models (requires auth)
+//   armada new                  create new project from starter template
 //   armada doctor               check providers + env + background dispatch
-//   armada uninstall [--all]    remove armada-generated artifacts (--all also user-facing)
-//   armada ping                 confirm the CLI works
+//   armada status [--json] [--feature <name>]  feature status from armada/state
+//   armada fleet [session]      per-lane progress dashboard
+//   armada voyage <path>        boot a lane + send voyage prompt
+//   armada feature new|list|close  per-feature contract management
+//   armada models [--refresh]   curated model catalog
 //   armada help                 this help
+//   armada uninstall [--all]    remove armada-generated artifacts
+//   armada resume               resume after interrupted session
 
 import { existsSync, readFileSync, realpathSync } from "node:fs"
 import { basename, resolve } from "node:path"
@@ -24,17 +26,14 @@ import { parseManifestYaml, validateRequirementsFile } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 import { runNew } from "./new-command.js"
 import { createFeature, createWorktreeFeature, listFeatures, closeFeature, setActiveContract, readActive, readFeatureEntry } from "./feature-commands.js"
-import { main as reconcileMain } from "./reconcile-cli.js"
+import { main as resumeMain } from "./resume-cli.js"
 import { renderInitSummary } from "./init-summary.js"
-import { applyPreset } from "./preset-command.js"
 import { bootLane, DriveError } from "./drive.js"
 import { startHeartbeat } from "./heartbeat.js"
 import { openTerminal, buildAttachCommand } from "./terminal-open.js"
 import { listRuns, readRun } from "./fleet-tracker.js"
 import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cmd.js"
-import { runUpdate } from "./update.js"
 import { main as statusMain } from "./status-cmd.js"
-import { main as scoutMain } from "./scout-cmd.js"
 
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
@@ -57,30 +56,31 @@ Usage:
   armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
   armada init --target <dir>                 scaffold into a directory (default cwd)
   armada init --from-armada armada/armada.yaml      regenerate from manifest
-  armada models [budget]                     show curated model catalog
-  armada models --refresh                    merge live provider models
-  armada models --list-openrouter            live OpenRouter model list
-  armada preset <name> [--target <dir>]      apply a budget preset to armada.yaml
+  armada init --restart                           force re-scaffold; overwrites armada-owned files but preserves user-owned files
   armada doctor                              environment health check
-  armada uninstall [--all] [--dry-run] [--target <dir>]  remove armada-generated artifacts
-  armada update [--yes] [--dry-run] [--repo <path>]
-                          bring an existing repo fully current (re-scaffold + whitelist-only opencode.json merge)
+  armada status [--json] [--feature <name>]  feature status from armada/state (table by default)
+  armada fleet [session] [--json] [--open]   per-lane progress dashboard (table by default)
+  armada voyage <lane-path> [--heartbeat]    boot a lane session and send the voyage prompt (TUI-ready handshake)
   armada feature new <name>                  create per-feature contract + register
   armada feature list                        list open/in-progress/shipped features
   armada feature close <name>                verify evidence + mark shipped
-  armada feature status [name]               show active or named feature state
-  armada fleet [session] [--json] [--open]   per-lane progress dashboard (table by default)
-  armada status [--json]                     feature status from armada/state (table by default)
-  armada scout <area>                        print investigation brief for a code area
-  armada reconcile [--json] [--state-dir <p>] [--repo <p>]
-                           check for evidence drifts against contract (exit 2 if drifts)
-  armada voyage <lane-path> [--heartbeat]  boot a lane session and send the voyage prompt (TUI-ready handshake)
-  armada drive <lane-path>              (alias for voyage)
-                                           auto-opens in wezterm (preferred) or per-OS emulator as fallback
-  armada voyage --print-attach <name>     print tmux attach command and exit
-  armada drive --print-attach <name>      (same, via drive alias)
-  armada ping                                sanity check
+  armada models [budget]                     show curated model catalog
+  armada models --refresh                    merge live provider models
+  armada models --list-openrouter            live OpenRouter model list
   armada help                                this help
+  armada uninstall [--all] [--dry-run] [--target <dir>]  remove armada-generated artifacts
+  armada resume [--json] [--state-dir <p>] [--repo <p>]
+                           check for evidence drifts against contract (exit 2 if drifts)
+
+Deprecated (one-version aliases removed in v2.0):
+  armada drive <lane-path>                   alias for voyage; prints deprecation hint, calls voyage
+  armada update                              deprecated; use 'armada init --from-armada --restart'
+  armada preset <name>                       deprecated; use 'armada init --budget <name>'
+  armada feature status [name]               deprecated; use 'armada status --feature <name>'
+
+Removed:
+  armada scout                               removed; use '/armada-scout' inside the opencode TUI
+  armada ping                                removed; use 'armada help' to confirm the binary works
 `
 
 // Token -> stack field mappings for `--stack <hint>`. Only applied when the
@@ -143,10 +143,12 @@ export async function main(argv = process.argv.slice(2)) {
     case "uninstall":
       return uninstallCmd(rest)
     case "update":
-      return update(rest)
+      console.error("armada update: deprecated; use 'armada init --from-armada --restart'")
+      return init(rest)
     case "ping":
-      console.log("armada ok")
-      return 0
+      console.error("armada ping: removed; use 'armada help' to confirm the binary works")
+      process.exitCode = 1
+      return 1
     case "new": {
       const name = rest[0]
       const typeIdx = rest.indexOf("--type")
@@ -161,6 +163,8 @@ export async function main(argv = process.argv.slice(2)) {
     }
     case "feature":
       return featureCmd(rest)
+    case "resume":
+      return resumeCmd(rest)
     case "reconcile":
       return reconcileCmd(rest)
     case "fleet":
@@ -168,9 +172,18 @@ export async function main(argv = process.argv.slice(2)) {
     case "voyage":
       return driveCmd(rest, "voyage")
     case "drive":
+      console.error("armada drive: deprecated; use 'armada voyage' (this alias will be removed in v2.0)")
       return driveCmd(rest, "drive")
-    case "preset":
-      return preset(rest)
+    case "preset": {
+      console.error("armada preset: deprecated; use 'armada init --budget <name>'")
+      // Extract the preset name (first non-flag arg) and --target, forward to init
+      const name = rest.find((a) => !a.startsWith("--"))
+      const targetIdx = rest.indexOf("--target")
+      const target = targetIdx !== -1 && rest[targetIdx + 1] && !rest[targetIdx + 1].startsWith("--") ? rest[targetIdx + 1] : "."
+      const initArgs = name ? ["--budget", name] : []
+      if (target && target !== ".") initArgs.push("--target", target)
+      return init(initArgs)
+    }
     case "--version":
     case "-v":
       process.stdout.write("opencode-armada v" + VERSION + "\n")
@@ -178,7 +191,9 @@ export async function main(argv = process.argv.slice(2)) {
     case "status":
       return statusCmd(rest)
     case "scout":
-      return scoutCmd(rest)
+      console.error("armada scout: removed; use '/armada-scout' inside the opencode TUI")
+      process.exitCode = 1
+      return 1
     case "help":
     case "-h":
     case "--help":
@@ -252,6 +267,14 @@ if (isMain) {
 }
 
 async function init(args) {
+  // Intercept --help / -h before any parsing
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(HELP)
+    return 0
+  }
+
+  const force = args.includes("--restart")
+
   const targetIdx = args.indexOf("--target")
   const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--") ? args[targetIdx + 1] : "."
 
@@ -362,7 +385,7 @@ async function init(args) {
 
   let files
   try {
-    const scaffoldResult = scaffold(manifest, stack, { dryRun, gitignore })
+    const scaffoldResult = scaffold(manifest, stack, { dryRun, gitignore, force })
     files = scaffoldResult.written
   } catch (err) {
     logError(err, `check permissions on the target directory`)
@@ -441,29 +464,6 @@ async function models(args) {
   return 0
 }
 
-async function preset(args) {
-  const name = args.find((a) => !a.startsWith("--"))
-  if (!name) {
-    console.error("preset: name is required")
-    process.exitCode = 1
-    return 1
-  }
-  const targetIdx = args.indexOf("--target")
-  const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--") ? args[targetIdx + 1] : "."
-  try {
-    const result = applyPreset(resolve(target), name)
-    console.log(`preset "${name}" applied`)
-    console.log(`  budget: ${result.budget}`)
-    console.log(`  changed: ${result.changed} team entries`)
-    console.log(`Re-run 'armada init --from-armada armada/armada.yaml' to re-scaffold.`)
-    return 0
-  } catch (err) {
-    logError(err)
-    process.exitCode = 1
-    return 1
-  }
-}
-
 async function doctor() {
   console.log("opencode-armada doctor")
   // If the cwd has an armada manifest, surface its supervision.plugin setting so
@@ -527,20 +527,27 @@ async function uninstallCmd(args) {
   return 0
 }
 
-async function update(args) {
-  // Intercept --help / -h before any arg parsing
-  if (args.includes("--help") || args.includes("-h") || args[0] === "help") {
+async function resumeCmd(args) {
+  if (args.includes("--help") || args.includes("-h")) {
     console.log(HELP)
     return 0
   }
-  const result = await runUpdate(args, { cwd: process.cwd() })
-  process.exitCode = result.code
-  return result.code
+  try {
+    return await resumeMain(args, { cwd: process.cwd() })
+  } catch (err) {
+    logError(err)
+    process.exitCode = 1
+    return 1
+  }
 }
 
 async function reconcileCmd(args) {
+  const DEPRECATION = "armada reconcile: deprecated; use 'armada resume' (this alias will be removed in v2.0)"
+  console.error(DEPRECATION)
   try {
-    return await reconcileMain(args, { cwd: process.cwd() })
+    await resumeMain(args, { cwd: process.cwd() })
+    process.exitCode = 1  // force non-zero: deprecation alias
+    return 1
   } catch (err) {
     logError(err)
     process.exitCode = 1
@@ -589,9 +596,15 @@ async function getAutoOpenSuffix(name) {
 }
 
 async function driveCmd(args, cmdName = "drive") {
-  // Intercept --help / -h / help before any arg parsing
+  // Intercept --help / -h / help before any arg parsing.
+  // Deprecation hint is printed by the top-level dispatch (main switch),
+  // so do NOT repeat it here; only handle exit code for deprecated aliases.
   if (args.includes("--help") || args.includes("-h") || args[0] === "help") {
     console.log(HELP)
+    if (cmdName === "drive") {
+      process.exitCode = 1
+      return 1
+    }
     return 0
   }
 
@@ -648,6 +661,10 @@ async function driveCmd(args, cmdName = "drive") {
 
   if (printAttach) {
     console.log(buildAttachCommand(name))
+    if (cmdName === "drive") {
+      process.exitCode = 1
+      return 1
+    }
     return 0
   }
 
@@ -699,6 +716,10 @@ async function driveCmd(args, cmdName = "drive") {
       if (args.includes("--heartbeat") && !noTrack) {
         console.log(`heartbeat running for "${name}" every 30s — ${cmdName} stays resident to keep the lane entry fresh. Ctrl-C to stop.`)
       }
+    }
+    if (cmdName === "drive") {
+      process.exitCode = 1
+      return 1
     }
     return 0
   } catch (err) {
@@ -757,22 +778,6 @@ async function fleetCmd(args) {
 
 function statusCmd(args) {
   const { code, output } = statusMain(args, { cwd: process.cwd() })
-  if (code === 0) {
-    process.stdout.write(output)
-  } else {
-    process.stderr.write(output)
-  }
-  if (code !== 0) process.exitCode = code
-  return code
-}
-
-function scoutCmd(args) {
-  // Intercept --help / -h before passing to scoutMain
-  if (args.includes("--help") || args.includes("-h")) {
-    console.log(HELP)
-    return 0
-  }
-  const { code, output } = scoutMain(args)
   if (code === 0) {
     process.stdout.write(output)
   } else {
@@ -884,46 +889,21 @@ async function featureCmd(args) {
     }
     case "status": {
       const name = rest[0]
-      try {
-        if (name) {
-          const entry = readFeatureEntry(resolve(target), name)
-          if (!entry) {
-            console.error(`feature "${name}" not found`)
-            process.exitCode = 1
-            return 1
-          }
-          console.log(`feature: ${entry.name}`)
-          console.log(`status:  ${entry.status}`)
-          console.log(`contract: ${entry.contract}`)
-          console.log(`created: ${entry.createdAt}`)
-          if (entry.shippedAt) console.log(`shipped: ${entry.shippedAt}`)
-          console.log(`phases:`)
-          for (const p of entry.phases) {
-            console.log(`  ${p.id}: ${p.status}`)
-          }
-        } else {
-          const active = readActive(resolve(target))
-          if (!active) {
-            console.log("No active feature.")
-            return 0
-          }
-          console.log(`active feature: ${active.feature}`)
-          console.log(`contract: ${active.contract}`)
-          console.log(`next action: ${active.nextAction || "(none)"}`)
-          console.log(`updated: ${active.updatedAt}`)
-          if (active.phaseGraph && active.phaseGraph.phases) {
-            console.log(`phases:`)
-            for (const p of active.phaseGraph.phases) {
-              console.log(`  ${p.id}: ${p.status}`)
-            }
-          }
-        }
-      } catch (err) {
-        logError(err)
-        process.exitCode = 1
-        return 1
+      if (name) {
+        console.error(`armada feature status: deprecated; use 'armada status --feature ${name}'`)
+      } else {
+        console.error("armada feature status: deprecated; use 'armada status --feature <name>'")
       }
-      return 0
+      // Call status --feature <name> if a name was given
+      const statusArgs = name ? ["--feature", name] : []
+      const { code, output } = statusMain(statusArgs, { cwd: resolve(target) })
+      if (code === 0) {
+        process.stdout.write(output)
+      } else {
+        process.stderr.write(output)
+      }
+      process.exitCode = 1  // force non-zero: deprecation alias
+      return 1
     }
     default:
       console.error(`Unknown feature subcommand: ${sub}`)

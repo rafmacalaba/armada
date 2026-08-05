@@ -10,15 +10,12 @@ export {
   renderRequirementsMd,
   renderManifestYaml,
   renderArmadaCommand,
-  renderArmadaStatusCommand,
   renderArmadaScoutCommand,
   renderArmadaResumeCommand,
-  renderArmadaFleetCommand,
   renderArmadaVoyageCommand,
   renderArmadaSupervisionPlugin,
 } from "./generator.js"
 export { scaffold, uninstall, fillPrompt, fillTemplate } from "./scaffold.js"
 export { runDoctor } from "./doctor.js"
 export { renderInitSummary } from "./init-summary.js"
-export { parsePresetYaml, applyPreset } from "./preset-command.js"
-export { runUpdate } from "./update.js"
+export { startHeartbeat, tickHeartbeat } from "./heartbeat.js"

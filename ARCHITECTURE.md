@@ -30,7 +30,7 @@ available but the default works with plain opencode).
         │  contract + state            │  disjoint files / worktrees
         ▼                              ▼
    ┌───────────────────────────────────────────────────────────────────┐
-   │   THE REPO  (AGENTS.md, armada/contracts, armada/state, src/)      │
+   │   THE REPO  (AGENTS.md, armada/REQUIREMENTS.md, armada/state, src/) │
    └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -148,9 +148,9 @@ evidence in, next action Y."*
 ### Running multiple features (no clobbering)
 
 Each feature is its own contract + state file. For true parallel isolation, **spawn a git
-worktree per feature** — separate working trees can't collide, and merging is a per-feature
-fast-forward. (This is the roadmap's multi-feature step; today features share the checkout and
-rely on the "disjoint files" prompt rule.)
+worktree per feature** — `armada feature new <name> --worktree` creates `sandbox/<name>` +
+`feat/<name>`, separate working trees can't collide, and merging is a per-feature fast-forward.
+Features that share the checkout rely on the "disjoint files" prompt rule instead.
 
 ---
 
@@ -158,7 +158,7 @@ rely on the "disjoint files" prompt rule.)
 
 ```
 src/
-├── cli.js               entry + subcommands (new/init/feature/models/doctor/uninstall/ping/help)
+├── cli.js               entry + 11 subcommands (init/new/doctor/status/fleet/voyage/feature/models/help/uninstall/resume)
 ├── index.js             library entry (programmatic API)
 ├── model-catalog.js     the 8 roles, curated models, budget tiers (free/balanced/power)
 ├── stack-detect.js      detect the tech stack from manifests/instruction files (monorepos too)
@@ -184,20 +184,15 @@ structure, not a side effect.
 
 ## The fleet, role by role
 
-| Role | Mode | What it owns | Can it write code? |
-|---|---|---|---|
-| **orchestrator** | primary | dispatch, gating, contract, state, the only agent you talk to | **No** — delegates everything |
-| **backend-dev** | subagent | server, API, storage, backend tests | Yes (backend files) |
-| **frontend-dev** | subagent | UI, visual polish, frontend tests | Yes (frontend files) |
-| **qa** | subagent | e2e tests, screenshots, `armada/ledgers/<feature>/DEFECTS.md`, the only one who closes defects | Only `armada/e2e/` + `armada/screenshots/` + `armada/ledgers/` |
-| **adversary** | subagent | hostile review, breaks the running app, `armada/ledgers/<feature>/ADVERSARIAL_REVIEW.md` | **No** — read-only attacker |
-| **security** | subagent | vulnerability/authz audit | **No** — read-only auditor |
-| **docs** | subagent | README, API docs, changelog | Docs only |
-| **architect** | subagent | architecture, refactor risk, cross-cutting review | **No** — read-only reviewer |
+The full roster — every role, its job, its file access, and whether it can write code — lives in
+[docs/using-armada.md#the-role-roster](./docs/using-armada.md#the-role-roster); the per-role
+model catalog (primary + fallback per budget tier) is at
+[docs/using-armada.md#the-model-catalog](./docs/using-armada.md#the-model-catalog).
 
-The boundaries are **enforced by permissions in the agent frontmatter** — not by prompt
-politeness. The SDK resolves the most specific rule first, so a read-only role physically
-cannot edit, and the orchestrator physically cannot do its own code writes.
+The one thing worth restating here: the boundaries are **enforced by permissions in the agent
+frontmatter** — not by prompt politeness. The SDK resolves the most specific rule first, so a
+read-only role physically cannot edit, and the orchestrator physically cannot do its own code
+writes.
 
 ### The relationship graph
 
@@ -264,9 +259,10 @@ What the graph encodes:
 
 - **`armada feature new/list/close`** — per-feature contracts + state index. `close` is
   evidence-gated: it refuses until every criterion has a passing test or citation.
-- **CLI `armada status [--json]`** — reads `armada/state/active.json` + the features index.
-- **CLI `armada reconcile`** — the human-facing restart wrapper (resume line + drift list).
-- **CLI `armada scout <area>`** — print an investigation brief for a code area, no writes.
+- **CLI `armada status [--json] [--feature <name>]`** — reads `armada/state/active.json` + the
+  features index.
+- **CLI `armada fleet [session]`** — cross-repo per-lane dashboard.
+- **CLI `armada resume`** — the human-facing restart wrapper (resume line + drift list).
 - **`armada doctor`** — checks the harness: opencode, providers, openrouter auth, background
   dispatch, supervision-plugin presence.
 - **`npm run test:smoke`** — live OpenRouter smoke against the cheapest model (opt-in).
@@ -316,8 +312,8 @@ million-dollar property: a system that can improve the system.**
 
 ## Module map (contributor quick-ref)
 
-See [SPEC.md](./SPEC.md) for design decisions and [TODO.md](../TODO.md) for the roadmap.
+See [SPEC.md](./SPEC.md) for design decisions and [TODO.md](./TODO.md) for the roadmap.
 The rest of this file's module map and data-flow diagrams live above; for the mechanical
 rendering pipeline, see [src/](src/) and the tests in [tests/](tests/).
 
-<!-- Old terminology: Lane A = patrol, Lane B = voyage. See README.md for the canonical glossary. -->
+<!-- Old terminology: Lane A = patrol, Lane B = voyage. Canonical fleet terms live in docs/using-armada.md#the-fleet-terminology. -->

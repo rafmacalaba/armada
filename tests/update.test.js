@@ -1,56 +1,24 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { mkdtempSync, mkdirSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { join, resolve as resolvePath } from "node:path"
-import { detectTmuxSession, printRestartGuidance } from "../src/update.js"
+import { join } from "node:path"
+import { spawnSync } from "node:child_process"
 
-function mockExec(output, err) {
-  return (bin, args, cb) => {
-    setImmediate(() => cb(err ?? null, output ?? ""))
-  }
+const CLI = join(process.cwd(), "src", "cli.js")
+
+function runCli(args) {
+  const result = spawnSync(process.execPath, [CLI, ...args], {
+    encoding: "utf8",
+    cwd: process.cwd(),
+  })
+  return { code: result.status, stdout: result.stdout, stderr: result.stderr }
 }
 
-test("returns null for empty tmux output", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-up-"))
-  const result = await detectTmuxSession(dir, mockExec(""))
-  assert.strictEqual(result, null)
-})
-
-test("returns session name when path matches", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-up-"))
-  const abs = resolvePath(dir)
-  const result = await detectTmuxSession(dir, mockExec(`mysession:${abs}\nother:/some/other/path`))
-  assert.strictEqual(result, "mysession")
-})
-
-test("returns null when no path matches", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-up-"))
-  const result = await detectTmuxSession(dir, mockExec("session-a:/some/other\nsession-b:/yet/another"))
-  assert.strictEqual(result, null)
-})
-
-test("returns null when tmux errors", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-up-"))
-  const result = await detectTmuxSession(dir, mockExec("", new Error("tmux not found")))
-  assert.strictEqual(result, null)
-})
-
-test("resolves relative paths", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-up-"))
-  const subDir = join(dir, "sub")
-  mkdirSync(subDir, { recursive: true })
-  const abs = resolvePath(subDir)
-  const result = await detectTmuxSession(subDir, mockExec(`mysession:${abs}`))
-  assert.strictEqual(result, "mysession")
-})
-
-test("printRestartGuidance returns empty string for null session", () => {
-  assert.strictEqual(printRestartGuidance(null), "")
-})
-
-test("printRestartGuidance returns tmux attach hint for valid session", () => {
-  const guidance = printRestartGuidance("my-lane")
-  assert.ok(guidance.includes("tmux attach -t my-lane"))
-  assert.ok(guidance.includes("Restart the TUI"))
+// Phase 2: armada update is deprecated, prints hint, calls init
+test("update: prints deprecation hint on stderr, calls init", () => {
+  // init without args in non-TTY prints a basic help/catalog
+  const result = runCli(["update"])
+  assert.match(result.stderr, /armada update: deprecated/)
+  assert.match(result.stderr, /armada init --from-armada --restart/)
+  // init in non-TTY without cwd produces basic init output
+  assert.match(result.stdout, /Scaffolded|Usage:/)
 })
