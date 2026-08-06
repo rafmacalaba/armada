@@ -104,7 +104,7 @@ History:
 - qa: opened
 - qa: retest passed (test: DEF-008: template symlinks are not followed during render)
 
-## DEF-007: cookiecutter vars that break JSON not rejected
+## DEF-007: cookiecutter injection in JSON context (DEF-007 v1 fix bypassed per SEC-006)
 
 - Status: CLOSED
 - Severity: MEDIUM
@@ -120,6 +120,8 @@ Actual: Malformed JSON written.
 History:
 - qa: opened
 - qa: retest passed (test: DEF-007: malicious variable values that break JSON are rejected)
+- orchestrator: reopened — fix bypassed by SEC-006 JSON-valid injection; needs stronger substitution (JSON-encode for *.json files)
+- qa: retest passed — DEF-014 fix JSON-encodes values; original SEC-001 PoC injection contained as string value; no preinstall in rendered package.json
 
 ## DEF-006: catalog load error missing file path
 
@@ -226,3 +228,101 @@ Actual: Node.js throws `ERR_INVALID_ARG_VALUE` at `mkdirSync` inside `renderCook
 History:
 - qa: opened
 - qa: retest passed (test: rejects null bytes in project name (DEF-001))
+
+## DEF-016: Test suite leaks 390+ `armada-cc-test*` dirs into system temp
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa
+- Phase: 4
+
+Steps to reproduce:
+1. Run `node --test 'tests/*.test.js'`.
+2. After suite completes, run `ls -d /tmp/armada-cc-test* | wc -l` (or the macOS equivalent).
+
+Expected: 0 leftover dirs (tests clean up).
+Actual: 390+ dirs left behind, accumulating across runs.
+
+History:
+- qa: opened (from SEC-008)
+- orchestrator: filed — galleon fix landed
+- qa: retest passed — 0 dirs found post-suite
+
+## DEF-015: Unescaped substitution in non-JSON sinks (HTML/JSX/MD/TOML/LaTeX) — XSS + invalid files
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa
+- Phase: 4
+
+Steps to reproduce:
+1. Create a config with `description: '<script>alert(1)</script>'`.
+2. Run `armada new x --template web-app --config <config> --yes`.
+3. Inspect `x/README.md` and `x/index.html`.
+
+Expected: Either safe escaping, or rejection with clear error.
+Actual: Raw `<script>` lands in README and HTML title. Same for stray `"` breaking pyproject.toml and paper.tex.
+
+History:
+- qa: opened (from SEC-007)
+- orchestrator: filed — galleon fix landed (HTML-escape in MD/HTML files)
+- qa: retest passed — test: DEF-015: HTML-escape substitution in Markdown and HTML files
+
+## DEF-014: DEF-007 JSON_VALIDATE_FILES bypass — JSON-valid injection still lands in rendered package.json
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa
+- Phase: 4
+
+Steps to reproduce:
+1. Create config with description `'", "scripts": {"preinstall": "echo PWNED > /tmp/pwned.txt"}, "private": "", "dummy": "'`.
+2. Run `armada new app --template web-app --config <config> --yes`.
+3. Inspect `app/package.json` — injected `scripts.preinstall` is present.
+4. Run `cd app && npm install` — preinstall runs.
+
+Expected: Either rejection, or stripped of injected structure.
+Actual: JSON_VALIDATE_FILES passes (the value is JSON-valid), injection survives, npm install runs attacker code.
+
+History:
+- qa: opened (from SEC-006; reopens DEF-007)
+- orchestrator: filed — needs stronger substitution (JSON-encode values for *.json files)
+- qa: retest passed — DEF-014 fix JSON-encodes values; SEC-001 PoC injection contained as string value; JSON.parse succeeds; no preinstall in scripts
+
+## DEF-013: pickCategory hangs when stdin closes before user input
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa
+- Phase: 4
+
+Steps to reproduce:
+1. Run `armada new x` in a TTY with stdin piped from a closed fd.
+2. The questionnaire waits for input indefinitely.
+
+Expected: Timeout or EOF handling — default to first entry, or clear error.
+Actual: Hangs forever.
+
+History:
+- qa: opened (from ADV-008)
+- orchestrator: filed — galleon fix landed
+- qa: retest passed — test: DEF-013: pickCategory handles stdin close without hanging
+
+## DEF-012: 500-character project name causes unhandled crash after clean error
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa
+- Phase: 4
+
+Steps to reproduce:
+1. Run `armada new "$(printf 'a%.0s' {1..500})" --yes`.
+2. Trace through `runNew`.
+
+Expected: Length check, clear error, exit 1.
+Actual: Clean error in some path but unhandled crash downstream (deep in fs operations or template render).
+
+History:
+- qa: opened (from ADV-007)
+- orchestrator: filed — galleon fix landed (length cap at 100 chars)
+- qa: retest passed — test: DEF-012: 500-character project name rejected with length error
