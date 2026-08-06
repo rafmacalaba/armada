@@ -83,7 +83,11 @@ export function renderCookiecutterTemplate(srcDir, destDir, vars) {
   for (const entry of readdirSync(srcDir)) {
     if (entry === ".git") continue
     const srcPath = join(srcDir, entry)
-    const destPath = join(destDir, entry)
+    let destPath = join(destDir, entry)
+    // Rename dot.gitignore -> .gitignore on copy (npm-packlist excludes .gitignore)
+    if (entry === "dot.gitignore") {
+      destPath = join(destDir, ".gitignore")
+    }
     let lst
     try {
       lst = lstatSync(srcPath)
