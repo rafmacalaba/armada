@@ -150,12 +150,12 @@ armada voyage sandbox/my-feature
 8 AI specialists under your command, each governed by SDK-enforced permissions - not prompt politeness.
 
 * **Admiral [You]** - The high commander. Directs the fleet, approves contracts, reviews evidence, and merges PRs.
-* **Commodore [orchestrator]** - Delivery lead and scheduler. Co-writes contracts, dispatches specialists, and gates evidence. *Physically cannot edit code (`edit: deny`).*
+* **Commodore [orchestrator]** - Delivery lead and scheduler. Co-writes contracts, dispatches specialists, and gates evidence. *Cannot edit source code.*
 * **Galleon [backend-dev]** - Heavy backend engineer. Builds server logic, APIs, databases, and backend unit tests.
 * **Clipper [frontend-dev]** - Fast UI/UX developer. Builds components, styling, responsive pages, and client tests.
 * **Corvette [qa]** - Quality assurance officer. Writes E2E tests, captures screenshots, and owns `DEFECTS.md`. *The only role that can close a defect.*
-* **Xebec [adversary]** - Hostile reviewer. Performs hostile passes on finished phases, hunting for edge cases, security vulnerabilities, and UI flaws.
-* **Frigate [security]** - Security auditor. Audits auth, permissions, data leaks, and dependency vulnerabilities. *Read-only.*
+* **Xebec [adversary]** - Hostile reviewer. Performs hostile passes on finished phases, hunting for edge cases, security vulnerabilities, and UI flaws. *Writes only adversarial findings and screenshots.*
+* **Frigate [security]** - Security auditor. Audits auth, permissions, data leaks, and dependency vulnerabilities. *Writes only security findings and screenshots.*
 * **Caravel [docs]** - Technical scribe. Maintains READMEs, API docs, changelogs, and user manuals.
 * **Bark [architect]** - Naval architect and reviewer. Analyzes code structure, refactoring risks, and pattern compliance. *Read-only.*
 
@@ -164,17 +164,18 @@ armada voyage sandbox/my-feature
 | Role key | Title / Display name | Role | Can write code? | Permission boundaries |
 |---|---|---|:---:|---|
 | `user` | **Admiral [You]** | High Commander | N/A | Full control |
-| `orchestrator` | **Commodore** [orchestrator] | Delivery Lead | No | `edit: { "*": "deny" }` |
+| `orchestrator` | **Commodore** [orchestrator] | Delivery Lead | No | No source edits; scoped Markdown notes |
 | `backend-dev` | **Galleon** [backend-dev] | Backend Dev | Yes | Server and database files |
 | `frontend-dev` | **Clipper** [frontend-dev] | Frontend Dev | Yes | Client and UI files |
 | `qa` | **Corvette** [qa] | Quality Assurance | Tests only | `armada/e2e/`, `armada/ledgers/`, `armada/screenshots/` |
-| `adversary` | **Xebec** [adversary] | Hostile Auditor | Read-only | Ledgers and screenshots |
-| `security` | **Frigate** [security] | Security Audit | Read-only | `edit: { "*": "deny" }` |
+| `adversary` | **Xebec** [adversary] | Hostile Auditor | No | `armada/ledgers/*/ADVERSARIAL_REVIEW.md`, screenshots |
+| `security` | **Frigate** [security] | Security Audit | No | `armada/ledgers/*/SECURITY_FINDINGS.md`, screenshots |
 | `docs` | **Caravel** [docs] | Documentation | Docs only | Markdown and doc files |
 | `architect` | **Bark** [architect] | Code Review | Read-only | `edit: { "*": "deny" }` |
 
-The Commodore physically cannot edit code. Security and architect physically cannot write files.
-These are facts of the configuration, not suggestions in a prompt.
+The Commodore cannot edit source code. Security and adversary are limited to their own review
+ledgers and screenshots; architect cannot write files. These are facts of the configuration, not
+suggestions in a prompt.
 
 ---
 
@@ -194,7 +195,7 @@ A voyage is done only when it opens a reviewed Pull Request (`gh pr create`). No
 
 ### Evidence-gated phases
 
-Every phase has success criteria. A phase passes only when those criteria are demonstrated by a passing test run, a screenshot, or a file:line citation. No "trust me, it works."
+Every phase has success criteria. A phase passes only when those criteria are demonstrated by a passing test run or a screenshot. No "trust me, it works."
 
 ### Adaptive gates and parallel fleet
 
@@ -210,7 +211,8 @@ QA is always active. Other generated roles stay on standby until risk or changed
 
 ### SDK-enforced role boundaries
 
-Boundaries are enforced by SDK permissions in agent frontmatter. The Commodore cannot edit code (`edit: { "*": "deny" }`), and read-only roles physically cannot modify files.
+Boundaries are enforced by SDK permissions in agent frontmatter. The Commodore cannot edit source
+code, and each review role can write only its assigned evidence artifacts.
 
 ### Contract-first development
 
