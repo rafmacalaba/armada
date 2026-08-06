@@ -5,7 +5,7 @@ newest first. Writer: **qa** (create, close, reopen). Nobody else edits it, ever
 
 Format, exactly:
 
-    ## DEF-001: Short title
+    ## DEF-NNN: Short title
 
     - Status: OPEN
     - Severity: HIGH | MEDIUM | LOW
@@ -34,9 +34,185 @@ Statuses and who may set them:
 
 Every status change appends a History line.
 
+## DEF-011: cloneTemplate temp dir not cleaned on error paths
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Trigger an error after `cloneTemplate` creates a temp dir (e.g. bad template path after clone).
+
+Expected: Temp dir cleaned up after error.
+Actual: Temp dir left behind on disk.
+
+History:
+- qa: opened
+- qa: retest passed (test: DEF-011: cloneTemplate temp dir cleaned on error path)
+
+## DEF-010: template gitignore not shipped for npm compat
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Run `armada new` with a template that includes `.gitignore`.
+2. Check if `.gitignore` appears in output.
+
+Expected: `.gitignore` present in scaffolded project.
+Actual: npm packlist excludes `.gitignore`; template ships as `dot.gitignore` and is renamed on copy.
+
+History:
+- qa: opened
+- qa: retest passed (fix: starter templates renamed to dot.gitignore, new-command.js renames on copy)
+
+## DEF-009: --template with file path gives unclear error
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Run `armada new foo --template /path/to/file.txt --yes`.
+
+Expected: Clear error: "not a directory".
+Actual: Unclear error message.
+
+History:
+- qa: opened
+- qa: retest passed (test: DEF-009: --template with a file path errors with 'not a directory')
+
+## DEF-008: template symlinks followed during render
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Create template with a symlink entry.
+2. Run `armada new` with that template.
+
+Expected: Symlinks skipped during render.
+Actual: Symlinks followed, potentially escaping template dir.
+
+History:
+- qa: opened
+- qa: retest passed (test: DEF-008: template symlinks are not followed during render)
+
+## DEF-007: cookiecutter vars that break JSON not rejected
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Provide a config with a value containing `"` or `\` that breaks JSON structure.
+
+Expected: Clear rejection error.
+Actual: Malformed JSON written.
+
+History:
+- qa: opened
+- qa: retest passed (test: DEF-007: malicious variable values that break JSON are rejected)
+
+## DEF-006: catalog load error missing file path
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Corrupt or delete `_catalog.json`.
+2. Run `armada new` non-interactively.
+
+Expected: Error message includes file path.
+Actual: Error message omits path.
+
+History:
+- qa: opened
+- qa: retest passed (test: DEF-006: catalog load error includes file path)
+
+## DEF-005: out-of-range numeric in category picker not rejected
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. In TTY category picker, enter a number outside the valid range.
+
+Expected: Reject and re-prompt.
+Actual: Accepted without validation.
+
+History:
+- qa: opened
+- qa: retest passed (test: DEF-005: pickCategory TTY out-of-range number rejects and re-prompts)
+
+## DEF-004: defaultVars from catalog not applied as fallback
+
+- Status: CLOSED
+- Severity: MEDIUM
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Use a catalog template with defaultVars defined.
+2. Omit those vars from config.
+
+Expected: defaultVars used as fallback.
+Actual: Vars left unresolved.
+
+History:
+- qa: opened
+- qa: retest passed (test: DEF-004: resolveVariables applies defaultVars as fallback for unresolved vars)
+
+## DEF-003: catalog missing categories key gives unclear error
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Remove `categories` key from `_catalog.json`.
+2. Run `armada new` non-interactively.
+
+Expected: Clear error with file path.
+Actual: Unclear or missing error.
+
+History:
+- qa: opened
+- qa: retest passed (test: DEF-003: catalog missing categories key produces clear error with path)
+
+## DEF-002: --template/--config with no value not rejected
+
+- Status: CLOSED
+- Severity: LOW
+- Found by: qa
+- Phase: 3
+
+Steps to reproduce:
+1. Run `armada new foo --template --yes` (no value after --template).
+2. Run `armada new foo --config --yes` (no value after --config).
+
+Expected: Clear error for missing value.
+Actual: Unclear behavior or crash.
+
+History:
+- qa: opened
+- qa: retest passed (tests: DEF-002: --template with no value errors, DEF-002: --config with no value errors)
+
 ## DEF-001: null bytes in project name cause unhandled crash
 
-- Status: OPEN
+- Status: CLOSED
 - Severity: LOW
 - Found by: qa
 - Phase: 3
@@ -49,3 +225,4 @@ Actual: Node.js throws `ERR_INVALID_ARG_VALUE` at `mkdirSync` inside `renderCook
 
 History:
 - qa: opened
+- qa: retest passed (test: rejects null bytes in project name (DEF-001))
