@@ -203,6 +203,22 @@ test("rejects '..' in project name", async () => {
   assert.match(r.stderr, /\.\./)
 })
 
+test("rejects null bytes in project name (DEF-001)", async () => {
+  process.exitCode = 0
+  let stderr = ""
+  const orig = console.error
+  console.error = (...args) => { stderr += args.join(" ") + "\n" }
+  try {
+    const code = await runNew({ name: "bad\x00name", yes: true })
+    assert.strictEqual(code, 1, "runNew must return 1")
+    assert.strictEqual(process.exitCode, 1, "exitCode must be 1")
+    assert.match(stderr, /null/, "must mention null bytes")
+    assert.doesNotMatch(stderr, /ERR_INVALID_ARG/, "must not crash with ERR_INVALID_ARG_VALUE")
+  } finally {
+    console.error = orig
+  }
+})
+
 test("armada new without --template no longer required", async () => {
   const r = await runCli(["new"])
   assert.strictEqual(r.code, 1)

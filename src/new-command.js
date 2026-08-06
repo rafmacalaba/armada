@@ -226,6 +226,11 @@ export async function runNew(opts = {}) {
   }
 
   // Validate name for path safety
+  if (name.includes("\0")) {
+    console.error(`invalid project name "${name}": must not contain null bytes`)
+    process.exitCode = 1
+    return 1
+  }
   if (name.includes("/") || name.includes("\\")) {
     console.error(`invalid project name "${name}": must not contain path separators`)
     process.exitCode = 1
