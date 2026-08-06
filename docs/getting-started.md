@@ -18,7 +18,7 @@
 ## Install
 
 ```bash
-npm install -g armada                 # or: bun add -g armada
+npm install -g @rafamacalaba/armada   # or: bun add -g @rafamacalaba/armada
 armada --version                      # confirm the binary works
 armada doctor                         # environment health check
 ```
@@ -198,7 +198,7 @@ armada resume                         # drift report after a crash
 ## Upgrade
 
 ```bash
-npm install -g armada@latest
+npm install -g @rafamacalaba/armada@latest
 armada init --from-armada armada/armada.yaml   # re-scaffold from manifest
 armada doctor                                  # verify
 ```
@@ -220,6 +220,6 @@ armada uninstall --dry-run            # preview what would be removed
 
 ## Next steps
 
-- [Operator Manual](./using-armada.md) — the 11 commands in detail, full flag table, model catalog
+- [Operator Manual](./operator-guide.md) — the CLI in detail, full flag table, model catalog
 - [Architecture](../ARCHITECTURE.md) — how armada works under the hood
 - [Why armada?](./WHY.md) — the full narrative: problem, solution, proof
