@@ -44,6 +44,8 @@ test("runNew --template <local-path> copies and substitutes cookiecutter vars", 
 
   // .git should be excluded
   assert.strictEqual(existsSync(join(targetDir, ".git")), false)
+
+  rmSync(tmp, { recursive: true, force: true })
 })
 
 test("runNew --template <local-path> reads config from --config JSON file", async () => {
@@ -78,6 +80,8 @@ test("runNew --template <local-path> reads config from --config JSON file", asyn
   const readme = readFileSync(join(targetDir, "README.md"), "utf8")
   assert.match(readme, /# my-test-app/)
   assert.match(readme, /Author: dev/)
+
+  rmSync(tmp, { recursive: true, force: true })
 })
 
 test("runNew --template <local-path> uses COOKIECUTTER_ env vars when no config", async () => {
@@ -106,6 +110,8 @@ test("runNew --template <local-path> uses COOKIECUTTER_ env vars when no config"
 
   const readme = readFileSync(join(targetDir, "README.md"), "utf8")
   assert.match(readme, /# env-value/)
+
+  rmSync(tmp, { recursive: true, force: true })
 })
 
 test("rejects '..' in project name for path traversal", async () => {
@@ -135,6 +141,8 @@ test("runNew without template (non-interactive) defaults to blank template and s
   const targetDir = join(tmp, "no-template")
   assert.strictEqual(existsSync(targetDir), true)
   assert.strictEqual(existsSync(join(targetDir, "armada", "armada.yaml")), true)
+
+  rmSync(tmp, { recursive: true, force: true })
 })
 
 test("runNew skips .git directory in template", async () => {
@@ -160,6 +168,8 @@ test("runNew skips .git directory in template", async () => {
   assert.strictEqual(code, 0)
   assert.strictEqual(existsSync(targetDir), true)
   assert.strictEqual(existsSync(join(targetDir, ".git")), false)
+
+  rmSync(tmp, { recursive: true, force: true })
 })
 
 test("DEF-007/DEF-014: malicious variable values in JSON files are safely escaped", async () => {
