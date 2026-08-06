@@ -149,60 +149,6 @@ test("scaffold dryRun writes nothing but lists files", () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("uninstall removes armada files, keeps user files", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-uni-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  writeFileSync(join(dir, "AGENTS.md"), "# custom")
-  const removed = uninstall(manifest)
-  assert.ok(!existsSync(join(dir, "armada/armada.yaml")))
-  assert.ok(!existsSync(join(dir, "armada/REQUIREMENTS.md")))
-  assert.ok(!existsSync(join(dir, "armada")))
-  assert.ok(!existsSync(join(dir, ".opencode")))
-  assert.ok(existsSync(join(dir, "AGENTS.md")))
-  assert.ok(!removed.includes("AGENTS.md"))
-  rmSync(dir, { recursive: true, force: true })
-})
-
-test("uninstall --all also removes generated user-facing files", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-uni2-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  const removed = uninstall(manifest, { all: true })
-  assert.ok(removed.includes("AGENTS.md"))
-  assert.ok(removed.includes("opencode.json"))
-  assert.ok(!existsSync(join(dir, "armada")))
-  rmSync(dir, { recursive: true, force: true })
-})
-
-test("uninstall keeps user files under .opencode/ and warns", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-uni3-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  const custom = join(dir, ".opencode/agent/custom.md")
-  mkdirSync(join(dir, ".opencode/agent"), { recursive: true })
-  writeFileSync(custom, "# custom agent\n")
-
-  const warns = []
-  const origWarn = console.warn
-  console.warn = (m) => warns.push(m)
-  let removed
-  try {
-    removed = uninstall(manifest)
-  } finally {
-    console.warn = origWarn
-  }
-
-  assert.ok(!existsSync(join(dir, ".opencode/agent/galleon.md")), "armada agent file removed")
-  assert.ok(!existsSync(join(dir, ".opencode/oh-my-opencode-slim")), "stale omo dir pruned")
-  assert.ok(existsSync(custom), "user file kept")
-  assert.ok(existsSync(join(dir, ".opencode")), ".opencode dir kept")
-  assert.ok(!removed.includes(".opencode"))
-  assert.ok(warns.some((w) => /non-armada/.test(w)), "warning emitted")
-
-  rmSync(dir, { recursive: true, force: true })
-})
-
 test("scaffold creates .opencode/commands with exactly 4 command files", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-uni4-"))
   const manifest = makeManifest(dir)

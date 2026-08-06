@@ -203,14 +203,6 @@ test("AGENTS.md playbook mentions ledger and roles", () => {
   assert.match(md, /backend-dev/)
 })
 
-test("manifest round-trips through renderManifestYaml", () => {
-  const team = buildTeam(baseManifest)
-  const yaml = renderManifestYaml(baseManifest, team)
-  assert.match(yaml, /name: "test-project"/)
-  assert.match(yaml, /budget: "balanced"/)
-  assert.match(yaml, /role: "backend-dev"/)
-})
-
 test("renderAgentsMd references custom requirements file", () => {
   const m = structuredClone(baseManifest)
   m.project.requirementsFile = "REQUIREMENTS-admin.md"

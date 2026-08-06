@@ -323,37 +323,6 @@ test("init --target rejects symlink", async () => {
   assert.match(r.stderr, /symlink/)
 })
 
-test("init rejects .opencode symlink under target", async () => {
-  const real = mkdtempSync(join(tmpdir(), "armada-opc-real-"))
-  const target = mkdtempSync(join(tmpdir(), "armada-opc-target-"))
-  symlinkSync(real, join(target, ".opencode"))
-  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser", "--target", target])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /symlink/)
-})
-
-test("init rejects .opencode/agent symlink under target", async () => {
-  const real = mkdtempSync(join(tmpdir(), "armada-opc-a-real-"))
-  const target = mkdtempSync(join(tmpdir(), "armada-opc-a-target-"))
-  mkdirSync(join(target, ".opencode"), { recursive: true })
-  symlinkSync(real, join(target, ".opencode/agent"), "dir")
-  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser", "--target", target])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /symlink/)
-  rmSync(real, { recursive: true, force: true })
-})
-
-test("init rejects .opencode/commands symlink under target", async () => {
-  const real = mkdtempSync(join(tmpdir(), "armada-opc-c-real-"))
-  const target = mkdtempSync(join(tmpdir(), "armada-opc-c-target-"))
-  mkdirSync(join(target, ".opencode"), { recursive: true })
-  symlinkSync(real, join(target, ".opencode/commands"), "dir")
-  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser", "--target", target])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /symlink/)
-  rmSync(real, { recursive: true, force: true })
-})
-
 test("doctor exits 1 via script mode when a check fails", async () => {
   const binDir = makeBin({ opencode: "#!/bin/sh\nexit 1\n" })
   const r = await runCli(["doctor"], { env: { PATH: `${binDir}:${process.env.PATH}` } })

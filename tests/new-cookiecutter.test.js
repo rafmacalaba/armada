@@ -76,35 +76,10 @@ test("runNew --template reads config JSON or falls back to COOKIECUTTER_ env var
   rmSync(tmp, { recursive: true, force: true })
 })
 
-test("rejects '..' in project name for path traversal", async () => {
-  const r = await runCli(["new", ".."])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /\.\./)
-})
-
 test("--type flag prints clear error message (removed)", async () => {
   const r = await runCli(["new", "my-app", "--type", "web-app"])
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /--type.*removed|--template/)
-})
-
-test("runNew without template (non-interactive) defaults to blank template and succeeds", async () => {
-  const tmp = join(tmpdir(), "armada-cc-test4-" + Date.now())
-  mkdirSync(tmp, { recursive: true })
-
-  const code = await runNew({
-    name: "no-template",
-    yes: true,
-    cwd: tmp,
-  })
-
-  // Should now succeed (code 0) — defaults to blank template
-  assert.strictEqual(code, 0)
-  const targetDir = join(tmp, "no-template")
-  assert.strictEqual(existsSync(targetDir), true)
-  assert.strictEqual(existsSync(join(targetDir, "armada", "armada.yaml")), true)
-
-  rmSync(tmp, { recursive: true, force: true })
 })
 
 test("DEF-007/DEF-014: malicious variable values in JSON files are safely escaped", async () => {

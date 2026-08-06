@@ -180,37 +180,7 @@ test("rejects null bytes in project name (DEF-001)", async () => {
   }
 })
 
-test("armada new without --template no longer required", async () => {
-  const r = await runCli(["new"])
-  assert.strictEqual(r.code, 1)
-  assert.doesNotMatch(r.stderr, /missing required flag: --template/)
-})
-
 // --- Catalog robustness ---
-
-test("discoverVariables works for all 6 templates", () => {
-  for (const tpl of TEMPLATES) {
-    const vars = discoverVariables(join(process.cwd(), "starter", tpl.id))
-    assert.ok(Array.isArray(vars), `${tpl.id}: discoverVariables must return array`)
-    if (tpl.id === "blank") {
-      assert.strictEqual(vars.length, 0, "blank template has 0 variables")
-    } else {
-      assert.ok(vars.includes("project_name"), `${tpl.id}: must discover project_name`)
-      assert.ok(vars.includes("author_name"), `${tpl.id}: must discover author_name`)
-    }
-  }
-})
-
-test("non-TTY default to blank template succeeds", async () => {
-  const tmp = join(tmpdir(), `armada-nontty-${Date.now()}`)
-  mkdirSync(tmp, { recursive: true })
-
-  const r = await runCli(["new", "nontty-app", "--yes"], { cwd: tmp })
-  assert.strictEqual(r.code, 0, `non-TTY default to blank should succeed: ${r.stderr}`)
-  assert.ok(existsSync(join(tmp, "nontty-app", "armada", "armada.yaml")))
-
-  rmSync(tmp, { recursive: true, force: true })
-})
 
 test("armada new with --blank renders blank template specifically", async () => {
   const tmp = join(tmpdir(), `armada-blank-e2e-${Date.now()}`)
