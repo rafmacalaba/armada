@@ -361,6 +361,12 @@ shell commands: if the edit tool would deny a file, do not modify that file any 
 - ${pb.conventions.keepItSimple ? "Keep it simple: small modules, clear names, no defensive programming, no overengineering." : ""}
 - ${pb.conventions.preferPopularLibraries ? "Prefer popular, well-supported libraries over custom code." : ""}
 
+## Adaptive delivery
+
+- Commodore infers risk; QA always active; evidence depth follows risk. Other roles stay standby.
+- Ask user risk override only for ambiguity, high consequence, contract conflict, or downgrade.
+- Dependency-ready phases and separate voyages run parallel; serialize shared writers. Group findings before fixes; only \`BLOCKING\` stops work. Use compact receipts.
+
 ## ${defectFile} — the defect ledger
 
 All defects live in \`${defectFile}\`, one entry per defect, newest
@@ -489,6 +495,12 @@ export function renderRequirementsMd(manifest) {
 > Phases declare what they depend on. A phase starts as soon as its dependencies pass —
 > independent phases run in parallel as background subagents. Nothing blocks a phase except an
 > unmet dependency or a failed success criterion.
+
+## Adaptive workflow
+
+- QA is always active. Low risk uses smoke, medium targeted, and high full evidence.
+- Non-required agents stay standby. Risk override is optional and only for ambiguity, consequence, contract conflict, or evidence downgrade.
+- Dependency-ready phases and separate voyages run in parallel; shared writers serialize. Group findings before fixes; only \`BLOCKING\` stops implementation.
 
 ## Success criteria
 

@@ -46,6 +46,7 @@ export function renderSingleFeature(stateDir, featureName, opts = {}) {
     contract: match ? match.contract : (active ? active.contract : "unknown"),
     nextAction: isActive ? (active.nextAction || null) : null,
     pr: isActive ? (active.prUrl || null) : null,
+    workflow: isActive ? workflowSummary(active.workflow) : null,
   }]
 
   if (opts.json) {
@@ -92,6 +93,7 @@ export function renderStatus(stateDir, opts = {}) {
       contract: f.contract,
       nextAction: isActive ? (active.nextAction || null) : null,
       pr: isActive ? (active.prUrl || null) : null,
+      workflow: isActive ? workflowSummary(active.workflow) : null,
     }
   })
 
@@ -103,6 +105,7 @@ export function renderStatus(stateDir, opts = {}) {
       contract: active.contract,
       nextAction: active.nextAction || null,
       pr: active.prUrl || null,
+      workflow: workflowSummary(active.workflow),
     })
   }
 
@@ -145,17 +148,28 @@ export function main(argv = [], opts = {}) {
 
 // ---- internal helpers (exported for tests) ---------------------------------
 
+function workflowSummary(workflow) {
+  if (!workflow || typeof workflow !== "object") return null
+  return {
+    risk: workflow.risk ?? null,
+    evidenceClass: workflow.evidenceClass ?? null,
+    activeAgents: Array.isArray(workflow.activeAgents) ? workflow.activeAgents : [],
+  }
+}
+
 /**
  * Render an aligned table from row objects.
- * @param {{ feature: string, status: string, contract: string, nextAction: string, pr: string }[]} rows
+ * @param {{ feature: string, status: string, contract: string, nextAction: string, pr: string, workflow?: object|null }[]} rows
  * @returns {string}
  */
 export function _renderTable(rows) {
-  const header = ["FEATURE", "STATUS", "CONTRACT", "NEXT ACTION", "PR"]
+  const header = ["FEATURE", "STATUS", "RISK", "ACTIVE AGENTS", "CONTRACT", "NEXT ACTION", "PR"]
 
   const displayRows = rows.map((r) => ({
     feature: r.feature,
     status: r.status,
+    risk: r.workflow?.risk ?? "-",
+    activeAgents: r.workflow?.activeAgents?.join(",") ?? "-",
     contract: r.contract,
     nextAction: r.nextAction ?? "-",
     pr: r.pr ?? "-",
@@ -164,22 +178,28 @@ export function _renderTable(rows) {
   const widths = {
     feature: Math.max(header[0].length, ...displayRows.map((r) => r.feature.length)),
     status: Math.max(header[1].length, ...displayRows.map((r) => r.status.length)),
-    contract: Math.max(header[2].length, ...displayRows.map((r) => r.contract.length)),
-    nextAction: Math.max(header[3].length, ...displayRows.map((r) => r.nextAction.length)),
-    pr: Math.max(header[4].length, ...displayRows.map((r) => r.pr.length)),
+    risk: Math.max(header[2].length, ...displayRows.map((r) => r.risk.length)),
+    activeAgents: Math.max(header[3].length, ...displayRows.map((r) => r.activeAgents.length)),
+    contract: Math.max(header[4].length, ...displayRows.map((r) => r.contract.length)),
+    nextAction: Math.max(header[5].length, ...displayRows.map((r) => r.nextAction.length)),
+    pr: Math.max(header[6].length, ...displayRows.map((r) => r.pr.length)),
   }
 
   const headerRow = [
     _padCell(header[0], widths.feature),
     _padCell(header[1], widths.status),
-    _padCell(header[2], widths.contract),
-    _padCell(header[3], widths.nextAction),
-    _padCell(header[4], widths.pr),
+    _padCell(header[2], widths.risk),
+    _padCell(header[3], widths.activeAgents),
+    _padCell(header[4], widths.contract),
+    _padCell(header[5], widths.nextAction),
+    _padCell(header[6], widths.pr),
   ].join("  ")
 
   const separator = [
     "-".repeat(widths.feature),
     "-".repeat(widths.status),
+    "-".repeat(widths.risk),
+    "-".repeat(widths.activeAgents),
     "-".repeat(widths.contract),
     "-".repeat(widths.nextAction),
     "-".repeat(widths.pr),
@@ -189,6 +209,8 @@ export function _renderTable(rows) {
     [
       _padCell(r.feature, widths.feature),
       _padCell(r.status, widths.status),
+      _padCell(r.risk, widths.risk),
+      _padCell(r.activeAgents, widths.activeAgents),
       _padCell(r.contract, widths.contract),
       _padCell(r.nextAction, widths.nextAction),
       _padCell(r.pr, widths.pr),

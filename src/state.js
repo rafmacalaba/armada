@@ -27,7 +27,11 @@
  */
 
 /**
- * @typedef {{ feature: string, contract: string, phaseGraph: { phases: Phase[] }, evidence: Evidence[], nextAction: string, prUrl: null | string, updatedAt: string }} ActiveState
+ * @typedef {{ feature: string, contract: string, phaseGraph: { phases: Phase[] }, evidence: Evidence[], nextAction: string, prUrl: null | string, workflow?: WorkflowMetadata, updatedAt: string }} ActiveState
+ */
+
+/**
+ * @typedef {{ risk: null | "low"|"medium"|"high", evidenceClass: null | "smoke"|"targeted"|"full"|"integration"|"release", activeAgents: string[], standbyAgents: string[], escalations: string[] }} WorkflowMetadata
  */
 
 /**
@@ -51,6 +55,8 @@
 const VALID_EVIDENCE_KINDS = new Set(["test", "screenshot", "log", "file:line"])
 const VALID_PHASE_STATUSES = new Set(["pending", "in_progress", "passed"])
 const VALID_FEATURE_STATUSES = new Set(["open", "in_progress", "shipped"])
+const VALID_RISKS = new Set(["low", "medium", "high"])
+const VALID_EVIDENCE_CLASSES = new Set(["smoke", "targeted", "full", "integration", "release"])
 
 // ---- helpers -------------------------------------------------------------
 
@@ -70,6 +76,29 @@ function checkArray(val, path) {
 
 function checkObject(val, path) {
   if (val === null || typeof val !== "object" || Array.isArray(val)) throw new Error(`${path}: must be a plain object`)
+}
+
+function checkStringArray(val, path) {
+  checkArray(val, path)
+  for (let i = 0; i < val.length; i++) checkNonEmptyString(val[i], `${path}[${i}]`)
+}
+
+function checkWorkflow(workflow, path = "state.workflow") {
+  checkObject(workflow, path)
+  if (workflow.risk !== null) {
+    checkNonEmptyString(workflow.risk, `${path}.risk`)
+    if (!VALID_RISKS.has(workflow.risk)) throw new Error(`${path}.risk: must be one of low|medium|high`)
+  }
+  if (workflow.evidenceClass !== null) {
+    checkNonEmptyString(workflow.evidenceClass, `${path}.evidenceClass`)
+    if (!VALID_EVIDENCE_CLASSES.has(workflow.evidenceClass)) {
+      throw new Error(`${path}.evidenceClass: must be one of smoke|targeted|full|integration|release`)
+    }
+  }
+  checkStringArray(workflow.activeAgents, `${path}.activeAgents`)
+  checkStringArray(workflow.standbyAgents, `${path}.standbyAgents`)
+  checkStringArray(workflow.escalations, `${path}.escalations`)
+  if (!workflow.activeAgents.includes("qa")) throw new Error(`${path}.activeAgents: qa must remain active`)
 }
 
 // ---- evidence validation -------------------------------------------------
@@ -165,6 +194,7 @@ export function validateState(obj) {
     checkNonEmptyString(obj.evidence[i].criterion, `state.evidence[${i}].criterion`)
   }
   checkString(obj.nextAction, "state.nextAction")
+  if (obj.workflow !== undefined) checkWorkflow(obj.workflow)
   // prUrl is the PR URL once `gh pr create` succeeds; null until then
   if (obj.prUrl !== null) checkNonEmptyString(obj.prUrl, "state.prUrl")
   checkNonEmptyString(obj.updatedAt, "state.updatedAt")
@@ -225,6 +255,13 @@ export function emptyActive(featureName, contractPath, phaseGraph) {
     evidence: [],
     nextAction: "",
     prUrl: null,
+    workflow: {
+      risk: null,
+      evidenceClass: null,
+      activeAgents: ["qa"],
+      standbyAgents: [],
+      escalations: [],
+    },
     updatedAt: nowISO(),
   }
 }
@@ -294,6 +331,20 @@ export function setPhaseStatus(state, phaseId, status) {
 export function setNextAction(state, action) {
   const newState = structuredClone(state)
   newState.nextAction = action
+  newState.updatedAt = nowISO()
+  return newState
+}
+
+/**
+ * Apply inferred workflow metadata without mutating the active state.
+ * @param {ActiveState} state
+ * @param {WorkflowMetadata} workflow
+ * @returns {ActiveState}
+ */
+export function applyWorkflow(state, workflow) {
+  checkWorkflow(workflow, "workflow")
+  const newState = structuredClone(state)
+  newState.workflow = structuredClone(workflow)
   newState.updatedAt = nowISO()
   return newState
 }

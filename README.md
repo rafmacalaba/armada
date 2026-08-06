@@ -99,7 +99,7 @@ armada voyage sandbox/my-feature
 
 2. **Parallel execution in isolated worktrees.** Once approved, the Commodore dispatches ready phases in parallel to specialist background subagents — backend (Galleon [backend-dev]) and frontend (Clipper [frontend-dev]) work concurrently on disjoint file slices inside an isolated Git worktree dock (`sandbox/<feature>`), keeping `main` pristine.
 
-3. **Evidence-gated QA & adversarial review.** Specialists don't self-certify. After each phase, QA (Corvette [qa]) runs E2E tests and captures screenshots, while the adversary (Xebec [adversary]) performs a hostile pass to break the app. Defects flow through a structured ledger (`DEFECTS.md`) that only QA can close.
+3. **Risk-gated evidence.** Specialists don't self-certify. QA (Corvette [qa]) participates in every phase; low-risk work gets focused smoke and acceptance checks, while medium/high-risk work gets deeper affected or full relevant evidence. Security and adversary reviews activate only when the changed surface requires them. Findings are grouped before remediation so one root cause gets one fix and verification pass.
 
 4. **PR-First finish.** When all phase criteria pass, the Commodore opens a reviewed Pull Request (`gh pr create`) from the feature branch. Your main branch stays untouched until you review and merge.
 
@@ -171,6 +171,27 @@ A voyage is done only when it opens a reviewed Pull Request (`gh pr create`). No
 ### Evidence-gated phases
 Every phase has success criteria. A phase passes only when those criteria are demonstrated by
 a passing test run, a screenshot, or a file:line citation. No "trust me, it works."
+
+### Adaptive gates and parallel fleet
+
+The Commodore infers risk from changed files, public behavior, trust boundaries, inputs, side
+effects, blast radius, and reversibility. Risk controls staffing and evidence depth:
+
+| Risk | Active baseline | Evidence |
+|---|---|---|
+| Low | Implementer + QA | Focused smoke + acceptance check |
+| Medium | Implementer + QA | Affected tests + integration smoke; conditional specialist review |
+| High | Implementer + QA + security + adversary | Full relevant suite + negative paths + independent review |
+
+QA is always active. Other generated roles stay on standby until risk or changed surface requires
+them. Risk override is optional and is requested only for ambiguity, high consequence, contract
+conflict, or evidence downgrade.
+
+Independent voyages use separate worktrees and can run concurrently. Within one voyage, every phase
+whose dependencies have passed starts immediately; only shared-file writers serialize. Review
+findings are collected and grouped by root cause, files, or threat class. `BLOCKING`, `FIX_NOW`,
+`DEFERRED`, `ACCEPTED_RISK`, and `FALSE_POSITIVE` dispositions prevent unrelated findings from
+turning every feature into a serial security remediation loop.
 
 ### SDK-Enforced Role Boundaries
 Boundaries aren't prompt politeness — they're enforced by the SDK permissions in agent frontmatter. The Commodore cannot edit code (`edit: { "*": "deny" }`), and read-only roles physically cannot modify files.
