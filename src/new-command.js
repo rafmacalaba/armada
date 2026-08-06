@@ -296,6 +296,12 @@ export async function runNew(opts = {}) {
       process.exitCode = 1
       return 1
     }
+
+    if (!statSync(templateDir).isDirectory()) {
+      console.error(`template path is not a directory: ${opts.template}`)
+      process.exitCode = 1
+      return 1
+    }
   } else {
     // Internal template: pick category, resolve from catalog
     let category

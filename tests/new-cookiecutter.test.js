@@ -224,3 +224,23 @@ test("DEF-008: template symlinks are not followed during render", async () => {
 
   rmSync(tmp, { recursive: true, force: true })
 })
+
+test("DEF-009: --template with a file path errors with 'not a directory'", async () => {
+  const tmp = join(tmpdir(), "armada-def009-" + Date.now())
+  mkdirSync(tmp, { recursive: true })
+
+  // Create a regular file, not a directory
+  const filePath = join(tmp, "not-a-dir.txt")
+  writeFileSync(filePath, "hello", "utf8")
+
+  const code = await runNew({
+    name: "def009-app",
+    template: filePath,
+    yes: true,
+    cwd: tmp,
+  })
+
+  assert.strictEqual(code, 1, `expected code 1, got ${code}`)
+  process.exitCode = 0
+  rmSync(tmp, { recursive: true, force: true })
+})
