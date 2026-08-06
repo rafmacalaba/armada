@@ -278,6 +278,23 @@ test("DEF-015: HTML-escape substitution in Markdown and HTML files", async () =>
   rmSync(tmp, { recursive: true, force: true })
 })
 
+test("DEF-012: 500-character project name rejected with length error", async () => {
+  const tmp = join(tmpdir(), "armada-def012-" + Date.now())
+  mkdirSync(tmp, { recursive: true })
+
+  const longName = "a".repeat(500)
+
+  const code = await runNew({
+    name: longName,
+    yes: true,
+    cwd: tmp,
+  })
+
+  assert.strictEqual(code, 1, `expected code 1 for 500-char name, got ${code}`)
+  process.exitCode = 0
+  rmSync(tmp, { recursive: true, force: true })
+})
+
 test("DEF-009: --template with a file path errors with 'not a directory'", async () => {
   const tmp = join(tmpdir(), "armada-def009-" + Date.now())
   mkdirSync(tmp, { recursive: true })

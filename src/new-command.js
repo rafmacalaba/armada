@@ -290,6 +290,11 @@ export async function runNew(opts = {}) {
     process.exitCode = 1
     return 1
   }
+  if (name.length > 100) {
+    console.error(`invalid project name: must be 100 characters or fewer (got ${name.length})`)
+    process.exitCode = 1
+    return 1
+  }
 
   const targetDir = join(cwd, name)
   if (existsSync(targetDir)) {
@@ -412,7 +417,8 @@ export async function runNew(opts = {}) {
     renderCookiecutterTemplate(templateDir, targetDir, vars)
   } catch (err) {
     console.error(`template render failed: ${err.message}`)
-    rmSync(targetDir, { recursive: true, force: true })
+    // Guard against ENAMETOOLONG when targetDir itself exceeds filesystem limits
+    try { rmSync(targetDir, { recursive: true, force: true }) } catch {}
     process.exitCode = 1
     return 1
   } finally {
