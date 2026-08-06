@@ -1,8 +1,8 @@
-# one-piece-restaurant — armada-built demo
+# blank-webpage — armada-built demo
 
-A worked example of an armada-driven project: a static two-page landing site for
-"The Thousand Sunny Galley", a One Piece themed restaurant. Built by an armada
-multi-agent team, shipped with its contract, process ledgers, and evidence.
+A worked example of an armada-driven project: a static two-page landing site.
+Built by an armada multi-agent team, shipped with its contract, process ledgers,
+and evidence.
 
 **Reference only — no run guarantee.** This tree was embedded as documentation of
 the armada process, not as installable software. We did not verify it installs or
@@ -23,7 +23,7 @@ runs. Do not treat it as a supported example app.
 - `armada/ledgers/` — process artifacts: defect, adversarial-review, and
   security-finding ledgers (`_template/` holds the format specs).
 - `armada/screenshots/` — visual evidence of delivery, e.g.
-  `armada/screenshots/one-piece-restaurant/about.png`.
+  `armada/screenshots/blank-webpage/about.png`.
 - `AGENTS.md`, `armada.yaml`, `.opencode/` — the scaffolded team config (rules,
   manifest, agent files).
 - `TODO.md` — what the voyage shipped, ticked off.
@@ -34,13 +34,13 @@ Read order that tells the whole story: `armada/REQUIREMENTS.md` (contract) →
 ## Source provenance
 
 Copied verbatim from `~/WBG/my-app/` — a static-landing starter that went
-through an armada voyage for the One Piece restaurant feature. File contents
-were not modified in this embed; only this README is new.
+through an armada voyage. File contents were not modified in this embed; only
+this README is new.
 
 ## Layout
 
 ```
-one-piece-restaurant/
+blank-webpage/
 ├── index.html          # landing page (menu, visit info)
 ├── about.html          # story + crew page
 ├── styles.css          # shared styles
@@ -54,7 +54,7 @@ one-piece-restaurant/
 └── armada/
     ├── REQUIREMENTS.md # the contract
     ├── ledgers/        # process ledgers (+ _template/)
-    └── screenshots/    # evidence (one-piece-restaurant/about.png)
+    └── screenshots/    # evidence (blank-webpage/about.png)
 ```
 
 ## Reference only
