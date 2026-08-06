@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, cpSync, rmSync } from "node:fs"
-import { join, resolve } from "node:path"
+import { join, resolve, dirname } from "node:path"
+import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
 import { execSync, spawnSync } from "node:child_process"
 import { createInterface } from "node:readline/promises"
@@ -9,6 +10,11 @@ import { tmpdir } from "node:os"
 import { scaffold } from "./scaffold.js"
 import { detectStack } from "./stack-detect.js"
 import { ROLES, modelFor } from "./model-catalog.js"
+import { pickCategory } from "./questionnaire.js"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const PACKAGE_ROOT = resolve(__dirname, "..")
+const CATALOG_PATH = resolve(PACKAGE_ROOT, "starter", "_catalog.json")
 
 const VARIABLE_RE = /\{\{\s*cookiecutter\.(\w+)\s*\}\}/g
 
@@ -214,7 +220,7 @@ export async function runNew(opts = {}) {
   process.exitCode = 0
 
   if (!name) {
-    console.error("Usage: armada new <project-name> --template <url|path> [--config <file.json>] [--yes]")
+    console.error("Usage: armada new <project-name> [--blank] [--template <url|path>] [--config <file.json>] [--yes]")
     process.exitCode = 1
     return 1
   }
@@ -241,14 +247,6 @@ export async function runNew(opts = {}) {
     return 1
   }
 
-  // Require --template
-  if (!opts.template) {
-    console.error("missing required flag: --template <url|path>")
-    console.error("Usage: armada new <project-name> --template <url|path> [--config <file.json>] [--yes]")
-    process.exitCode = 1
-    return 1
-  }
-
   const targetDir = join(cwd, name)
   if (existsSync(targetDir)) {
     console.error(`Directory already exists: ${targetDir}`)
@@ -256,26 +254,81 @@ export async function runNew(opts = {}) {
     return 1
   }
 
-  // Fetch template
+  // Determine template source
   let templateDir
   let tempCloned = false
-  try {
-    if (opts.template.startsWith("http://") || opts.template.startsWith("https://") || opts.template.startsWith("git@") || opts.template.startsWith("ssh://")) {
-      templateDir = cloneTemplate(opts.template)
-      tempCloned = true
-    } else {
-      templateDir = resolve(opts.template)
-    }
-  } catch (err) {
-    console.error(String(err?.message ?? err))
-    process.exitCode = 1
-    return 1
-  }
 
-  if (!existsSync(templateDir)) {
-    console.error(`template not found: ${opts.template}`)
-    process.exitCode = 1
-    return 1
+  if (opts.template) {
+    // External template: path or URL
+    try {
+      if (opts.template.startsWith("http://") || opts.template.startsWith("https://") || opts.template.startsWith("git@") || opts.template.startsWith("ssh://")) {
+        templateDir = cloneTemplate(opts.template)
+        tempCloned = true
+      } else {
+        templateDir = resolve(opts.template)
+      }
+    } catch (err) {
+      console.error(String(err?.message ?? err))
+      process.exitCode = 1
+      return 1
+    }
+
+    if (!existsSync(templateDir)) {
+      console.error(`template not found: ${opts.template}`)
+      process.exitCode = 1
+      return 1
+    }
+  } else {
+    // Internal template: pick category, resolve from catalog
+    let category
+
+    if (opts.blank) {
+      category = "blank"
+    } else {
+      const nonInteractive = opts.yes || !process.stdin.isTTY
+      if (nonInteractive) {
+        category = "blank"
+      } else {
+        // Load catalog and show interactive picker
+        let catalog
+        try {
+          catalog = JSON.parse(readFileSync(CATALOG_PATH, "utf8"))
+        } catch {
+          console.error("cannot load starter catalog")
+          process.exitCode = 1
+          return 1
+        }
+        category = await pickCategory(catalog.categories, opts)
+        if (category === null) {
+          console.error("no category selected")
+          process.exitCode = 1
+          return 1
+        }
+      }
+    }
+
+    // Resolve template path from catalog entry
+    let catalogData
+    try {
+      catalogData = JSON.parse(readFileSync(CATALOG_PATH, "utf8"))
+    } catch {
+      console.error("cannot load starter catalog")
+      process.exitCode = 1
+      return 1
+    }
+    const entry = catalogData.categories.find((c) => c.id === category)
+    if (!entry) {
+      console.error(`unknown category: ${category}`)
+      process.exitCode = 1
+      return 1
+    }
+    templateDir = resolve(PACKAGE_ROOT, entry.dir)
+
+    if (!existsSync(templateDir)) {
+      console.error(`template not found for category "${category}": ${entry.dir}`)
+      process.exitCode = 1
+      return 1
+    }
   }
 
   // Discover variables in the template

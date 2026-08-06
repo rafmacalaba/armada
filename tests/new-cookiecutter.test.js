@@ -119,7 +119,7 @@ test("--type flag prints clear error message (removed)", async () => {
   assert.match(r.stderr, /--type.*removed|--template/)
 })
 
-test("runNew requires --template when not interactive (no TTY)", async () => {
+test("runNew without template (non-interactive) defaults to blank template and succeeds", async () => {
   const tmp = join(tmpdir(), "armada-cc-test4-" + Date.now())
   mkdirSync(tmp, { recursive: true })
 
@@ -129,7 +129,11 @@ test("runNew requires --template when not interactive (no TTY)", async () => {
     cwd: tmp,
   })
 
-  assert.strictEqual(code, 1)
+  // Should now succeed (code 0) — defaults to blank template
+  assert.strictEqual(code, 0)
+  const targetDir = join(tmp, "no-template")
+  assert.strictEqual(existsSync(targetDir), true)
+  assert.strictEqual(existsSync(join(targetDir, "armada", "armada.yaml")), true)
 })
 
 test("runNew skips .git directory in template", async () => {
