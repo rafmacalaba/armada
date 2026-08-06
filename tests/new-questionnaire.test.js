@@ -5,7 +5,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pickCategory } from "../src/questionnaire.js"
-import { runNew } from "../src/new-command.js"
+import { runNew, resolveVariables } from "../src/new-command.js"
 import { runCli } from "./helpers.js"
 
 // Helpers for mocking TTY/non-TTY input
@@ -314,4 +314,18 @@ test("DEF-002: --config with no value errors", async () => {
   assert.strictEqual(r.code, 1, `expected code 1, got ${r.code}`)
   assert.match(r.stderr, /--config requires a value/)
   rmSync(tmp, { recursive: true, force: true })
+})
+
+test("DEF-004: resolveVariables applies defaultVars as fallback for unresolved vars", async () => {
+  // Exported resolveVariables accepts (discovered, opts, defaultVars)
+  const discovered = ["project_name", "node_version", "author_name"]
+  const [vars] = await resolveVariables(discovered, { yes: true }, {
+    project_name: "default-app",
+    node_version: "20",
+    author_name: "Default Author",
+  })
+
+  assert.strictEqual(vars.project_name, "default-app", "project_name should use defaultVars")
+  assert.strictEqual(vars.node_version, "20", "node_version should use defaultVars")
+  assert.strictEqual(vars.author_name, "Default Author", "author_name should use defaultVars")
 })

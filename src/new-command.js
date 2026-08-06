@@ -126,12 +126,13 @@ function cloneTemplate(url) {
 
 /**
  * Resolve variables for a template.
- * Precedence: --config JSON > COOKIECUTTER_ env vars > prompt (TTY) > empty string (non-TTY)
+ * Precedence: --config JSON > COOKIECUTTER_ env vars > prompt (TTY) > defaultVars > empty string (non-TTY)
  * @param {string[]} discovered names of variables found in template
  * @param {{ config?: string, yes?: boolean }} opts
+ * @param {Record<string, string>} [defaultVars] fallback values from catalog
  * @returns {Promise<[Record<string, string>, Record<string, string>]>} [resolved, applied]
  */
-async function resolveVariables(discovered, opts) {
+export async function resolveVariables(discovered, opts, defaultVars) {
   const vars = {}
   const applied = {}
 
@@ -169,11 +170,11 @@ async function resolveVariables(discovered, opts) {
 
   const unresolved = discovered.filter((n) => !(n in vars))
 
-  // 3. prompt (TTY) or blank (--yes / non-TTY)
+  // 3. prompt (TTY) or defaultVars / blank (--yes / non-TTY)
   if (unresolved.length > 0) {
     if (opts.yes || !process.stdin.isTTY) {
       for (const name of unresolved) {
-        vars[name] = ""
+        vars[name] = (defaultVars && defaultVars[name] !== undefined) ? defaultVars[name] : ""
         applied[name] = "default"
       }
     } else {
@@ -262,6 +263,7 @@ export async function runNew(opts = {}) {
   // Determine template source
   let templateDir
   let tempCloned = false
+  let defaultVars
 
   if (opts.template) {
     // External template: path or URL
@@ -338,6 +340,7 @@ export async function runNew(opts = {}) {
       return 1
     }
     templateDir = resolve(PACKAGE_ROOT, entry.dir)
+    defaultVars = entry.defaultVars ? { ...entry.defaultVars, project_name: name } : { project_name: name }
 
     if (!existsSync(templateDir)) {
       console.error(`template not found for category "${category}": ${entry.dir}`)
@@ -350,7 +353,7 @@ export async function runNew(opts = {}) {
   const discovered = discoverVariables(templateDir)
 
   // Resolve variables
-  const resolved = await resolveVariables(discovered, opts)
+  const resolved = await resolveVariables(discovered, opts, defaultVars)
   if (!resolved) return 1
 
   const [vars] = resolved
