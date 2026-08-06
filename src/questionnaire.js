@@ -165,41 +165,46 @@ export async function pickCategory(categories, opts = {}) {
   const MAX_ATTEMPTS = 3
 
   return new Promise((resolve) => {
+    // DEF-013: handle stdin close — resolve with first entry instead of hanging
+    let resolved = false
+    const safeResolve = (val) => {
+      if (resolved) return
+      resolved = true
+      try { rl.close() } catch {}
+      resolve(val)
+    }
+    rl.on("close", () => safeResolve(categories[0].id))
+
     const ask = () => {
       if (attempts >= MAX_ATTEMPTS) {
-        rl.close()
-        return resolve(null)
+        return safeResolve(null)
       }
       rl.question(`Pick 1-${categories.length} [1] `, (raw) => {
         attempts++
         const trimmed = raw.trim()
         if (!trimmed) {
-          rl.close()
-          return resolve(categories[0].id)
+          return safeResolve(categories[0].id)
         }
 
         // Try numeric index first — must be in range
         const idx = parseInt(trimmed, 10)
         if (Number.isInteger(idx)) {
           if (idx >= 1 && idx <= categories.length) {
-            rl.close()
-            return resolve(categories[idx - 1].id)
+            return safeResolve(categories[idx - 1].id)
           }
           if (attempts < MAX_ATTEMPTS) {
             out.write(`Invalid choice: ${trimmed}. Pick 1-${categories.length}.\n`)
             return ask()
           }
           out.write(`Invalid choice: ${trimmed}. Giving up after ${MAX_ATTEMPTS} attempts.\n`)
-          rl.close()
-          return resolve(null)
+          return safeResolve(null)
         }
 
         // Try case-insensitive id match
         const lower = trimmed.toLowerCase()
         const match = categories.find((c) => c.id.toLowerCase() === lower)
         if (match) {
-          rl.close()
-          return resolve(match.id)
+          return safeResolve(match.id)
         }
 
         if (attempts < MAX_ATTEMPTS) {
@@ -207,8 +212,7 @@ export async function pickCategory(categories, opts = {}) {
           return ask()
         }
         out.write(`Unrecognized: "${trimmed}". Giving up after ${MAX_ATTEMPTS} attempts.\n`)
-        rl.close()
-        resolve(null)
+        safeResolve(null)
       })
     }
     ask()

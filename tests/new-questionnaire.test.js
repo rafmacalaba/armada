@@ -328,6 +328,20 @@ test("DEF-002: --config with no value errors", async () => {
   rmSync(tmp, { recursive: true, force: true })
 })
 
+test("DEF-013: pickCategory handles stdin close without hanging", async () => {
+  // TTY stream that closes immediately with no data written
+  const input = new PassThrough()
+  input.isTTY = true
+  // Close the stream immediately — no data will ever be written
+  input.end()
+  const output = mockOutput()
+
+  const result = await pickCategory(catalog, { input, output })
+
+  // Should return first entry as fallback, not hang
+  assert.strictEqual(result, "blank", "should default to first entry on stdin close")
+})
+
 test("DEF-004: resolveVariables applies defaultVars as fallback for unresolved vars", async () => {
   // Exported resolveVariables accepts (discovered, opts, defaultVars)
   const discovered = ["project_name", "node_version", "author_name"]
