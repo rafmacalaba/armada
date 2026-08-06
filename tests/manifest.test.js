@@ -563,6 +563,78 @@ test("skills empty list survives round-trip", () => {
   assert.deepStrictEqual(parsed2.project.skills, [])
 })
 
+// -- Phase 2: supervision.shipnames --
+test("parses supervision.shipnames: true alongside fleet + watchdog", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "  supervision:",
+    "    fleet: true",
+    "    watchdog: false",
+    "    shipnames: true",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.supervision.shipnames, true)
+  assert.strictEqual(parsed.project.supervision.fleet, true)
+  assert.strictEqual(parsed.project.supervision.watchdog, false)
+})
+
+test("parses supervision.shipnames: false explicit", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "  supervision:",
+    "    shipnames: false",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.supervision.shipnames, false)
+})
+
+test("supervision.shipnames defaults to true when missing", () => {
+  const yaml = [
+    "project:",
+    "  name: t",
+    "  budget: balanced",
+    "  supervision:",
+    "    plugin: false",
+    "team:",
+    "  - role: qa",
+    "    model: x",
+    "    enabled: true",
+  ].join("\n")
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.supervision.shipnames, true)
+})
+
+test("rejects supervision.shipnames non-boolean", () => {
+  assert.throws(
+    () => parseManifestYaml(
+      "project:\n  name: t\n  budget: balanced\n  supervision:\n    shipnames: \"yes\"\nteam:\n  - role: qa\n    model: x\n    enabled: true"
+    ),
+    /armada\.yaml: schema violation: project\.supervision\.shipnames must be a boolean/
+  )
+})
+
+test("shipnames round-trips through renderManifestYaml", () => {
+  const m = makeManifest()
+  m.project.supervision = { shipnames: true, fleet: false, watchdog: true }
+  const yaml = renderManifestYaml(m, buildTeam(m))
+  const parsed = parseManifestYaml(yaml)
+  assert.strictEqual(parsed.project.supervision.shipnames, true)
+  assert.strictEqual(parsed.project.supervision.fleet, false)
+  assert.strictEqual(parsed.project.supervision.watchdog, true)
+})
+
 test("skills omitted round-trips (stays undefined, not rendered)", () => {
   const m = makeManifest()
   const yaml = renderManifestYaml(m, buildTeam(m))

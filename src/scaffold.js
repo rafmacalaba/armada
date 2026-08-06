@@ -20,6 +20,7 @@ import {
   renderArmadaSupervisionPlugin,
   renderArmadaFleetPlugin,
   renderArmadaWatchdogPlugin,
+  renderArmadaShipnamesPlugin,
   renderSecurityFindingsTemplate,
 } from "./generator.js"
 import { ROLES } from "./model-catalog.js"
@@ -428,6 +429,11 @@ export function scaffold(manifest, stack, opts = {}) {
     write(".opencode/plugins/armada-watchdog.js", renderArmadaWatchdogPlugin())
   }
 
+  // 7e. Shipnames TUI-prefix plugin — default on, skipped when shipnames === false.
+  if (manifest.project.supervision?.shipnames !== false) {
+    write(".opencode/plugins/armada-shipnames.js", renderArmadaShipnamesPlugin())
+  }
+
   // 8. Optional devcontainer.
   if (manifest.project.devcontainer) {
     if (!opts.dryRun) ensure(".devcontainer")
@@ -504,6 +510,7 @@ export function uninstall(manifest, opts = {}) {
   removeFile(".opencode/plugins/armada-supervision.js")
   removeFile(".opencode/plugins/armada-fleet.js")
   removeFile(".opencode/plugins/armada-watchdog.js")
+  removeFile(".opencode/plugins/armada-shipnames.js")
   removeEmptyDir(".opencode/plugins")
   // Remove armada's native agent files by exact role name; keep any user agent files.
   const agentDir = join(target, ".opencode/agent")

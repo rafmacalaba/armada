@@ -304,6 +304,27 @@ test("init --requirements writes a per-feature contract file", async () => {
   assert.match(readFileSync(join(dir, "armada/armada.yaml"), "utf8"), /requirementsFile: "REQUIREMENTS-admin\.md"/)
 })
 
+test("init --no-shipnames sets supervision.shipnames: false in manifest", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--no-shipnames", "--budget", "free", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  const yaml = readFileSync(join(dir, "armada/armada.yaml"), "utf8")
+  assert.match(yaml, /shipnames: false/)
+})
+
+test("init without --no-shipnames produces shipnames: true in manifest", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+  const yaml = readFileSync(join(dir, "armada/armada.yaml"), "utf8")
+  assert.match(yaml, /shipnames: true/)
+})
+
+test("--no-shipnames appears in help text", async () => {
+  const r = await runCli(["help"])
+  assert.match(r.stdout, /--no-shipnames/)
+})
+
 test("init --target scaffolds into specified directory", async () => {
   const dir = makeTempRepo({})
   const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser", "--target", dir])

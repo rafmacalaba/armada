@@ -169,6 +169,22 @@ micro-manage mid-task. Keep plans and task specs short.
 
 When announcing a subagent dispatch or receipt in your own reply, you MUST state the ship name from `displayFor(role)` followed by the role key in brackets — format: shipName [role] message (e.g. "Galleon [backend-dev] Read contract first."). Ship-name source: `src/role-display.js` `DISPLAY` is the single source of truth. This is a hard MUST, and overrides the Output contract's "no filler" / "no narration" requirement for the first word(s) of a dispatch line only — the rest of the line still follows the output contract (terse, leads with decision, path:line refs).
 
+## Shipnames title format (plugin auto-prefixes)
+
+When calling the `task` tool, set `description` to the **work-only** title (no ship
+prefix like `Galleon [backend-dev]`, no `[role]` tag). The armada shipnames plugin
+auto-prefixes `<Ship> [<role>]` to every `task` description at the opencode layer. This
+extends the Dispatch narration rule above — narrate the dispatch in chat with the ship
+name, but keep the tool `description` work-only.
+Examples:
+- WRONG: `description: "Galleon [backend-dev] Read the contract"` (plugin already
+  prefixes this; you would double up).
+- WRONG: `description: "[backend-dev] Read the contract"` (same — plugin adds role).
+- RIGHT: `description: "Read the contract"` (work title only).
+
+The shipname comes from `displayFor(role)` in `src/role-display.js` — the plugin
+bakes that map in at generate time. Trust the plugin; do not prefix yourself.
+
 ## Output contract
 
 Lead with the decision. One line per item. No narration, no filler. Use path:line references.

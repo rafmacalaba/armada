@@ -131,6 +131,60 @@ test("watchdog plugin check only when enabled", async () => {
   assert.strictEqual(present.status, "pass")
 })
 
+test("shipnames plugin check pass when present and valid", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const dir = mkdtempSync(join(tmpdir(), "armada-dr-sn-"))
+  mkdirSync(join(dir, ".opencode/plugins"), { recursive: true })
+  writeFileSync(join(dir, ".opencode/plugins/armada-shipnames.js"), "export const ArmadaShipnames = async ({ client }) => ({ 'tool.execute.before': async () => {} })\n")
+  const checks = await runDoctor({
+    env: envWith(binDir),
+    project: { supervision: { shipnames: true } },
+    targetDir: dir,
+  })
+  const sn = checks.find((c) => c.name === "shipnames plugin")
+  assert.ok(sn, "shipnames plugin check present")
+  assert.strictEqual(sn.status, "pass")
+})
+
+test("shipnames plugin check fail when present but unparseable", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const dir = mkdtempSync(join(tmpdir(), "armada-dr-sn2-"))
+  mkdirSync(join(dir, ".opencode/plugins"), { recursive: true })
+  writeFileSync(join(dir, ".opencode/plugins/armada-shipnames.js"), "// corrupted file\n")
+  const checks = await runDoctor({
+    env: envWith(binDir),
+    project: { supervision: { shipnames: true } },
+    targetDir: dir,
+  })
+  const sn = checks.find((c) => c.name === "shipnames plugin")
+  assert.ok(sn, "shipnames plugin check present")
+  assert.strictEqual(sn.status, "fail")
+})
+
+test("shipnames plugin check skip when file absent", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const dir = mkdtempSync(join(tmpdir(), "armada-dr-sn3-"))
+  const checks = await runDoctor({
+    env: envWith(binDir),
+    project: { supervision: { shipnames: true } },
+    targetDir: dir,
+  })
+  const sn = checks.find((c) => c.name === "shipnames plugin")
+  assert.ok(sn, "shipnames plugin check present")
+  assert.strictEqual(sn.status, "skip")
+})
+
+test("no shipnames plugin check when supervision absent", async () => {
+  const binDir = makeBin({ opencode: SH })
+  const dir = mkdtempSync(join(tmpdir(), "armada-dr-sn4-"))
+  const checks = await runDoctor({
+    env: envWith(binDir),
+    project: { supervision: { fleet: true } },
+    targetDir: dir,
+  })
+  assert.ok(!checks.some((c) => c.name === "shipnames plugin"), "no shipnames check when not enabled")
+})
+
 test("global armada binary pass when resolvable", async () => {
   const binDir = makeBin({ opencode: SH, armada: "#!/bin/sh\necho v0.6.2\n" })
   const checks = await runDoctor({
