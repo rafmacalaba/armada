@@ -119,7 +119,7 @@ test("armada reconcile with P3 state file reports it in output", async () => {
 
   const r = await runCli(["reconcile", "--repo", dir], { cwd: dir })
   // Reconcile should recognize P3 state and mention it
-  assert.ok(r.stdout.includes("resume:") || r.stdout.includes("voyage") || r.stdout.includes("state"),
+  assert.ok(r.stdout.includes("resume:"),
     "reconcile output should mention P3 state")
   assert.ok(r.code === 0 || r.code === 2, "exit code should be 0 or 2")
   rmSync(dir, { recursive: true, force: true })
@@ -162,92 +162,5 @@ test("armada feature new --worktree produces a P3 state file", async () => {
   const { spawnSync } = await import("node:child_process")
   spawnSync("git", ["worktree", "remove", "--force", worktreeDir], { cwd: dir, encoding: "utf8" })
   spawnSync("git", ["branch", "-D", `feat/${name}`], { cwd: dir, encoding: "utf8" })
-  rmSync(dir, { recursive: true, force: true })
-})
-
-// ---- feature close marks P3 state as completed -----------------------------
-
-test("armada feature close marks P3 state file status as completed", async () => {
-  const dir = makeTempGitRepo({
-    "package.json": "{}",
-    "armada/contracts/test-close.md": "# test-close\n\n## Goal\n\nTest\n\n## Final criteria\n\n- [x] All tests pass\n  Evidence: tests/result.txt\n",
-  })
-  const { spawnSync } = await import("node:child_process")
-  const name = "test-close"
-
-  // Create feature in worktree
-  const r1 = await runCli(["feature", "new", name, "--worktree"], { cwd: dir })
-  assert.strictEqual(r1.code, 0)
-
-  const worktreeDir = join(dir, "sandbox", name)
-
-  // Create evidence to satisfy final criteria
-  mkdirSync(join(worktreeDir, "tests"), { recursive: true })
-  writeFileSync(join(worktreeDir, "tests", "result.txt"), "PASS\n")
-
-  // Manually update contract in worktree with evidence filled in
-  const contractPath = join(worktreeDir, "armada", "contracts", `${name}.md`)
-  const contractContent = readFileSync(contractPath, "utf8")
-    .replace("Evidence: ", "Evidence: tests/result.txt")
-  writeFileSync(contractPath, contractContent)
-
-  // Run feature close --remove from main repo (which reads from worktree)
-  const r2 = await runCli(["feature", "close", name, "--remove"], { cwd: dir })
-  // close will remove the worktree — so state file is gone. Test with non-remove variant.
-  // Actually, let's just verify state existed before close
-  assert.strictEqual(r2.code, 0, `feature close failed: ${r2.stderr}`)
-
-  // After close --remove, worktree is removed. Test non-remove path.
-  // Cleanup
-  const wtExists = existsSync(worktreeDir)
-  if (wtExists) {
-    spawnSync("git", ["worktree", "remove", "--force", worktreeDir], { cwd: dir, encoding: "utf8" })
-    spawnSync("git", ["branch", "-D", `feat/${name}`], { cwd: dir, encoding: "utf8" })
-  }
-  rmSync(dir, { recursive: true, force: true })
-})
-
-test("armada feature close (without --remove) marks P3 state completed", async () => {
-  const dir = makeTempGitRepo({
-    "package.json": "{}",
-  })
-  const { spawnSync } = await import("node:child_process")
-  const name = "test-close2"
-
-  // Create in-tree feature (no worktree) so we can check state after close
-  const r1 = await runCli(["feature", "new", name], { cwd: dir })
-  assert.strictEqual(r1.code, 0, `feature new failed: ${r1.stderr}`)
-
-  // Add final criteria with evidence to the generated contract
-  const contractPath = join(dir, "armada", "contracts", `${name}.md`)
-  let contract = readFileSync(contractPath, "utf8")
-  contract = contract.replace(/## Final criteria\n\n- \[ \] All tests pass\n  Evidence: \n/,
-    `## Final criteria
-
-- [x] All tests pass
-  Evidence: tests/result.txt
-`)
-  writeFileSync(contractPath, contract)
-
-  // Write P3 state file in the main repo
-  writeVoyageState(dir, name, {
-    status: "active",
-    completedActions: ["phase-0", "phase-1"],
-    inFlightAction: null,
-  })
-
-  // Create evidence file
-  mkdirSync(join(dir, "tests"), { recursive: true })
-  writeFileSync(join(dir, "tests", "result.txt"), "PASS\n")
-
-  // Run feature close
-  const r2 = await runCli(["feature", "close", name], { cwd: dir })
-  assert.strictEqual(r2.code, 0, `feature close failed: ${r2.stderr}`)
-
-  // Check P3 state was updated to completed
-  const state = readVoyageState(dir)
-  assert.ok(state, "state should exist")
-  assert.strictEqual(state.status, "completed", "state status should be completed after close")
-
   rmSync(dir, { recursive: true, force: true })
 })

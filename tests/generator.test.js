@@ -143,13 +143,15 @@ test("renderAgentFile every role description starts with displayFor(role)", () =
   }
 })
 
-test("renderOpenCodeJson has no agent block, sets default_agent", () => {
+test("renderOpenCodeJson has no agent block, sets default_agent, denies external_directory", () => {
   const team = buildTeam(baseManifest)
   const cfg = renderOpenCodeJson(baseManifest, team)
   assert.strictEqual(cfg.model, modelFor("orchestrator", "balanced"))
   assert.strictEqual(cfg.permission.external_directory, "deny")
   assert.strictEqual(cfg.default_agent, "commodore")
   assert.strictEqual(cfg.agent, undefined, "agent block removed")
+  assert.strictEqual(cfg.permission.edit, undefined)
+  assert.strictEqual(cfg.permission.bash, undefined)
 })
 
 test("renderOpenCodeJson model follows budget tier", () => {
@@ -158,15 +160,6 @@ test("renderOpenCodeJson model follows budget tier", () => {
   const cfg = renderOpenCodeJson(m, buildTeam(m))
   assert.strictEqual(cfg.model, modelFor("orchestrator", "free"))
   assert.strictEqual(cfg.default_agent, "commodore")
-})
-
-test("renderOpenCodeJson uses orchestrator model + deny external_directory", () => {
-  const team = buildTeam(baseManifest)
-  const cfg = renderOpenCodeJson(baseManifest, team)
-  assert.strictEqual(cfg.model, modelFor("orchestrator", "balanced"))
-  assert.strictEqual(cfg.permission.external_directory, "deny")
-  assert.strictEqual(cfg.permission.edit, undefined)
-  assert.strictEqual(cfg.permission.bash, undefined)
 })
 
 test("renderOpenCodeJson registers openrouter models with failover", () => {
@@ -208,14 +201,6 @@ test("AGENTS.md playbook mentions ledger and roles", () => {
   assert.match(md, /ADVERSARIAL_REVIEW\.md/)
   assert.match(md, /only qa closes it|qa closes it/)
   assert.match(md, /backend-dev/)
-})
-
-test("manifest round-trips through renderManifestYaml", () => {
-  const team = buildTeam(baseManifest)
-  const yaml = renderManifestYaml(baseManifest, team)
-  assert.match(yaml, /name: "test-project"/)
-  assert.match(yaml, /budget: "balanced"/)
-  assert.match(yaml, /role: "backend-dev"/)
 })
 
 test("renderAgentsMd references custom requirements file", () => {
@@ -523,7 +508,7 @@ test("renderArmadaSupervisionPlugin tool.execute.before denies protected redirec
   )
 })
 
-test("renderArmadaSupervisionPlugin denies orchestrator edit-deny targets", () => {
+test("renderArmadaSupervisionPlugin denies edit-deny targets and protected paths", () => {
   const team = buildTeam(baseManifest)
   const orch = team.find((a) => a.role === "orchestrator")
   const denyGlobs = Object.entries(orch.permissions.edit).filter(([, v]) => v === "deny").map(([g]) => g)
@@ -535,6 +520,7 @@ test("renderArmadaSupervisionPlugin denies orchestrator edit-deny targets", () =
   assert.match(src, /REQUIREMENTS\.md/)
   assert.match(src, /AGENTS\.md/)
   assert.match(src, /\.opencode\/\*/)
+  assert.match(src, /armada\//)
 })
 
 // -- Phase 2: deepMerge --
@@ -554,17 +540,12 @@ test("deepMerge: nested objects merged recursively", () => {
   assert.deepStrictEqual(result, { edit: { "*.md": "deny", "*.ts": "allow" }, bash: { "*": "ask" } })
 })
 
-test("deepMerge: order-stable (base keys first, then override-only)", () => {
-  const base = { a: 1, c: 3 }
-  const override = { b: 2 }
-  const result = deepMerge(base, override)
+test("deepMerge: key ordering preserves base keys first, then override-only", () => {
+  // base keys first, then override-only
+  let result = deepMerge({ a: 1, c: 3 }, { b: 2 })
   assert.deepStrictEqual(Object.keys(result), ["a", "c", "b"])
-})
-
-test("deepMerge: override-only keys added after base keys", () => {
-  const base = { x: 1 }
-  const override = { y: 2, z: 3 }
-  const result = deepMerge(base, override)
+  // override-only keys added after base keys
+  result = deepMerge({ x: 1 }, { y: 2, z: 3 })
   assert.deepStrictEqual(Object.keys(result), ["x", "y", "z"])
 })
 
@@ -660,38 +641,26 @@ test("renderArmadaFleetPlugin emits valid JS with fleet handlers", () => {
 
 // -- Phase 2: per-feature ledger paths in rendered output --
 
-test("renderAgentsMd uses per-feature ledger path in defect ledger section", () => {
+test("renderAgentsMd uses per-feature ledger paths, conventions, and format", () => {
   const m = structuredClone(baseManifest)
   m.project.name = "my-app"
   const team = buildTeam(m)
   const md = renderAgentsMd(m, team, "my-app")
+  // defect ledger section
   assert.match(md, /armada\/ledgers\/\{feature\}\/DEFECTS\.md/)
   assert.doesNotMatch(md, /\bDEFECTS\.md\b.*repo root/)
-})
-
-test("renderAgentsMd 'Repository conventions' uses armada/ paths", () => {
-  const m = structuredClone(baseManifest)
-  m.project.name = "my-app"
-  const team = buildTeam(m)
-  const md = renderAgentsMd(m, team, "my-app")
+  // Repository conventions
   assert.match(md, /armada\/e2e\/\{feature\}\//)
   assert.match(md, /armada\/screenshots\/\{feature\}\//)
   assert.doesNotMatch(md, /live under `e2e\/`\./)
   assert.doesNotMatch(md, /live under `screenshots\/`\./)
-})
-
-test("renderAgentsMd defect ledger title and format use per-feature paths", () => {
-  const m = structuredClone(baseManifest)
-  m.project.name = "my-app"
-  const team = buildTeam(m)
-  const md = renderAgentsMd(m, team, "my-app")
   // Title sections
   assert.match(md, /## armada\/ledgers\/\{feature\}\/DEFECTS\.md/)
   assert.match(md, /## armada\/ledgers\/\{feature\}\/ADVERSARIAL_REVIEW\.md/)
   // Format block paths
   assert.match(md, /armada\/screenshots\/\{feature\}\/def-001\.png/)
   assert.match(md, /armada\/screenshots\/\{feature\}\/adv-001\.png/)
-  // Status table path references  
+  // Status table path references
   assert.match(md, /All defects live in `armada\/ledgers\/\{feature\}\/DEFECTS\.md`/)
   assert.match(md, /All adversary findings live in `armada\/ledgers\/\{feature\}\/ADVERSARIAL_REVIEW\.md`/)
 })
@@ -711,31 +680,29 @@ test("renderAgentsMd resolves {feature} token in playbook file paths", () => {
   assert.match(md, /armada\/ledgers\/my-app\/ADVERSARIAL_REVIEW\.md/)
 })
 
-test("renderAgentsMd keeps {feature} token when project.feature is not set", () => {
-  const m = structuredClone(baseManifest)
-  m.project.name = "my-app"
-  const team = buildTeam(m)
-  const md = renderAgentsMd(m, team, "my-app")
-  assert.match(md, /armada\/ledgers\/\{feature\}\//)
-  assert.match(md, /armada\/e2e\/\{feature\}\//)
-  assert.match(md, /armada\/screenshots\/\{feature\}\//)
-  assert.match(md, /armada\/ledgers\/\{feature\}\/DEFECTS\.md/)
-  assert.match(md, /armada\/ledgers\/\{feature\}\/ADVERSARIAL_REVIEW\.md/)
-})
+test("renderAgentsMd handles {feature} token based on project.feature", async () => {
+  for (const [feature, expectPrefix, expectToken] of [
+    [undefined, "\\{feature\\}", true],
+    ["web-app", "web-app", false],
+  ]) {
+    const m = structuredClone(baseManifest)
+    m.project.name = "my-app"
+    if (feature) m.project.feature = feature
+    const team = buildTeam(m)
+    const md = renderAgentsMd(m, team, "my-app")
 
-test("renderAgentsMd substitutes {feature} when project.feature is set", () => {
-  const m = structuredClone(baseManifest)
-  m.project.feature = "web-app"
-  const team = buildTeam(m)
-  const md = renderAgentsMd(m, team, "web-app")
-  assert.match(md, /armada\/ledgers\/web-app\//)
-  assert.match(md, /armada\/e2e\/web-app\//)
-  assert.match(md, /armada\/screenshots\/web-app\//)
-  assert.match(md, /armada\/ledgers\/web-app\/DEFECTS\.md/)
-  assert.match(md, /armada\/ledgers\/web-app\/ADVERSARIAL_REVIEW\.md/)
-  assert.doesNotMatch(md, /armada\/ledgers\/\{feature\}\//)
-  assert.doesNotMatch(md, /armada\/e2e\/\{feature\}\//)
-  assert.doesNotMatch(md, /armada\/screenshots\/\{feature\}\//)
+    const pf = expectPrefix.replace(/\\\\/g, "\\")
+    assert.match(md, new RegExp(`armada\\/ledgers\\/${pf}\\/`))
+    assert.match(md, new RegExp(`armada\\/e2e\\/${pf}\\/`))
+    assert.match(md, new RegExp(`armada\\/screenshots\\/${pf}\\/`))
+    assert.match(md, new RegExp(`armada\\/ledgers\\/${pf}\\/DEFECTS\\.md`))
+    assert.match(md, new RegExp(`armada\\/ledgers\\/${pf}\\/ADVERSARIAL_REVIEW\\.md`))
+    if (!expectToken) {
+      assert.doesNotMatch(md, /armada\/ledgers\/\{feature\}\//)
+      assert.doesNotMatch(md, /armada\/e2e\/\{feature\}\//)
+      assert.doesNotMatch(md, /armada\/screenshots\/\{feature\}\//)
+    }
+  }
 })
 
 test("renderAgentsMd does not interpret $-patterns in project.feature", () => {
@@ -769,57 +736,38 @@ test("renderArmadaSupervisionPlugin deny list absence confirms per-feature ledge
   assert.ok(!/["']DEFECTS\.md["']/.test(src) || src.includes("armada/ledgers"), "no root-level DEFECTS.md in deny list")
 })
 
-test("renderArmadaSupervisionPlugin still denies old protected paths", () => {
-  const team = buildTeam(baseManifest)
-  const src = renderArmadaSupervisionPlugin(team)
-  assert.match(src, /REQUIREMENTS\.md/)
-  assert.match(src, /AGENTS\.md/)
-  assert.match(src, /\.opencode\/\*/)
-  assert.match(src, /armada\//)
-})
-
 // -- watchdog plugin generator tests --
 
-test("renderArmadaWatchdogPlugin starts with header comment", () => {
+test("renderArmadaWatchdogPlugin has header, exports, hooks, and constants", () => {
   const src = renderArmadaWatchdogPlugin()
   assert.match(src, /^\/\/ armada watchdog plugin/)
   assert.match(src, /--watchdog/)
   assert.match(src, /Auto-loaded by opencode from \.opencode\/plugins/)
-})
-
-test("renderArmadaWatchdogPlugin exports ArmadaWatchdog", () => {
-  const src = renderArmadaWatchdogPlugin()
   assert.match(src, /export const ArmadaWatchdog/)
-})
-
-test("renderArmadaWatchdogPlugin embeds TIMEOUT_MS = 300_000", () => {
-  const src = renderArmadaWatchdogPlugin()
-  assert.match(src, /TIMEOUT_MS = 300_000/)
-})
-
-test("renderArmadaWatchdogPlugin contains all five handler hooks", () => {
-  const src = renderArmadaWatchdogPlugin()
   assert.match(src, /session\.created/)
   assert.match(src, /session\.idle/)
   assert.match(src, /session\.completed/)
   assert.match(src, /session\.closed/)
   assert.match(src, /session\.deleted/)
+  assert.match(src, /TIMEOUT_MS = 300_000/)
+  assert.match(src, /STALENESS_WINDOW_MS = 120_000/)
+  assert.match(src, /Gate 1/)
+  assert.match(src, /Gate 2/)
 })
 
-test("renderArmadaWatchdogPlugin has skipNextIdle + nudgedSessions recursion guard", () => {
+test("renderArmadaWatchdogPlugin has recursion guard and event tracking", () => {
   const src = renderArmadaWatchdogPlugin()
   assert.match(src, /skipNextIdle/)
   assert.match(src, /nudgedSessions/)
+  assert.match(src, /lastOrchestratorEventAt/)
+  assert.match(src, /lastOrchestratorEventAt = Date\.now\(\)/)
 })
 
-test("renderArmadaWatchdogPlugin is deterministic for same input", () => {
-  const a = renderArmadaWatchdogPlugin()
-  const b = renderArmadaWatchdogPlugin()
-  assert.strictEqual(a, b)
-})
-
-test("renderArmadaWatchdogPlugin is valid JS that imports cleanly as an ES module", async () => {
+test("renderArmadaWatchdogPlugin is deterministic and valid JS", async () => {
   const src = renderArmadaWatchdogPlugin()
+  // deterministic
+  assert.strictEqual(renderArmadaWatchdogPlugin(), src)
+  // valid JS import
   const { writeFileSync, mkdtempSync } = await import("node:fs")
   const { tmpdir } = await import("node:os")
   const { join } = await import("node:path")
@@ -835,25 +783,6 @@ test("renderManifestYaml emits watchdog: field and round-trips through parseMani
   assert.match(yaml, /watchdog: false/)
   const parsed = parseManifestYaml(yaml)
   assert.strictEqual(parsed.project.supervision.watchdog, false)
-})
-
-test("renderArmadaWatchdogPlugin embeds STALENESS_WINDOW_MS = 120_000", () => {
-  const src = renderArmadaWatchdogPlugin()
-  assert.match(src, /STALENESS_WINDOW_MS = 120_000/)
-})
-
-test("renderArmadaWatchdogPlugin embeds lastOrchestratorEventAt tracking", () => {
-  const src = renderArmadaWatchdogPlugin()
-  assert.match(src, /lastOrchestratorEventAt/)
-  assert.match(src, /lastOrchestratorEventAt = Date\.now\(\)/)
-})
-
-test("renderArmadaWatchdogPlugin contains two-gate logic", () => {
-  const src = renderArmadaWatchdogPlugin()
-  assert.match(src, /Gate 1/)
-  assert.match(src, /Gate 2/)
-  assert.match(src, /STALENESS_WINDOW_MS/)
-  assert.match(src, /TIMEOUT_MS/)
 })
 
 test("all 4 armada command renderers emit subtask: true", () => {

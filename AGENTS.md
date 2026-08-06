@@ -90,7 +90,6 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
   injected via PATH (`makeBin`).
 - Round-trip: init → parse armada.yaml → init must produce identical output (guards the parser).
 - Dogfood: scaffolding over this repo's instruction files must not clobber them.
-- Fixture corpus under `tests/fixtures/` exercises stack detection.
 - Keep the suite fast and deterministic; no network calls in tests.
 
 ## Working here

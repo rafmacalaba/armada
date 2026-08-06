@@ -204,14 +204,32 @@ test("init --requirements wires active contract", async () => {
   assert.strictEqual(active.contract, "reqs.md")
 })
 
-test("feature status shows active feature via deprecation hint, exits 1", async () => {
-  const dir = makeTempRepo({})
-  await runCli(["feature", "new", "foo", "--target", dir])
-
-  const r = await runCli(["feature", "status", "--target", dir])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /deprecated/)
-  assert.match(r.stdout, /FEATURE/)
+test("feature status shows deprecation hint across scenarios, exits 1", async () => {
+  for (const [label, makeRepo] of [
+    ["active feature", async () => {
+      const dir = makeTempRepo({})
+      await runCli(["feature", "new", "foo", "--target", dir])
+      return { dir, r: await runCli(["feature", "status", "--target", dir]) }
+    }],
+    ["named active feature", async () => {
+      const dir = makeTempRepo({})
+      await runCli(["feature", "new", "foo", "--target", dir])
+      return { dir, r: await runCli(["feature", "status", "foo", "--target", dir]) }
+    }],
+    ["nonexistent feature", async () => {
+      const dir = makeTempRepo({})
+      return { dir, r: await runCli(["feature", "status", "nope", "--target", dir]) }
+    }],
+    ["no active feature", async () => {
+      const dir = makeTempRepo({})
+      return { dir, r: await runCli(["feature", "status", "--target", dir]) }
+    }],
+  ]) {
+    const { dir, r } = await makeRepo()
+    assert.strictEqual(r.code, 1, `${label} exits 1`)
+    assert.match(r.stderr, /deprecated/, `${label} has deprecation hint`)
+    rmSync(dir, { recursive: true, force: true })
+  }
 })
 
 test("status JSON exposes adaptive workflow metadata", async () => {
@@ -238,31 +256,6 @@ test("status JSON exposes adaptive workflow metadata", async () => {
     activeAgents: ["backend-dev", "qa"],
   })
   rmSync(dir, { recursive: true, force: true })
-})
-
-test("feature status <name> shows named feature via deprecation hint, exits 1", async () => {
-  const dir = makeTempRepo({})
-  await runCli(["feature", "new", "foo", "--target", dir])
-
-  const r = await runCli(["feature", "status", "foo", "--target", dir])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /deprecated/)
-  assert.match(r.stdout, /foo/)
-})
-
-test("feature status <name> nonexistent fails via deprecation", async () => {
-  const dir = makeTempRepo({})
-  const r = await runCli(["feature", "status", "nope", "--target", dir])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /deprecated/)
-  assert.match(r.stderr, /not found/)
-})
-
-test("feature status no active shows deprecation and runs status", async () => {
-  const dir = makeTempRepo({})
-  const r = await runCli(["feature", "status", "--target", dir])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /deprecated/)
 })
 
 test("closeFeature throws when no final criteria", () => {

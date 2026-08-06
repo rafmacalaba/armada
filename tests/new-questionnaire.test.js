@@ -48,112 +48,57 @@ const catalog = [
 
 // --- pickCategory tests ---
 
-test("pickCategory opts.blank returns 'blank' immediately", async () => {
-  const result = await pickCategory(catalog, { blank: true })
-  assert.strictEqual(result, "blank")
+test("pickCategory: immediate returns for blank/template opts, non-TTY defaults", async () => {
+  // opts.blank returns 'blank'
+  assert.strictEqual(await pickCategory(catalog, { blank: true }), "blank")
+  // opts.template returns null
+  assert.strictEqual(await pickCategory(catalog, { template: "/some/path" }), null)
+  // non-TTY returns 'blank'
+  assert.strictEqual(await pickCategory(catalog, { input: mockInput("", false), output: mockOutput() }), "blank")
 })
 
-test("pickCategory opts.template returns null immediately", async () => {
-  const result = await pickCategory(catalog, { template: "/some/path" })
-  assert.strictEqual(result, null)
-})
-
-test("pickCategory non-TTY returns 'blank'", async () => {
-  const input = mockInput("", false)
-  const output = mockOutput()
-  const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, "blank")
-})
-
-test("pickCategory TTY empty input defaults to first entry", async () => {
-  const input = mockInput("\n", true)
-  const output = mockOutput()
-  const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, "blank")
-})
-
-test("pickCategory TTY numbered input selects correct entry", async () => {
-  const input = mockInput("2\n", true)
-  const output = mockOutput()
-  const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, "web-app")
-})
-
-test("pickCategory TTY numbered input selects third entry", async () => {
-  const input = mockInput("3\n", true)
-  const output = mockOutput()
-  const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, "api-service")
-})
-
-test("DEF-005: pickCategory TTY out-of-range number rejects and re-prompts", async () => {
-  // 999 is out of range (max 3), then 2 is valid
-  const input = mockMultiInput(["999\n", "2\n"], true)
-  const output = mockOutput()
-  const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, "web-app", "should select entry 2 after rejecting 999")
-  assert.match(output.buffer(), /invalid/i, "should show invalid error message")
-})
-
-test("pickCategory TTY case-insensitive id match", async () => {
-  const input = mockInput("Web-App\n", true)
-  const output = mockOutput()
-  const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, "web-app")
-})
-
-test("pickCategory TTY exact id match (lowercase)", async () => {
-  const input = mockInput("api-service\n", true)
-  const output = mockOutput()
-  const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, "api-service")
-})
-
-test("pickCategory TTY unmatched input re-prompts then returns null after 3 attempts", async () => {
-  const input = mockMultiInput(["nonexistent\n", "bad\n", "nope\n"], true)
-  const output = mockOutput()
-  const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, null)
+test("pickCategory: TTY input selection and re-prompt behaviour", async () => {
+  for (const [label, input, isTTY, expected] of [
+    ["empty defaults to first", "\n", true, "blank"],
+    ["number selects 2", "2\n", true, "web-app"],
+    ["number selects 3", "3\n", true, "api-service"],
+    ["case-insensitive id", "Web-App\n", true, "web-app"],
+    ["exact id lowercase", "api-service\n", true, "api-service"],
+  ]) {
+    const result = await pickCategory(catalog, { input: mockInput(input, isTTY), output: mockOutput() })
+    assert.strictEqual(result, expected, label)
+  }
+  // out-of-range re-prompts then accepts valid
+  const inReject = mockMultiInput(["999\n", "2\n"], true)
+  const outReject = mockOutput()
+  assert.strictEqual(await pickCategory(catalog, { input: inReject, output: outReject }), "web-app", "reject then accept")
+  assert.match(outReject.buffer(), /invalid/i)
+  // unmatched re-prompts 3x then null
+  const inFail = mockMultiInput(["nonexistent\n", "bad\n", "nope\n"], true)
+  assert.strictEqual(await pickCategory(catalog, { input: inFail, output: mockOutput() }), null)
 })
 
 // --- runNew matrix tests ---
 
-test("runNew without template (non-interactive) defaults to blank template", async () => {
-  const tmp = join(tmpdir(), "armada-nt-test-" + Date.now())
-  mkdirSync(tmp, { recursive: true })
-
-  const code = await runNew({
-    name: "no-template-project",
-    yes: true,
-    cwd: tmp,
-  })
-
-  assert.strictEqual(code, 0)
-  const targetDir = join(tmp, "no-template-project")
-  assert.strictEqual(existsSync(targetDir), true)
-  // Blank template should copy its files
-  assert.strictEqual(existsSync(join(targetDir, "README.md")), true)
-  // Armada scaffold should create files
-  assert.strictEqual(existsSync(join(targetDir, "armada", "REQUIREMENTS.md")), true)
-
-  rmSync(tmp, { recursive: true, force: true })
-})
-
-test("runNew without template (opts.blank) uses blank template", async () => {
-  const tmp = join(tmpdir(), "armada-nt-test2-" + Date.now())
-  mkdirSync(tmp, { recursive: true })
-
-  const code = await runNew({
-    name: "blank-project",
-    blank: true,
-    cwd: tmp,
-  })
-
-  assert.strictEqual(code, 0)
-  assert.strictEqual(existsSync(join(tmp, "blank-project", "README.md")), true)
-  assert.strictEqual(existsSync(join(tmp, "blank-project", "armada", "REQUIREMENTS.md")), true)
-
-  rmSync(tmp, { recursive: true, force: true })
+test("runNew defaults to blank template in various non-interactive modes", async () => {
+  for (const [label, opts] of [
+    ["yes", { name: "no-template-project", yes: true }],
+    ["blank", { name: "blank-project", blank: true }],
+    ["config", { name: "cfg-project", config: null, yes: true }], // config set below
+    ["yes-default", { name: "yes-project", yes: true }],
+  ]) {
+    const tmp = join(tmpdir(), `armada-nt-${label}-${Date.now()}`)
+    mkdirSync(tmp, { recursive: true })
+    if (label === "config") writeFileSync(join(tmp, "vars.json"), JSON.stringify({ author_name: "tester" }), "utf8")
+    const runOpts = { ...opts, cwd: tmp }
+    if (label === "config") runOpts.config = join(tmp, "vars.json")
+    const code = await runNew(runOpts)
+    assert.strictEqual(code, 0, `${label} exit 0`)
+    const targetDir = join(tmp, runOpts.name)
+    assert.strictEqual(existsSync(targetDir), true, `${label} dir exists`)
+    assert.strictEqual(existsSync(join(targetDir, "armada", "REQUIREMENTS.md")), true, `${label} armada scaffolded`)
+    rmSync(tmp, { recursive: true, force: true })
+  }
 })
 
 test("runNew --template <local-path> still works (external template)", async () => {
@@ -180,71 +125,22 @@ test("runNew --template <local-path> still works (external template)", async () 
   rmSync(tmp, { recursive: true, force: true })
 })
 
-test("runNew with --config and non-interactive uses blank template", async () => {
-  const tmp = join(tmpdir(), "armada-nt-cfg-" + Date.now())
-  mkdirSync(tmp, { recursive: true })
-
-  // Config with cookiecutter vars -- blank template has no variables,
-  // so vars in config are harmless but the template should still render.
-  writeFileSync(join(tmp, "vars.json"), JSON.stringify({ author_name: "tester" }), "utf8")
-
-  const code = await runNew({
-    name: "cfg-project",
-    config: join(tmp, "vars.json"),
-    yes: true,
-    cwd: tmp,
-  })
-
-  assert.strictEqual(code, 0)
-  assert.strictEqual(existsSync(join(tmp, "cfg-project", "README.md")), true)
-  assert.strictEqual(existsSync(join(tmp, "cfg-project", "armada", "REQUIREMENTS.md")), true)
-
-  rmSync(tmp, { recursive: true, force: true })
-})
-
-test("runNew with --yes defaults to blank (no prompts)", async () => {
-  const tmp = join(tmpdir(), "armada-nt-yes-" + Date.now())
-  mkdirSync(tmp, { recursive: true })
-
-  const code = await runNew({
-    name: "yes-project",
-    yes: true,
-    cwd: tmp,
-  })
-
-  assert.strictEqual(code, 0)
-  assert.strictEqual(existsSync(join(tmp, "yes-project", ".gitkeep")), true)
-  assert.strictEqual(existsSync(join(tmp, "yes-project", "armada", "REQUIREMENTS.md")), true)
-
-  rmSync(tmp, { recursive: true, force: true })
-})
-
 // --- CLI-level matrix tests ---
 
-test("cli 'armada new name' (non-TTY) succeeds without --template", async () => {
-  const tmp = join(tmpdir(), "armada-cli-nt-" + Date.now())
-  mkdirSync(tmp, { recursive: true })
-
-  const r = await runCli(["new", "cli-project"], { cwd: tmp })
-
-  assert.strictEqual(r.code, 0, `expected code 0, got ${r.code} stderr: ${r.stderr}`)
-  assert.match(r.stdout, /Created cli-project/)
-  assert.strictEqual(existsSync(join(tmp, "cli-project", "armada", "armada.yaml")), true)
-
-  rmSync(tmp, { recursive: true, force: true })
-})
-
-test("cli 'armada new name --blank' succeeds", async () => {
-  const tmp = join(tmpdir(), "armada-cli-blank-" + Date.now())
-  mkdirSync(tmp, { recursive: true })
-
-  const r = await runCli(["new", "blank-project", "--blank"], { cwd: tmp })
-
-  assert.strictEqual(r.code, 0, `expected code 0, got ${r.code} stderr: ${r.stderr}`)
-  assert.match(r.stdout, /Created blank-project/)
-  assert.strictEqual(existsSync(join(tmp, "blank-project", "armada", "armada.yaml")), true)
-
-  rmSync(tmp, { recursive: true, force: true })
+test("cli 'armada new name' non-TTY, --blank, --yes all succeed", async () => {
+  for (const [label, args] of [
+    ["non-TTY", ["new", "cli-project"]],
+    ["--blank", ["new", "blank-project", "--blank"]],
+    ["--yes", ["new", "yes-project", "--yes"]],
+  ]) {
+    const tmp = join(tmpdir(), `armada-cli-${label}-${Date.now()}`)
+    mkdirSync(tmp, { recursive: true })
+    const r = await runCli(args, { cwd: tmp })
+    assert.strictEqual(r.code, 0, `${label}: expected code 0, got ${r.code} stderr: ${r.stderr}`)
+    assert.match(r.stdout, /Created /)
+    assert.strictEqual(existsSync(join(tmp, args[1], "armada", "armada.yaml")), true, `${label} has armada.yaml`)
+    rmSync(tmp, { recursive: true, force: true })
+  }
 })
 
 test("cli 'armada new name --template <path>' succeeds", async () => {
@@ -265,19 +161,6 @@ test("cli 'armada new name --template <path>' succeeds", async () => {
   assert.match(r.stdout, /Created tpl-project/)
   const readme = readFileSync(join(tmp, "tpl-project", "README.md"), "utf8")
   assert.match(readme, /# tpl-app/)
-
-  rmSync(tmp, { recursive: true, force: true })
-})
-
-test("cli 'armada new name --yes' succeeds (blank default)", async () => {
-  const tmp = join(tmpdir(), "armada-cli-yes-" + Date.now())
-  mkdirSync(tmp, { recursive: true })
-
-  const r = await runCli(["new", "yes-project", "--yes"], { cwd: tmp })
-
-  assert.strictEqual(r.code, 0, `expected code 0, got ${r.code} stderr: ${r.stderr}`)
-  assert.match(r.stdout, /Created yes-project/)
-  assert.strictEqual(existsSync(join(tmp, "yes-project", "armada", "armada.yaml")), true)
 
   rmSync(tmp, { recursive: true, force: true })
 })

@@ -31,11 +31,18 @@ function makeActive() {
 
 // ---- round-trip ----------------------------------------------------------
 
-test("round-trip active state", () => {
-  const state = makeActive()
+test("round-trip active state, feature index entry, and feature index array", () => {
+  let state = makeActive()
   validateState(state)
-  const cloned = JSON.parse(JSON.stringify(state))
-  assert.deepStrictEqual(cloned, state)
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(state)), state)
+
+  const entry = emptyFeatureIndexEntry("f1", "armada/contracts/f1.md", makePhaseGraph())
+  validateFeatureIndexEntry(entry)
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(entry)), entry)
+
+  const idx = [{ name: "f1", status: "open", contract: "c" }]
+  validateFeatureIndex(idx)
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(idx)), idx)
 })
 
 test("active state validates prUrl as null or non-empty string", () => {
@@ -106,19 +113,6 @@ test("applyWorkflow requires QA to remain active", () => {
     }),
     /qa must remain active/
   )
-})
-
-test("round-trip feature index entry", () => {
-  const entry = emptyFeatureIndexEntry("f1", "armada/contracts/f1.md", makePhaseGraph())
-  validateFeatureIndexEntry(entry)
-  const cloned = JSON.parse(JSON.stringify(entry))
-  assert.deepStrictEqual(cloned, entry)
-})
-
-test("round-trip feature index array", () => {
-  const idx = [{ name: "f1", status: "open", contract: "c" }]
-  validateFeatureIndex(idx)
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(idx)), idx)
 })
 
 // ---- applyEvidence -------------------------------------------------------
@@ -196,77 +190,34 @@ test("markShipped sets status to shipped with shippedAt", () => {
 
 // ---- validateState reject cases ------------------------------------------
 
-test("validateState rejects missing feature", () => {
-  const s = makeActive()
-  delete s.feature
-  assert.throws(() => validateState(s), /state.feature/)
+test("validateState rejects field-level mutations", () => {
+  for (const [label, mutate, errorPattern] of [
+    ["missing feature", (s) => { delete s.feature }, /state.feature/],
+    ["empty feature", (s) => { s.feature = "" }, /state.feature/],
+    ["non-object phaseGraph", (s) => { s.phaseGraph = "wrong" }, /phaseGraph/],
+    ["missing updatedAt", (s) => { delete s.updatedAt }, /state.updatedAt/],
+    ["empty updatedAt", (s) => { s.updatedAt = "" }, /state.updatedAt/],
+    ["non-array phases", (s) => { s.phaseGraph.phases = "x" }, /phases/],
+  ]) {
+    const s = makeActive()
+    mutate(s)
+    assert.throws(() => validateState(s), errorPattern, label)
+  }
 })
 
-test("validateState rejects empty feature string", () => {
-  const s = makeActive()
-  s.feature = ""
-  assert.throws(() => validateState(s), /state.feature/)
-})
-
-test("validateState rejects non-object phaseGraph", () => {
-  const s = makeActive()
-  s.phaseGraph = "wrong"
-  assert.throws(() => validateState(s), /phaseGraph/)
-})
-
-test("validateState rejects unknown phase status", () => {
-  const s = makeActive()
-  s.phaseGraph.phases[0].status = "done"
-  assert.throws(() => validateState(s), /status/)
-})
-
-test("validateState rejects cyclic dependsOn", () => {
-  const s = makeActive()
-  s.phaseGraph.phases[0].dependsOn = ["p3"]
-  // p1 -> p3 -> p2 -> p1
-  assert.throws(() => validateState(s), /cycle/)
-})
-
-test("validateState rejects unknown dependsOn ref", () => {
-  const s = makeActive()
-  s.phaseGraph.phases[0].dependsOn = ["p999"]
-  assert.throws(() => validateState(s), /depends on unknown phase/)
-})
-
-test("validateState rejects bad evidence kind", () => {
-  const s = makeActive()
-  s.evidence.push({ phase: "p1", criterion: "c1", kind: "invalid", ref: "x" })
-  assert.throws(() => validateState(s), /kind/)
-})
-
-test("validateState rejects missing evidence ref", () => {
-  const s = makeActive()
-  s.evidence.push({ phase: "p1", criterion: "c1", kind: "test", ref: "" })
-  assert.throws(() => validateState(s), /evidence\[0\]\.ref/)
-})
-
-test("validateState rejects missing updatedAt", () => {
-  const s = makeActive()
-  delete s.updatedAt
-  assert.throws(() => validateState(s), /state.updatedAt/)
-})
-
-test("validateState rejects empty updatedAt", () => {
-  const s = makeActive()
-  s.updatedAt = ""
-  assert.throws(() => validateState(s), /state.updatedAt/)
-})
-
-test("validateState rejects non-array phaseGraph.phases", () => {
-  const s = makeActive()
-  s.phaseGraph.phases = "x"
-  assert.throws(() => validateState(s), /phases/)
-})
-
-test("validateState rejects duplicate phase ids", () => {
-  const s = makeActive()
-  s.phaseGraph.phases.push({ id: "p1", title: "dup", dependsOn: [], status: "pending", criteria: [] })
-  assert.throws(() => validateState(s), /duplicate phase/)
+test("validateState rejects structural mutations", () => {
+  for (const [label, mutate, errorPattern] of [
+    ["unknown status", (s) => { s.phaseGraph.phases[0].status = "done" }, /status/],
+    ["cyclic dependsOn", (s) => { s.phaseGraph.phases[0].dependsOn = ["p3"] }, /cycle/],
+    ["unknown dependsOn ref", (s) => { s.phaseGraph.phases[0].dependsOn = ["p999"] }, /depends on unknown phase/],
+    ["bad evidence kind", (s) => { s.evidence.push({ phase: "p1", criterion: "c1", kind: "invalid", ref: "x" }) }, /kind/],
+    ["missing evidence ref", (s) => { s.evidence.push({ phase: "p1", criterion: "c1", kind: "test", ref: "" }) }, /evidence\[0\]\.ref/],
+    ["duplicate phase ids", (s) => { s.phaseGraph.phases.push({ id: "p1", title: "dup", dependsOn: [], status: "pending", criteria: [] }) }, /duplicate phase/],
+  ]) {
+    const s = makeActive()
+    mutate(s)
+    assert.throws(() => validateState(s), errorPattern, label)
+  }
 })
 
 // ---- validateFeatureIndexEntry reject cases ------------------------------

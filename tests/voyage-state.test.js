@@ -100,20 +100,17 @@ test("recordAction returns new state with action appended, no duplicates", async
   assert.deepStrictEqual(s2.completedActions, ["init"])
 })
 
-test("upgradeState handles older versions", async () => {
-  const { upgradeState } = await import("../src/state/versioned.js")
+test("upgradeState handles older versions and returns current unchanged", async () => {
+  const { createVoyageState, upgradeState, STATE_VERSION } = await import("../src/state/versioned.js")
+  // older version gets upgraded
   const v0 = { voyage: "test", status: "active", completedActions: [] }
   const upgraded = upgradeState(v0)
   assert.strictEqual(typeof upgraded.version, "number")
   assert.ok(upgraded.version >= 1)
   assert.strictEqual(upgraded.voyage, "test")
-})
-
-test("upgradeState returns current version unchanged", async () => {
-  const { createVoyageState, upgradeState, STATE_VERSION } = await import("../src/state/versioned.js")
+  // current version returned unchanged
   const current = createVoyageState({ voyage: "test" })
-  const result = upgradeState(current)
-  assert.deepStrictEqual(result, current)
+  assert.deepStrictEqual(upgradeState(current), current)
 })
 
 test("validateVoyageState rejects invalid state", async () => {
@@ -151,12 +148,13 @@ test("recordCompletedAction tracks actions and is idempotent", async () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("resumeVoyage: completed actions are not re-executed", async () => {
-  const { createVoyageState, writeState, readState, recordCompletedAction, resumeVoyage } = await import("../src/voyage/lifecycle.js")
+test("resumeVoyage: skips completed actions, runs none if all done", async () => {
+  const { createVoyageState, writeState, recordCompletedAction, resumeVoyage, readState } = await import("../src/voyage/lifecycle.js")
+
+  // completed actions not re-executed
   const dir = mkdtempSync(join(tmpdir(), "lifecycle-"))
   const state = createVoyageState({ voyage: "test" })
   await writeState(dir, state)
-
   await recordCompletedAction(dir, "phase-0")
 
   const executed = []
@@ -165,40 +163,28 @@ test("resumeVoyage: completed actions are not re-executed", async () => {
     "phase-1": async () => { executed.push("phase-1") },
     "phase-2": async () => { executed.push("phase-2") },
   }
-
   await resumeVoyage(dir, handlers)
-
-  assert.strictEqual(executed.length, 2, "only 2 actions should execute (phase-1, phase-2), not phase-0")
-  assert.ok(!executed.includes("phase-0"), "phase-0 must not re-execute")
-  assert.ok(executed.includes("phase-1"), "phase-1 must execute")
-  assert.ok(executed.includes("phase-2"), "phase-2 must execute")
-
-  const finalState = readState(dir)
-  assert.deepStrictEqual(finalState.completedActions.sort(), ["phase-0", "phase-1", "phase-2"])
-
+  assert.strictEqual(executed.length, 2)
+  assert.ok(!executed.includes("phase-0"))
+  assert.ok(executed.includes("phase-1"))
+  assert.ok(executed.includes("phase-2"))
+  assert.deepStrictEqual(readState(dir).completedActions.sort(), ["phase-0", "phase-1", "phase-2"])
   rmSync(dir, { recursive: true, force: true })
-})
 
-test("resumeVoyage: no actions run if all completed", async () => {
-  const { createVoyageState, writeState, recordCompletedAction, resumeVoyage } = await import("../src/voyage/lifecycle.js")
-  const dir = mkdtempSync(join(tmpdir(), "lifecycle-"))
-  const state = createVoyageState({ voyage: "test" })
-  await writeState(dir, state)
-
-  await recordCompletedAction(dir, "phase-0")
-  await recordCompletedAction(dir, "phase-1")
-
-  const executed = []
-  const handlers = {
-    "phase-0": async () => { executed.push("phase-0") },
-    "phase-1": async () => { executed.push("phase-1") },
+  // no actions run if all completed
+  const dir2 = mkdtempSync(join(tmpdir(), "lifecycle-"))
+  const state2 = createVoyageState({ voyage: "test" })
+  await writeState(dir2, state2)
+  await recordCompletedAction(dir2, "phase-0")
+  await recordCompletedAction(dir2, "phase-1")
+  const executed2 = []
+  const handlers2 = {
+    "phase-0": async () => { executed2.push("phase-0") },
+    "phase-1": async () => { executed2.push("phase-1") },
   }
-
-  await resumeVoyage(dir, handlers)
-
-  assert.deepStrictEqual(executed, [], "no actions should execute when all done")
-
-  rmSync(dir, { recursive: true, force: true })
+  await resumeVoyage(dir2, handlers2)
+  assert.deepStrictEqual(executed2, [])
+  rmSync(dir2, { recursive: true, force: true })
 })
 
 test("resumeVoyage: marks state as interrupted on handler failure", async () => {
