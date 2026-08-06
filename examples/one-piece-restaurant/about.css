@@ -1,0 +1,158 @@
+/* =====================================================================
+   About page — page-specific styles.
+   Uses only design tokens defined in styles.css. No new colors or fonts.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   Banner
+   --------------------------------------------------------------------- */
+
+.banner {
+  background: var(--c-navy);
+  color: var(--c-cream);
+  text-align: center;
+  padding: var(--space-6) 0;
+  margin: calc(var(--space-6) * -1) 0 var(--space-6);
+  border-bottom: 2px solid var(--c-gold);
+}
+
+.banner h1 {
+  color: var(--c-cream);
+  font-size: clamp(2.25rem, 4vw + 1rem, 3.5rem);
+  margin-bottom: var(--space-2);
+}
+
+.banner__sub {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.125rem;
+  margin: 0;
+  color: var(--c-cream);
+}
+
+/* ---------------------------------------------------------------------
+   Origin story
+   --------------------------------------------------------------------- */
+
+.story {
+  padding: var(--space-5) 0;
+}
+
+.story .container {
+  max-width: 70ch;
+}
+
+.story p {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------
+   Crew values (responsive grid)
+   --------------------------------------------------------------------- */
+
+.values {
+  padding: var(--space-5) 0;
+}
+
+.values__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.value-card {
+  background: var(--c-cream);
+  color: var(--c-navy);
+  border-top: 2px solid var(--c-gold);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.value-card h3 {
+  margin-bottom: var(--space-2);
+}
+
+.value-card p {
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------------
+   Meet the crew
+   --------------------------------------------------------------------- */
+
+.crew {
+  padding: var(--space-5) 0;
+}
+
+.crew__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.crew-card {
+  background: var(--c-cream);
+  border: 1px solid var(--c-navy);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.crew-card__name {
+  font-family: var(--font-serif);
+  margin-bottom: var(--space-1);
+}
+
+.crew-card__role {
+  font-variant: small-caps;
+  letter-spacing: 0.05em;
+  color: var(--c-gold);
+  font-size: 0.9375rem;
+  margin: 0 0 var(--space-3);
+}
+
+.crew-card__bio {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .crew__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Visit us (centered band)
+   --------------------------------------------------------------------- */
+
+.visit {
+  background: var(--c-navy);
+  color: var(--c-cream);
+  text-align: center;
+  padding: var(--space-5) 0;
+  margin-top: var(--space-5);
+}
+
+.visit h2 {
+  color: var(--c-cream);
+}
+
+.visit p {
+  color: var(--c-cream);
+  margin: 0 0 var(--space-3);
+}
+
+.visit p:last-child {
+  margin-bottom: 0;
+}
+
+.visit a {
+  color: var(--c-cream);
+  text-decoration: underline;
+}
+
+.visit a:hover,
+.visit a:focus-visible {
+  color: var(--c-gold);
+}

@@ -1,0 +1,256 @@
+/* =====================================================================
+   The Thousand Sunny Galley — shared stylesheet
+   Design tokens at :root, shared layout, mobile nav.
+   ===================================================================== */
+
+:root {
+  /* Palette */
+  --c-navy: #0b2545;
+  --c-cream: #f5e9c9;
+  --c-gold: #d4a437;
+  --c-red: #c8472b;
+
+  /* Type */
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Spacing scale */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2rem;
+  --space-6: 3rem;
+
+  /* Misc */
+  --radius: 4px;
+}
+
+/* ---------------------------------------------------------------------
+   Base
+   --------------------------------------------------------------------- */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-cream);
+  color: var(--c-navy);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
+  color: var(--c-navy);
+  margin: 0 0 var(--space-3) 0;
+  line-height: 1.2;
+}
+
+h1 { font-size: 2.25rem; }
+h2 { font-size: 1.75rem; }
+h3 { font-size: 1.25rem; }
+
+p { margin: 0 0 var(--space-3) 0; }
+
+a {
+  color: var(--c-red);
+  text-decoration: none;
+}
+
+a:hover,
+a:focus-visible {
+  text-decoration: underline;
+}
+
+img, svg {
+  max-width: 100%;
+  display: block;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------
+   Layout
+   --------------------------------------------------------------------- */
+
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 var(--space-4);
+}
+
+.site-main {
+  padding: var(--space-6) 0;
+  min-height: 60vh;
+}
+
+/* ---------------------------------------------------------------------
+   Header
+   --------------------------------------------------------------------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--c-navy);
+  color: var(--c-cream);
+  border-bottom: 2px solid var(--c-gold);
+}
+
+.site-header__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+
+.brand {
+  font-family: var(--font-serif);
+  font-size: 1.25rem;
+  color: var(--c-cream);
+  text-decoration: none;
+}
+
+.brand:hover,
+.brand:focus-visible {
+  color: var(--c-gold);
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.site-nav__link {
+  color: var(--c-cream);
+  text-decoration: none;
+  padding: var(--space-1) 0;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.site-nav__link:hover,
+.site-nav__link:focus-visible {
+  color: var(--c-gold);
+  text-decoration: none;
+}
+
+.site-nav__link.is-active {
+  color: var(--c-cream);
+  border-bottom-color: var(--c-gold);
+}
+
+/* Hamburger button (hidden on desktop) */
+.nav-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--c-cream);
+  border-radius: var(--radius);
+  padding: var(--space-2);
+  color: var(--c-cream);
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nav-toggle__bar {
+  display: block;
+  width: 1.25rem;
+  height: 2px;
+  background: var(--c-cream);
+}
+
+/* ---------------------------------------------------------------------
+   Footer
+   --------------------------------------------------------------------- */
+
+.site-footer {
+  background: var(--c-cream);
+  color: var(--c-navy);
+  border-top: 2px solid var(--c-gold);
+  padding: var(--space-5) 0 var(--space-4);
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-5);
+}
+
+.footer-col h3 {
+  margin-bottom: var(--space-2);
+  color: var(--c-navy);
+}
+
+.footer-col p,
+.footer-col a {
+  color: var(--c-navy);
+}
+
+.footer-copy {
+  margin: var(--space-5) 0 0;
+  padding-top: var(--space-3);
+  border-top: 1px solid rgba(11, 37, 69, 0.2);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* ---------------------------------------------------------------------
+   Mobile (<= 720px)
+   --------------------------------------------------------------------- */
+
+@media (max-width: 720px) {
+  .nav-toggle {
+    display: inline-flex;
+  }
+
+  .site-nav {
+    display: none;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    background: var(--c-navy);
+    border-top: 1px solid var(--c-gold);
+    padding: var(--space-2) var(--space-4) var(--space-3);
+  }
+
+  .site-header.nav-open .site-nav {
+    display: flex;
+  }
+
+  .site-nav__link {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid rgba(245, 233, 201, 0.15);
+  }
+
+  .site-nav__link:last-child {
+    border-bottom: none;
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}

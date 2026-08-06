@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Thousand Sunny Galley</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="landing.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="index.html">The Thousand Sunny Galley</a>
+      <button class="nav-toggle" data-nav-toggle aria-label="Toggle menu" aria-expanded="false">
+        <span class="nav-toggle__bar" aria-hidden="true"></span>
+        <span class="nav-toggle__bar" aria-hidden="true"></span>
+        <span class="nav-toggle__bar" aria-hidden="true"></span>
+      </button>
+      <nav class="site-nav" aria-label="Primary">
+        <a class="site-nav__link is-active" href="index.html" aria-current="page">Home</a>
+        <a class="site-nav__link" href="about.html">About</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="site-main">
+    <section class="hero">
+      <div class="container hero__inner">
+        <div class="hero__mark" aria-hidden="true">
+          <svg viewBox="0 0 120 120" role="img" focusable="false" xmlns="http://www.w3.org/2000/svg">
+            <g fill="none" stroke="var(--c-gold)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M60 22
+                       c-14 0-24 11-24 24
+                       c0 7 2 13 5 17
+                       c-2 4-3 8-3 12
+                       c0 6 4 11 10 13
+                       l0 8
+                       c0 2 1 3 3 3
+                       l4 0
+                       c2 0 3-1 3-3
+                       l0-6
+                       l4 0
+                       l0 6
+                       c0 2 1 3 3 3
+                       l4 0
+                       c2 0 3-1 3-3
+                       l0-8
+                       c6-2 10-7 10-13
+                       c0-4-1-8-3-12
+                       c3-4 5-10 5-17
+                       c0-13-10-24-24-24 z"
+                    fill="var(--c-navy)"/>
+              <circle cx="50" cy="52" r="5" fill="var(--c-cream)" stroke="none"/>
+              <circle cx="70" cy="52" r="5" fill="var(--c-cream)" stroke="none"/>
+              <path d="M58 62 l4 6 l-4 2 l-4-2 z" fill="var(--c-cream)" stroke="none"/>
+            </g>
+            <g stroke="var(--c-gold)" stroke-width="4" stroke-linecap="round" fill="none">
+              <line x1="30" y1="100" x2="90" y2="80"/>
+              <line x1="90" y1="100" x2="30" y2="80"/>
+              <circle cx="28" cy="102" r="4" fill="var(--c-gold)"/>
+              <circle cx="92" cy="98" r="4" fill="var(--c-gold)"/>
+              <circle cx="26" cy="78" r="4" fill="var(--c-gold)"/>
+              <circle cx="94" cy="82" r="4" fill="var(--c-gold)"/>
+            </g>
+          </svg>
+        </div>
+        <h1>The Thousand Sunny Galley</h1>
+        <p class="hero__tagline">A Grand Line feast for every nakama.</p>
+        <a class="btn btn--primary" href="#menu">View the menu</a>
+      </div>
+    </section>
+
+    <section class="dishes" id="menu">
+      <div class="container">
+        <h2>Signature dishes</h2>
+        <div class="dishes__grid">
+          <article class="dish-card">
+            <h3 class="dish-card__name">Sanji's Black-Leg Pasta</h3>
+            <p class="dish-card__desc">Saffron tagliatelle, hand-cut garlic, a single black olive on top.</p>
+          </article>
+          <article class="dish-card">
+            <h3 class="dish-card__name">Devil Fruit Sorbet Trio</h3>
+            <p class="dish-card__desc">Three scoops of mystery-flavor sorbet, color changes as you eat.</p>
+          </article>
+          <article class="dish-card">
+            <h3 class="dish-card__name">All Blue Bouillabaisse</h3>
+            <p class="dish-card__desc">A fisherman's stew of every sea creature you can name, and a few you can't.</p>
+          </article>
+          <article class="dish-card">
+            <h3 class="dish-card__name">Meat on the Bone &mdash; Luffy's Cut</h3>
+            <p class="dish-card__desc">A two-pound tomahawk, charred outside, blushing inside, served with a cleaver.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="atmosphere">
+      <div class="container">
+        <h2>The voyage</h2>
+        <div class="atmosphere__grid">
+          <article class="value">
+            <h3>Adventure</h3>
+            <p>Every table is plotted on a hand-drawn map. Find your heading.</p>
+          </article>
+          <article class="value">
+            <h3>Crew</h3>
+            <p>Our servers know the regulars by name, their favorite dish, and their birthday.</p>
+          </article>
+          <article class="value">
+            <h3>Flavor</h3>
+            <p>We smoke, cure, ferment, and sear in-house. The pantry is a treasure hoard.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="visit">
+      <div class="container visit__inner">
+        <h2>Visit us</h2>
+        <div class="visit__grid">
+          <div class="visit__block">
+            <h3>Address</h3>
+            <p>1234 Calm Belt<br>East Blue</p>
+          </div>
+          <div class="visit__block">
+            <h3>Hours</h3>
+            <p>Tue&ndash;Sun 5pm&ndash;11pm<br>Closed Mon</p>
+          </div>
+          <div class="visit__block">
+            <h3>Phone</h3>
+            <p><a href="tel:+15550123456">+1 (555) 012-3456</a></p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <section class="footer-col">
+          <h3>Visit</h3>
+          <p>1234 Calm Belt<br>East Blue</p>
+        </section>
+        <section class="footer-col">
+          <h3>Hours</h3>
+          <p>Tue&ndash;Sun 5pm&ndash;11pm<br>Closed Mon</p>
+        </section>
+        <section class="footer-col">
+          <h3>Contact</h3>
+          <p>
+            Phone: <a href="tel:+15550123456">+1 (555) 012-3456</a><br>
+            Email: <a href="mailto:hello@thousand-sunny-galley.example">hello@thousand-sunny-galley.example</a>
+          </p>
+        </section>
+      </div>
+      <p class="footer-copy">&copy; 2026 The Thousand Sunny Galley. All bounties reserved.</p>
+    </div>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>

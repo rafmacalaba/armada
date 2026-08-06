@@ -1,0 +1,207 @@
+/* =====================================================================
+   The Thousand Sunny Galley — landing page styles
+   Page-specific styles. Uses only design tokens from styles.css :root.
+   ===================================================================== */
+
+/* ---------------------------------------------------------------------
+   Hero
+   --------------------------------------------------------------------- */
+
+.hero {
+  background: var(--c-navy);
+  color: var(--c-cream);
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) 0;
+}
+
+.hero__inner {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.hero__mark {
+  width: 120px;
+  height: 120px;
+  margin-bottom: var(--space-3);
+}
+
+.hero__mark svg {
+  width: 100%;
+  height: 100%;
+}
+
+.hero h1 {
+  color: var(--c-cream);
+  font-size: clamp(2.5rem, 5vw + 1rem, 4.5rem);
+  margin-bottom: var(--space-2);
+}
+
+.hero__tagline {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.25rem;
+  color: var(--c-gold);
+  margin: 0 0 var(--space-4) 0;
+}
+
+.btn {
+  display: inline-block;
+  padding: var(--space-3) var(--space-5);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn--primary {
+  background: var(--c-gold);
+  color: var(--c-navy);
+  border-color: var(--c-gold);
+}
+
+.btn--primary:hover,
+.btn--primary:focus-visible {
+  background: var(--c-red);
+  color: var(--c-cream);
+  border-color: var(--c-red);
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------------------
+   Signature dishes
+   --------------------------------------------------------------------- */
+
+.dishes {
+  padding: var(--space-6) 0;
+}
+
+.dishes h2 {
+  margin-bottom: var(--space-4);
+}
+
+.dishes__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.dish-card {
+  background: var(--c-cream);
+  border-top: 2px solid var(--c-gold);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  box-shadow: 0 2px 8px rgba(11, 37, 69, 0.1);
+}
+
+.dish-card__name {
+  color: var(--c-navy);
+  margin-bottom: var(--space-2);
+}
+
+.dish-card__desc {
+  margin: 0;
+  color: var(--c-navy);
+}
+
+/* ---------------------------------------------------------------------
+   Atmosphere strip
+   --------------------------------------------------------------------- */
+
+.atmosphere {
+  padding: var(--space-6) 0;
+  background: var(--c-cream);
+}
+
+.atmosphere h2 {
+  margin-bottom: var(--space-4);
+}
+
+.atmosphere__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+}
+
+.value {
+  border-left: 4px solid var(--c-navy);
+  padding: var(--space-2) var(--space-3);
+}
+
+.value h3 {
+  margin-bottom: var(--space-2);
+}
+
+.value p {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .atmosphere__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Visit us
+   --------------------------------------------------------------------- */
+
+.visit {
+  background: var(--c-navy);
+  color: var(--c-cream);
+  padding: var(--space-6) 0;
+  text-align: center;
+}
+
+.visit__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.visit h2 {
+  color: var(--c-cream);
+  margin-bottom: var(--space-3);
+}
+
+.visit__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 900px;
+}
+
+.visit__block h3 {
+  color: var(--c-gold);
+  margin-bottom: var(--space-2);
+}
+
+.visit__block p {
+  color: var(--c-cream);
+  margin: 0;
+}
+
+.visit__block a {
+  color: var(--c-gold);
+}
+
+.visit__block a:hover,
+.visit__block a:focus-visible {
+  color: var(--c-cream);
+}
+
+@media (max-width: 720px) {
+  .visit__grid {
+    grid-template-columns: 1fr;
+  }
+}

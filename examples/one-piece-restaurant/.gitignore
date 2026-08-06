@@ -1,0 +1,5 @@
+# armada:start
+/armada/
+/.opencode/
+/opencode.json
+# armada:end
