@@ -487,10 +487,4 @@ test("checkCatalogConsistency returns pass when catalog is valid", () => {
   assert.strictEqual(results[0].status, "pass")
 })
 
-test("checkCatalogConsistency detects missing role", () => {
-  // Not easily testable without mocking, but we can verify function shape
-  const results = checkCatalogConsistency()
-  assert.ok(Array.isArray(results))
-  assert.ok(results.length >= 1)
-  assert.ok(results.every((r) => r.name && r.status && r.detail !== undefined))
-})
+

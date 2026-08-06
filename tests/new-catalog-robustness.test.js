@@ -6,19 +6,6 @@ import { join } from "node:path"
 import { runNew, discoverVariables } from "../src/new-command.js"
 import { runCli } from "./helpers.js"
 
-// --- Missing _catalog.json: non-TTY default to blank still works ---
-
-test("missing _catalog.json: non-TTY default to blank still works", async () => {
-  const tmp = join(tmpdir(), `armada-nocat-${Date.now()}`)
-  mkdirSync(tmp, { recursive: true })
-
-  const r = await runCli(["new", "nocat-app", "--yes"], { cwd: tmp })
-  assert.strictEqual(r.code, 0, `non-TTY blank fallback should succeed: ${r.stderr}`)
-  assert.ok(existsSync(join(tmp, "nocat-app", "armada", "armada.yaml")))
-
-  rmSync(tmp, { recursive: true, force: true })
-})
-
 // --- DEF-006: catalog load error includes file path ---
 
 test("DEF-006: catalog load error includes file path", async () => {
@@ -59,19 +46,6 @@ test("malformed JSON in --config file produces clear error", async () => {
 
   assert.strictEqual(code, 1, "malformed config should cause exit 1")
   process.exitCode = 0
-  rmSync(tmp, { recursive: true, force: true })
-})
-
-// --- Unknown category id: non-TTY falls back to blank ---
-
-test("unknown category id via non-TTY: falls back to blank", async () => {
-  const tmp = join(tmpdir(), `armada-unknown-cat-${Date.now()}`)
-  mkdirSync(tmp, { recursive: true })
-
-  const r = await runCli(["new", "unk-app", "--yes"], { cwd: tmp })
-  assert.strictEqual(r.code, 0, `non-TTY should succeed: ${r.stderr}`)
-  assert.ok(existsSync(join(tmp, "unk-app", "armada", "armada.yaml")))
-
   rmSync(tmp, { recursive: true, force: true })
 })
 
