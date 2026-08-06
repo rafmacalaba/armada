@@ -764,7 +764,7 @@ test("uninstall --all removes empty opencode dir left after cleanup", async () =
 })
 
 test("doctor uses running binary for global armada check", async () => {
-  const expectedVersion = process.env.ARMADA_EXPECTED_VERSION || "armada v1.0.1"
+  const expectedVersion = process.env.ARMADA_EXPECTED_VERSION || "armada v1.0.2"
   const r = await runCli(["doctor"])
   assert.match(r.stdout, /global armada binary: pass/)
   assert.match(r.stdout, new RegExp(`— ${expectedVersion.replace(/\./g, "\\.")}`))
