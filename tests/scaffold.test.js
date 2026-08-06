@@ -118,20 +118,20 @@ test("scaffold preserves existing opencode.json and merges AGENTS.md", () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("AGENTS.md merge: appends to existing user file", () => {
-  const dir = makeTempRepo({ "AGENTS.md": "# My rules\n" })
-  const m = makeManifest(dir)
-  scaffold(m, {})
-  const content = readFileSync(join(dir, "AGENTS.md"), "utf8")
+test("AGENTS.md merge: appends to existing, replaces stale armada section", () => {
+  // append to existing user file
+  const dir1 = makeTempRepo({ "AGENTS.md": "# My rules\n" })
+  const m1 = makeManifest(dir1)
+  scaffold(m1, {})
+  let content = readFileSync(join(dir1, "AGENTS.md"), "utf8")
   assert.match(content, /# My rules/)
   assert.match(content, /<!-- armada:start -->/)
-})
 
-test("AGENTS.md merge: replaces existing armada section", () => {
-  const dir = makeTempRepo({ "AGENTS.md": "# My rules\n\n<!-- armada:start -->\nSTALE_SECTION\n<!-- armada:end -->\n" })
-  const m = makeManifest(dir)
-  scaffold(m, {})
-  const content = readFileSync(join(dir, "AGENTS.md"), "utf8")
+  // replace existing armada section
+  const dir2 = makeTempRepo({ "AGENTS.md": "# My rules\n\n<!-- armada:start -->\nSTALE_SECTION\n<!-- armada:end -->\n" })
+  const m2 = makeManifest(dir2)
+  scaffold(m2, {})
+  content = readFileSync(join(dir2, "AGENTS.md"), "utf8")
   assert.match(content, /# My rules/)
   assert.doesNotMatch(content, /STALE_SECTION/)
   assert.match(content, /<!-- armada:start -->/)
@@ -203,11 +203,18 @@ test("uninstall keeps user files under .opencode/ and warns", () => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("scaffold creates .opencode/commands directory", () => {
+test("scaffold creates .opencode/commands with exactly 4 command files", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-uni4-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
   assert.ok(existsSync(join(dir, ".opencode/commands")), "commands dir must exist")
+  const expected = ["armada.md", "armada-scout.md", "armada-voyage.md", "armada-resume.md"]
+  for (const f of expected) {
+    assert.ok(existsSync(join(dir, `.opencode/commands/${f}`)), `${f} must exist`)
+  }
+  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-status.md")), "armada-status.md must not exist")
+  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-fleet.md")), "armada-fleet.md must not exist")
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test("supervision plugin written only when enabled, removed on uninstall", () => {
@@ -227,22 +234,6 @@ test("supervision plugin written only when enabled, removed on uninstall", () =>
   const removed = uninstall(manifest)
   assert.ok(!existsSync(plugin), "plugin removed on uninstall")
   assert.ok(removed.includes(".opencode/plugins/armada-supervision.js"))
-})
-
-test("scaffold writes exactly 4 command files", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-fleet-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-
-  assert.ok(existsSync(join(dir, ".opencode/commands")), ".opencode/commands/ must exist")
-  const expected = ["armada.md", "armada-scout.md", "armada-voyage.md", "armada-resume.md"]
-  for (const f of expected) {
-    assert.ok(existsSync(join(dir, `.opencode/commands/${f}`)), `${f} must exist`)
-  }
-  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-status.md")), "armada-status.md must not exist")
-  assert.ok(!existsSync(join(dir, ".opencode/commands/armada-fleet.md")), "armada-fleet.md must not exist")
-
-  rmSync(dir, { recursive: true, force: true })
 })
 
 test("scaffold writes armada-voyage.md matching generator output", () => {
@@ -315,6 +306,37 @@ test("orchestrator full prompt is self-contained and dependency-driven", () => {
   assert.ok(!/\{[a-z_]+\}/.test(filled), "no dangling placeholders")
 })
 
+test("orchestrator prompt validates core rules, state, parallelism, and adaptive staffing", () => {
+  const manifest = makeManifest(".")
+  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
+  // no blind-stop / turn ending
+  assert.match(filled, /never end your turn|never end the turn/i)
+  assert.match(filled, /still running|outstanding/i)
+  assert.match(filled, /wait|hold/i)
+  // routes writes through subagents
+  assert.match(filled, /dispatch/i)
+  assert.match(filled, /write|edit/i)
+  assert.match(filled, /never write or edit code/)
+  // reads active state on session start
+  assert.match(filled, /armada\/state\/active\.json/)
+  assert.match(filled, /session start|session begins|on start/i)
+  assert.match(filled, /write state on every transition/i)
+  // prefers disjoint files
+  assert.match(filled, /disjoint|separate file|own file|per phase/i)
+  assert.match(filled, /parallel|concurrently|collision|clobber/i)
+  // adaptive staffing with QA always active
+  assert.match(filled, /QA.*always|always.*QA/i)
+  assert.match(filled, /standby/i)
+  assert.match(filled, /low.*smoke|smoke.*low/i)
+  assert.match(filled, /risk override.*optional/i)
+  assert.match(filled, /Do not rely on the user for routine/i)
+  // batches findings, preserves parallel voyages
+  assert.match(filled, /group.*finding|finding.*group/i)
+  assert.match(filled, /BLOCKING.*FIX_NOW.*DEFERRED/i)
+  assert.match(filled, /parallel voyages|voyages.*parallel/i)
+  assert.match(filled, /structured receipt|compact receipt/i)
+})
+
 test("orchestrator full prompt renders existing instruction files", () => {
   const manifest = makeManifest(".")
   manifest.project.stack.instructions = ["AGENTS.md", "CLAUDE.md"]
@@ -322,56 +344,6 @@ test("orchestrator full prompt renders existing instruction files", () => {
   assert.match(filled, /AGENTS\.md/)
   assert.match(filled, /CLAUDE\.md/)
   assert.ok(!/\{instructions\}/.test(filled), "no dangling instructions placeholder")
-})
-
-test("orchestrator prompt forbids ending turn with background work outstanding", () => {
-  const manifest = makeManifest(".")
-  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
-  assert.match(filled, /never end your turn|never end the turn/i, "no-blind-stop rule must be explicit")
-  assert.match(filled, /still running|outstanding/i, "must reference outstanding background work")
-  assert.match(filled, /wait|hold/i, "must say to wait or hold")
-})
-
-test("orchestrator prompt routes writes through subagents", () => {
-  const manifest = makeManifest(".")
-  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
-  assert.match(filled, /dispatch/i)
-  assert.match(filled, /write|edit/i)
-  assert.match(filled, /never write or edit code/, "orchestrator must not write/edit code directly")
-})
-
-test("orchestrator prompt reads active state on session start", () => {
-  const manifest = makeManifest(".")
-  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
-  assert.match(filled, /armada\/state\/active\.json/)
-  assert.match(filled, /session start|session begins|on start/i)
-  assert.match(filled, /write state on every transition/i)
-})
-
-test("orchestrator prompt prefers disjoint files to unlock parallel phases", () => {
-  const manifest = makeManifest(".")
-  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
-  assert.match(filled, /disjoint|separate file|own file|per phase/i, "must prefer per-phase file isolation")
-  assert.match(filled, /parallel|concurrently|collision|clobber/i, "must tie file isolation to parallelism/collision")
-})
-
-test("orchestrator prompt uses adaptive staffing with QA always active", () => {
-  const manifest = makeManifest(".")
-  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
-  assert.match(filled, /QA.*always|always.*QA/i)
-  assert.match(filled, /standby/i)
-  assert.match(filled, /low.*smoke|smoke.*low/i)
-  assert.match(filled, /risk override.*optional/i)
-  assert.match(filled, /Do not rely on the user for routine/i)
-})
-
-test("orchestrator prompt batches findings and preserves parallel voyages", () => {
-  const manifest = makeManifest(".")
-  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
-  assert.match(filled, /group.*finding|finding.*group/i)
-  assert.match(filled, /BLOCKING.*FIX_NOW.*DEFERRED/i)
-  assert.match(filled, /parallel voyages|voyages.*parallel/i)
-  assert.match(filled, /structured receipt|compact receipt/i)
 })
 
 test("scaffold rejects path traversal requirementsFile", () => {
@@ -471,20 +443,18 @@ test("scaffold throws when custom prompt template is missing", () => {
 })
 
 // -- Phase 4: fleet tracker plugin scaffold --
-test("fleet plugin written by default", () => {
+test("fleet plugin written by default and when supervision.fleet is true", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-flt-"))
   const manifest = makeManifest(dir)
   scaffold(manifest, manifest.project.stack)
   assert.ok(existsSync(join(dir, ".opencode/plugins/armada-fleet.js")), "fleet plugin written by default")
   rmSync(dir, { recursive: true, force: true })
-})
 
-test("fleet plugin written when supervision.fleet is true", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-flt2-"))
-  const manifest = makeManifest(dir)
-  manifest.project.supervision = { fleet: true }
-  scaffold(manifest, manifest.project.stack)
-  const plugin = join(dir, ".opencode/plugins/armada-fleet.js")
+  const dir2 = mkdtempSync(join(tmpdir(), "armada-flt2-"))
+  const manifest2 = makeManifest(dir2)
+  manifest2.project.supervision = { fleet: true }
+  scaffold(manifest2, manifest2.project.stack)
+  const plugin = join(dir2, ".opencode/plugins/armada-fleet.js")
   assert.ok(existsSync(plugin), "fleet plugin written when enabled")
   const src = readFileSync(plugin, "utf8")
   assert.match(src, /export const ArmadaFleet/)
@@ -492,7 +462,7 @@ test("fleet plugin written when supervision.fleet is true", () => {
   assert.match(src, /session\.idle/)
   assert.match(src, /session\.closed/)
   assert.strictEqual(src, renderArmadaFleetPlugin(), "content matches generator output")
-  rmSync(dir, { recursive: true, force: true })
+  rmSync(dir2, { recursive: true, force: true })
 })
 
 test("fleet plugin removed on uninstall", () => {
@@ -592,112 +562,97 @@ function gitignoreBlock() {
   return [GITIGNORE_START, "/armada/", "/.opencode/", "/opencode.json", GITIGNORE_END].join("\n")
 }
 
-test("scaffold writes gitignore block to fresh repo", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-gi1-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  const content = readFileSync(join(dir, ".gitignore"), "utf8")
+test("scaffold writes gitignore block, idempotent, preserves existing lines", () => {
+  // fresh repo
+  const dir1 = mkdtempSync(join(tmpdir(), "armada-gi1-"))
+  const m1 = makeManifest(dir1)
+  scaffold(m1, m1.project.stack)
+  let content = readFileSync(join(dir1, ".gitignore"), "utf8")
   assert.match(content, /# armada:start/)
   assert.match(content, /\/armada\//)
   assert.match(content, /\/\.opencode\//)
   assert.match(content, /\/opencode\.json/)
   assert.match(content, /# armada:end/)
-  rmSync(dir, { recursive: true, force: true })
-})
-
-test("scaffold gitignore block is idempotent", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-gi2-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  scaffold(manifest, manifest.project.stack)
-  const content = readFileSync(join(dir, ".gitignore"), "utf8")
-  const count = (content.match(/# armada:start/g) || []).length
-  assert.strictEqual(count, 1, "block must appear exactly once")
-  rmSync(dir, { recursive: true, force: true })
-})
-
-test("scaffold appends gitignore block, preserves existing lines", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-gi3-"))
-  writeFileSync(join(dir, ".gitignore"), "node_modules/\n.env\n")
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  const content = readFileSync(join(dir, ".gitignore"), "utf8")
+  // idempotent
+  scaffold(m1, m1.project.stack)
+  content = readFileSync(join(dir1, ".gitignore"), "utf8")
+  assert.strictEqual((content.match(/# armada:start/g) || []).length, 1, "block must appear exactly once")
+  rmSync(dir1, { recursive: true, force: true })
+  // preserves existing lines
+  const dir2 = mkdtempSync(join(tmpdir(), "armada-gi3-"))
+  writeFileSync(join(dir2, ".gitignore"), "node_modules/\n.env\n")
+  const m2 = makeManifest(dir2)
+  scaffold(m2, m2.project.stack)
+  content = readFileSync(join(dir2, ".gitignore"), "utf8")
   assert.match(content, /^node_modules\//)
   assert.match(content, /\.env/)
   assert.match(content, /# armada:start/)
-  rmSync(dir, { recursive: true, force: true })
+  rmSync(dir2, { recursive: true, force: true })
 })
 
-test("scaffold dryRun reports .gitignore in files, does not write", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-gi4-"))
-  const manifest = makeManifest(dir)
-  const { written: files } = scaffold(manifest, manifest.project.stack, { dryRun: true })
+test("scaffold gitignore dryRun and skip opts", () => {
+  // dryRun reports but does not write
+  const dir1 = mkdtempSync(join(tmpdir(), "armada-gi4-"))
+  const m1 = makeManifest(dir1)
+  let files = scaffold(m1, m1.project.stack, { dryRun: true }).written
   assert.ok(files.includes(".gitignore"), ".gitignore must be in dryRun files list")
-  assert.ok(!existsSync(join(dir, ".gitignore")), ".gitignore must not be written in dryRun")
-  rmSync(dir, { recursive: true, force: true })
-})
-
-test("scaffold skips gitignore when opts.gitignore is false", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-gi5-"))
-  const manifest = makeManifest(dir)
-  const { written: files } = scaffold(manifest, manifest.project.stack, { gitignore: false })
+  assert.ok(!existsSync(join(dir1, ".gitignore")), ".gitignore must not be written in dryRun")
+  rmSync(dir1, { recursive: true, force: true })
+  // skips when opts.gitignore is false
+  const dir2 = mkdtempSync(join(tmpdir(), "armada-gi5-"))
+  const m2 = makeManifest(dir2)
+  files = scaffold(m2, m2.project.stack, { gitignore: false }).written
   assert.ok(!files.includes(".gitignore"), ".gitignore must not be in files list when skipped")
-  assert.ok(!existsSync(join(dir, ".gitignore")), ".gitignore must not be written when skipped")
-  rmSync(dir, { recursive: true, force: true })
+  assert.ok(!existsSync(join(dir2, ".gitignore")), ".gitignore must not be written when skipped")
+  rmSync(dir2, { recursive: true, force: true })
 })
 
-test("uninstall removes gitignore block, restores user content", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-gi6-"))
-  writeFileSync(join(dir, ".gitignore"), "node_modules/\n.env\n")
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  // Verify block was added
-  let content = readFileSync(join(dir, ".gitignore"), "utf8")
+test("uninstall removes gitignore block, restores or deletes", () => {
+  // restore user content
+  const dir1 = mkdtempSync(join(tmpdir(), "armada-gi6-"))
+  writeFileSync(join(dir1, ".gitignore"), "node_modules/\n.env\n")
+  const m1 = makeManifest(dir1)
+  scaffold(m1, m1.project.stack)
+  let content = readFileSync(join(dir1, ".gitignore"), "utf8")
   assert.match(content, /# armada:start/)
   assert.match(content, /node_modules/)
-  // Uninstall
-  const removed = uninstall(manifest)
+  const removed = uninstall(m1)
   assert.ok(removed.includes(".gitignore"), "uninstall must report .gitignore")
-  content = readFileSync(join(dir, ".gitignore"), "utf8")
+  content = readFileSync(join(dir1, ".gitignore"), "utf8")
   assert.doesNotMatch(content, /# armada:start/)
   assert.match(content, /node_modules/)
   assert.match(content, /\.env/)
-  rmSync(dir, { recursive: true, force: true })
+  rmSync(dir1, { recursive: true, force: true })
+  // delete entirely if only content
+  const dir2 = mkdtempSync(join(tmpdir(), "armada-gi7-"))
+  const m2 = makeManifest(dir2)
+  scaffold(m2, m2.project.stack)
+  assert.ok(existsSync(join(dir2, ".gitignore")), ".gitignore must exist after scaffold")
+  uninstall(m2)
+  assert.ok(!existsSync(join(dir2, ".gitignore")), ".gitignore must be removed when block was only content")
+  rmSync(dir2, { recursive: true, force: true })
 })
 
-test("uninstall removes .gitignore entirely if block was only content", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-gi7-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  assert.ok(existsSync(join(dir, ".gitignore")), ".gitignore must exist after scaffold")
-  uninstall(manifest)
-  assert.ok(!existsSync(join(dir, ".gitignore")), ".gitignore must be removed when block was only content")
-  rmSync(dir, { recursive: true, force: true })
-})
-
-test("uninstall dryRun does not touch .gitignore", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-gi8-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  const before = readFileSync(join(dir, ".gitignore"), "utf8")
-  const removed = uninstall(manifest, { dryRun: true })
+test("uninstall gitignore dryRun and no-op when block absent", () => {
+  // dryRun does not touch
+  const dir1 = mkdtempSync(join(tmpdir(), "armada-gi8-"))
+  const m1 = makeManifest(dir1)
+  scaffold(m1, m1.project.stack)
+  const before = readFileSync(join(dir1, ".gitignore"), "utf8")
+  const removed = uninstall(m1, { dryRun: true })
   assert.ok(removed.includes(".gitignore"), "dryRun uninstall must report .gitignore")
-  const after = readFileSync(join(dir, ".gitignore"), "utf8")
-  assert.strictEqual(after, before, ".gitignore must be unchanged in dryRun")
-  rmSync(dir, { recursive: true, force: true })
-})
-
-test("uninstall is a no-op on .gitignore when block is absent", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-gi9-"))
-  writeFileSync(join(dir, ".gitignore"), "node_modules/\n")
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  // Manually remove the block
-  writeFileSync(join(dir, ".gitignore"), "node_modules/\n")
-  const removed = uninstall(manifest)
-  assert.ok(!removed.includes(".gitignore"), "uninstall must not report .gitignore when block absent")
-  assert.strictEqual(readFileSync(join(dir, ".gitignore"), "utf8"), "node_modules/\n")
-  rmSync(dir, { recursive: true, force: true })
+  assert.strictEqual(readFileSync(join(dir1, ".gitignore"), "utf8"), before, ".gitignore must be unchanged in dryRun")
+  rmSync(dir1, { recursive: true, force: true })
+  // no-op when block absent
+  const dir2 = mkdtempSync(join(tmpdir(), "armada-gi9-"))
+  writeFileSync(join(dir2, ".gitignore"), "node_modules/\n")
+  const m2 = makeManifest(dir2)
+  scaffold(m2, m2.project.stack)
+  writeFileSync(join(dir2, ".gitignore"), "node_modules/\n")
+  const removed2 = uninstall(m2)
+  assert.ok(!removed2.includes(".gitignore"), "uninstall must not report .gitignore when block absent")
+  assert.strictEqual(readFileSync(join(dir2, ".gitignore"), "utf8"), "node_modules/\n")
+  rmSync(dir2, { recursive: true, force: true })
 })
 
 // -- Phase 2: per-feature ledger paths + {ledgers_dir} placeholder --
@@ -958,42 +913,18 @@ test("renderAgentsMd: parallel lanes produce identical armada blocks", () => {
 
 // -- Phase 5: DEF-005 symlink safety (validateTargetDir + orphan lstat guard) --
 
-test("validateTargetDir rejects .opencode/agent symlink under target", () => {
-  const target = mkdtempSync(join(tmpdir(), "armada-vtd-agent-"))
-  const realDir = mkdtempSync(join(tmpdir(), "armada-real-agent-"))
-  mkdirSync(join(target, ".opencode"), { recursive: true })
-  symlinkSync(realDir, join(target, ".opencode/agent"), "dir")
-  try {
-    assert.throws(() => validateTargetDir(target), /\.opencode\/agent is a symlink/)
-  } finally {
-    rmSync(target, { recursive: true, force: true })
-    rmSync(realDir, { recursive: true, force: true })
-  }
-})
-
-test("validateTargetDir rejects .opencode/commands symlink under target", () => {
-  const target = mkdtempSync(join(tmpdir(), "armada-vtd-cmds-"))
-  const realDir = mkdtempSync(join(tmpdir(), "armada-real-cmds-"))
-  mkdirSync(join(target, ".opencode"), { recursive: true })
-  symlinkSync(realDir, join(target, ".opencode/commands"), "dir")
-  try {
-    assert.throws(() => validateTargetDir(target), /\.opencode\/commands is a symlink/)
-  } finally {
-    rmSync(target, { recursive: true, force: true })
-    rmSync(realDir, { recursive: true, force: true })
-  }
-})
-
-test("validateTargetDir rejects .opencode/plugins symlink under target", () => {
-  const target = mkdtempSync(join(tmpdir(), "armada-vtd-plug-"))
-  const realDir = mkdtempSync(join(tmpdir(), "armada-real-plug-"))
-  mkdirSync(join(target, ".opencode"), { recursive: true })
-  symlinkSync(realDir, join(target, ".opencode/plugins"), "dir")
-  try {
-    assert.throws(() => validateTargetDir(target), /\.opencode\/plugins is a symlink/)
-  } finally {
-    rmSync(target, { recursive: true, force: true })
-    rmSync(realDir, { recursive: true, force: true })
+test("validateTargetDir rejects .opencode subdirectory symlinks under target", () => {
+  for (const sub of ["agent", "commands", "plugins"]) {
+    const target = mkdtempSync(join(tmpdir(), `armada-vtd-${sub}-`))
+    const realDir = mkdtempSync(join(tmpdir(), `armada-real-${sub}-`))
+    mkdirSync(join(target, ".opencode"), { recursive: true })
+    symlinkSync(realDir, join(target, ".opencode", sub), "dir")
+    try {
+      assert.throws(() => validateTargetDir(target), new RegExp(`\\.opencode\\/${sub} is a symlink`))
+    } finally {
+      rmSync(target, { recursive: true, force: true })
+      rmSync(realDir, { recursive: true, force: true })
+    }
   }
 })
 

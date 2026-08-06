@@ -15,78 +15,71 @@ function initGitRepo(dir) {
   spawnSync("git", ["commit", "-m", "init"], { cwd: dir, encoding: "utf8" })
 }
 
+function setupTwoWorktrees(dir, nameA, nameB) {
+  initGitRepo(dir)
+  const wtA = join(dir, "sandbox", nameA)
+  const wtB = join(dir, "sandbox", nameB)
+  spawnSync("git", ["worktree", "add", "-b", `feat/${nameA}`, wtA], { cwd: dir, encoding: "utf8" })
+  spawnSync("git", ["worktree", "add", "-b", `feat/${nameB}`, wtB], { cwd: dir, encoding: "utf8" })
+  return { wtA, wtB }
+}
+
 // -- pre-mutation collision (from pre-mutation-collision.test.js) --
 
-test("checkGitClean: returns clean=true for clean repo", async () => {
+test("checkGitClean: clean, dirty, staged, and non-git handling", async () => {
   const { checkGitClean } = await import("../src/voyage/isolation.js")
-  const dir = makeTempGitRepo({})
-  const result = checkGitClean(dir)
+  // clean repo
+  let dir = makeTempGitRepo({})
+  let result = checkGitClean(dir)
   assert.strictEqual(result.clean, true)
   assert.deepStrictEqual(result.dirtyFiles, [])
   rmSync(dir, { recursive: true, force: true })
-})
-
-test("checkGitClean: returns clean=false for repo with uncommitted changes", async () => {
-  const { checkGitClean } = await import("../src/voyage/isolation.js")
-  const dir = makeTempGitRepo({})
+  // uncommitted changes
+  dir = makeTempGitRepo({})
   writeFileSync(join(dir, "dirty.txt"), "new content\n", "utf8")
-  const result = checkGitClean(dir)
+  result = checkGitClean(dir)
   assert.strictEqual(result.clean, false)
-  assert.ok(result.dirtyFiles.length > 0, "should have dirty files")
-  assert.ok(result.dirtyFiles.some((f) => f.includes("dirty.txt")), "should include dirty.txt")
+  assert.ok(result.dirtyFiles.length > 0)
+  assert.ok(result.dirtyFiles.some((f) => f.includes("dirty.txt")))
   rmSync(dir, { recursive: true, force: true })
-})
-
-test("checkGitClean: returns clean=false for repo with staged changes", async () => {
-  const { checkGitClean } = await import("../src/voyage/isolation.js")
-  const dir = makeTempGitRepo({})
+  // staged changes
+  dir = makeTempGitRepo({})
   writeFileSync(join(dir, "staged.txt"), "staged\n", "utf8")
   spawnSync("git", ["add", "staged.txt"], { cwd: dir })
-  const result = checkGitClean(dir)
+  result = checkGitClean(dir)
   assert.strictEqual(result.clean, false)
   assert.ok(result.dirtyFiles.length > 0)
   rmSync(dir, { recursive: true, force: true })
-})
-
-test("checkGitClean: handles non-git directory gracefully", async () => {
-  const { checkGitClean } = await import("../src/voyage/isolation.js")
-  const dir = mkdtempSync(join(tmpdir(), "nogit-"))
-  const result = checkGitClean(dir)
+  // non-git directory
+  dir = mkdtempSync(join(tmpdir(), "nogit-"))
+  result = checkGitClean(dir)
   assert.strictEqual(result.clean, true)
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("checkPreMutation: returns ok=true when main is clean", async () => {
-  const { checkPreMutation } = await import("../src/voyage/isolation.js")
-  const dir = makeTempGitRepo({})
-  const result = checkPreMutation(dir)
+test("checkPreMutation and refuseIfDirty: ok/dirty/throws/no-throw", async () => {
+  const { checkPreMutation, refuseIfDirty } = await import("../src/voyage/isolation.js")
+  // clean => ok
+  let dir = makeTempGitRepo({})
+  let result = checkPreMutation(dir)
   assert.strictEqual(result.ok, true)
   assert.strictEqual(result.reason, null)
   rmSync(dir, { recursive: true, force: true })
-})
-
-test("checkPreMutation: returns ok=false when main is dirty", async () => {
-  const { checkPreMutation } = await import("../src/voyage/isolation.js")
-  const dir = makeTempGitRepo({})
+  // dirty => not ok
+  dir = makeTempGitRepo({})
   writeFileSync(join(dir, "dirty.txt"), "dirty\n", "utf8")
-  const result = checkPreMutation(dir)
+  result = checkPreMutation(dir)
   assert.strictEqual(result.ok, false)
   assert.ok(result.reason && result.reason.length > 0)
   assert.match(result.reason, /dirty/i)
   rmSync(dir, { recursive: true, force: true })
-})
-
-test("refuseIfDirty: throws when repo is dirty", async () => {
-  const { refuseIfDirty } = await import("../src/voyage/isolation.js")
-  const dir = makeTempGitRepo({})
+  // refuseIfDirty throws on dirty
+  dir = makeTempGitRepo({})
   writeFileSync(join(dir, "dirty.txt"), "dirty\n", "utf8")
   assert.throws(() => refuseIfDirty(dir), /dirty/i)
   rmSync(dir, { recursive: true, force: true })
-})
-
-test("refuseIfDirty: does not throw when repo is clean", async () => {
-  const { refuseIfDirty } = await import("../src/voyage/isolation.js")
-  const dir = makeTempGitRepo({})
+  // refuseIfDirty does not throw on clean
+  dir = makeTempGitRepo({})
   assert.doesNotThrow(() => refuseIfDirty(dir))
   rmSync(dir, { recursive: true, force: true })
 })

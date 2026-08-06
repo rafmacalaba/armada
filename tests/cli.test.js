@@ -19,40 +19,21 @@ function manifestYaml() {
   return renderManifestYaml(m, buildTeam(m))
 }
 
-test("help prints usage", async () => {
-  const r = await runCli(["help"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /Usage:/)
+test("help, no-args, -h, --help all print usage", async () => {
+  for (const args of [["help"], [], ["-h"], ["--help"]]) {
+    const r = await runCli(args)
+    assert.strictEqual(r.code, 0)
+    assert.match(r.stdout, /Usage:/)
+  }
 })
 
-test("no-args prints usage", async () => {
-  const r = await runCli([])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /Usage:/)
-})
-
-test("-h and --help print usage", async () => {
-  const r1 = await runCli(["-h"])
-  const r2 = await runCli(["--help"])
-  assert.strictEqual(r1.code, 0)
-  assert.strictEqual(r2.code, 0)
-  assert.match(r1.stdout, /Usage:/)
-  assert.match(r2.stdout, /Usage:/)
-})
-
-test("ping is removed, exits 1 with unknown command", async () => {
-  const r = await runCli(["ping"])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /Unknown command/)
-})
-
-test("unknown command returns exit code 1", async () => {
-  const r = await runCli(["nope"])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /Unknown command/)
-})
-
-test("main returns exit code 1 for unknown command", async () => {
+test("ping removed and unknown commands exit 1; main returns 1", async () => {
+  for (const cmd of ["ping", "nope"]) {
+    const r = await runCli([cmd])
+    assert.strictEqual(r.code, 1)
+    assert.match(r.stderr, /Unknown command/)
+  }
+  // direct main() call
   const prev = process.exitCode
   process.exitCode = 0
   const code = await main(["nope"])
@@ -402,12 +383,18 @@ test("drive with nonexistent path exits 1", async () => {
   assert.match(r.stderr, /deprecated/)
 })
 
-test("drive --help prints usage without booting a session, exits 1 (deprecated)", async () => {
+test("drive --help prints usage with deprecation, voyage alias, exactly once, exits 1", async () => {
   const r = await runCli(["drive", "--help"])
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /Usage:/)
   assert.doesNotMatch(r.stdout, /creating session/)
+  assert.match(r.stdout, /armada voyage/)
+  assert.match(r.stdout, /armada drive.*alias for voyage/)
+  // deprecation hint exactly once
+  const matches = (r.stderr.match(/armada drive: deprecated/g) || [])
+  assert.strictEqual(matches.length, 1, `deprecation hint appeared ${matches.length} times, expected 1`)
+  // -h variant
   const rh = await runCli(["drive", "-h"])
   assert.strictEqual(rh.code, 1)
   assert.match(rh.stderr, /deprecated/)
@@ -443,7 +430,7 @@ esac
   assert.match(r.stdout, /session/)
 })
 
-test("drive --no-open prints skipped message", async () => {
+test("drive --no-open skips auto-open, prints skip message, no manual attach hint", async () => {
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
@@ -454,6 +441,8 @@ test("drive --no-open prints skipped message", async () => {
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /--no-open: skipped auto-attach/)
   assert.match(r.stdout, /session/)
+  assert.doesNotMatch(r.stdout, /auto-attach skipped/)
+  assert.doesNotMatch(r.stdout, /attach manually/)
 })
 
 // DEF-011: --name with single-dash value
@@ -520,23 +509,6 @@ test("drive auto-open falls back with hint when no terminal available", async ()
   assert.doesNotMatch(r.stdout, /tmux attach -t/)
   assert.doesNotMatch(r.stdout, /attach manually/)
 })
-
-// Phase 2: --no-open skips auto-open, prints skip message
-test("drive --no-open skips auto-open and prints skip message", async () => {
-  const binDir = makeBin({
-    opencode: "#!/bin/sh\nexit 0\n",
-    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
-  })
-  const lanePath = mkdtempSync(join(tmpdir(), "drive-noopen2-"))
-  const r = await runCli(["drive", "--no-open", lanePath], { env: { PATH: binDir } })
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /deprecated/)
-  assert.match(r.stdout, /--no-open: skipped auto-attach/)
-  assert.match(r.stdout, /session/)
-  assert.doesNotMatch(r.stdout, /auto-attach skipped/)
-  assert.doesNotMatch(r.stdout, /attach manually/)
-})
-
 // Phase 2: auto-open with fake terminal succeeds (platform-adaptive)
 test("drive auto-open succeeds when terminal is available", async () => {
   const plat = process.platform
@@ -671,15 +643,6 @@ test("voyage --help prints usage and exits 0", async () => {
   assert.match(r.stdout, /armada drive.*alias for voyage/)
 })
 
-test("drive --help prints usage and exits 1 (deprecated)", async () => {
-  const r = await runCli(["drive", "--help"])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /deprecated/)
-  assert.match(r.stdout, /Usage:/)
-  assert.match(r.stdout, /armada voyage/)
-  assert.match(r.stdout, /armada drive.*alias for voyage/)
-})
-
 // -- Phase 4: armada voyage (primary command; drive = alias) --
 
 test("voyage boots a lane session and prints success", async () => {
@@ -741,13 +704,6 @@ test("drive --print-attach prints attach command and exits 1 (deprecated)", asyn
   assert.match(r.stdout, /tmux attach -t/)
 })
 
-// DEF-004: drive --help prints deprecation hint exactly once
-test("drive --help prints deprecation hint exactly once", async () => {
-  const r = await runCli(["drive", "--help"])
-  const matches = (r.stderr.match(/armada drive: deprecated/g) || [])
-  assert.strictEqual(matches.length, 1, `deprecation hint appeared ${matches.length} times, expected 1`)
-})
-
 // -- cli-routing (P1 fixes) --
 
 test("reconcile exits 0 when no state dir exists (no drift)", async () => {
@@ -805,94 +761,39 @@ test("armada new with name starting with -- rejects with error", async () => {
 
 // -- cli-arg-flags (P6 DEF-001: subcommand -v/-h/--version intercept) --
 
-test("uninstall -v prints version and exits 0, no fs mutation", async () => {
-  const dir = makeTempGitRepo({ "armada/armada.yaml": manifestYaml() })
-  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
-  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should exist before uninstall -v")
-  assert.ok(existsSync(join(dir, "armada", "armada.yaml")), "armada/armada.yaml should exist before uninstall -v")
+test("uninstall -v/-h/--version prints version/help without fs mutation", async () => {
+  for (const [flag, expectVersion] of [["-v", true], ["-h", false], ["--version", true]]) {
+    const dir = makeTempGitRepo({ "armada/armada.yaml": manifestYaml() })
+    await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
+    assert.ok(existsSync(join(dir, ".opencode")), `.opencode should exist before uninstall ${flag}`)
+    if (expectVersion) assert.ok(existsSync(join(dir, "armada", "armada.yaml")), `armada/armada.yaml should exist before uninstall ${flag}`)
 
-  const r = await runCli(["uninstall", "-v"], { cwd: dir })
-  assert.strictEqual(r.code, 0, "uninstall -v should exit 0")
-  assert.match(r.stdout, /armada v/, "should print version")
-  assert.match(r.stdout, new RegExp(EXPECTED_VERSION.replace(/\./g, "\\.")), `should include version ${EXPECTED_VERSION}`)
-
-  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should still exist after uninstall -v")
+    const r = await runCli(["uninstall", flag], { cwd: dir })
+    assert.strictEqual(r.code, 0, `uninstall ${flag} should exit 0`)
+    if (expectVersion) {
+      assert.match(r.stdout, /armada v/, "should print version")
+      assert.match(r.stdout, new RegExp(EXPECTED_VERSION.replace(/\./g, "\\.")), `should include version ${EXPECTED_VERSION}`)
+    } else {
+      assert.match(r.stdout, /Usage:/, "should print help")
+    }
+    assert.ok(existsSync(join(dir, ".opencode")), `.opencode should still exist after uninstall ${flag}`)
+  }
 })
 
-test("uninstall -h prints help and exits 0, no fs mutation", async () => {
-  const dir = makeTempGitRepo({ "armada/armada.yaml": manifestYaml() })
-  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
-  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should exist before uninstall -h")
-
-  const r = await runCli(["uninstall", "-h"], { cwd: dir })
-  assert.strictEqual(r.code, 0, "uninstall -h should exit 0")
-  assert.match(r.stdout, /Usage:/, "should print help")
-
-  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should still exist after uninstall -h")
-})
-
-test("uninstall --version prints version and exits 0, no fs mutation", async () => {
-  const dir = makeTempGitRepo({ "armada/armada.yaml": manifestYaml() })
-  await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })
-  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should exist before uninstall --version")
-
-  const r = await runCli(["uninstall", "--version"], { cwd: dir })
-  assert.strictEqual(r.code, 0, "uninstall --version should exit 0")
-  assert.match(r.stdout, /armada v/, "should print version")
-
-  assert.ok(existsSync(join(dir, ".opencode")), ".opencode should still exist after uninstall --version")
-})
-
-test("doctor -v prints version and exits 0", async () => {
-  const r = await runCli(["doctor", "-v"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /armada v/)
-})
-
-test("doctor -h prints help and exits 0", async () => {
-  const r = await runCli(["doctor", "-h"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /Usage:/)
-})
-
-test("fleet -v prints version and exits 0", async () => {
-  const r = await runCli(["fleet", "-v"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /armada v/)
-})
-
-test("fleet -h prints help and exits 0", async () => {
-  const r = await runCli(["fleet", "-h"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /Usage:/)
-})
-
-test("models -v prints version and exits 0", async () => {
-  const r = await runCli(["models", "-v"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /armada v/)
-})
-
-test("models -h prints help and exits 0", async () => {
-  const r = await runCli(["models", "-h"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /Usage:/)
-})
-
-test("status -v prints version and exits 0", async () => {
-  const r = await runCli(["status", "-v"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /armada v/)
-})
-
-test("status -h prints help and exits 0", async () => {
-  const r = await runCli(["status", "-h"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /Usage:/)
-})
-
-test("feature -h prints help and exits 0", async () => {
-  const r = await runCli(["feature", "-h"])
-  assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /Usage:/)
+test("subcommand -v/-h prints version/help and exits 0", async () => {
+  for (const [cmd, flag, expected] of [
+    ["doctor", "-v", /armada v/],
+    ["doctor", "-h", /Usage:/],
+    ["fleet", "-v", /armada v/],
+    ["fleet", "-h", /Usage:/],
+    ["models", "-v", /armada v/],
+    ["models", "-h", /Usage:/],
+    ["status", "-v", /armada v/],
+    ["status", "-h", /Usage:/],
+    ["feature", "-h", /Usage:/],
+  ]) {
+    const r = await runCli([cmd, flag])
+    assert.strictEqual(r.code, 0, `${cmd} ${flag} should exit 0`)
+    assert.match(r.stdout, expected, `${cmd} ${flag} should print correctly`)
+  }
 })

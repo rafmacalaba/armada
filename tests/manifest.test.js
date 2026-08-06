@@ -167,41 +167,19 @@ test("rejects instructions: non-string", () => {
   )
 })
 
-test("rejects prompt: '../escape'", () => {
-  assert.throws(
-    () => parseManifestYaml(
-      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: '../escape'"
-    ),
-    /armada\.yaml: schema violation: backend-dev prompt must not contain '\.\.'/
-  )
-})
-
-test("rejects prompt: '/abs'", () => {
-  assert.throws(
-    () => parseManifestYaml(
-      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: '/abs'"
-    ),
-    /armada\.yaml: schema violation: backend-dev prompt must be a relative path/
-  )
-})
-
-test("rejects prompt: empty string", () => {
-  assert.throws(
-    () => parseManifestYaml(
-      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: ''"
-    ),
-    /armada\.yaml: schema violation: backend-dev prompt must be a non-empty string/
-  )
-})
-
-test("rejects prompt: escapes target directory", () => {
-  assert.throws(
-    () => parseManifestYaml(
-      "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: '../../etc/passwd'",
-      "/tmp/role-config-test"
-    ),
-    /armada\.yaml: schema violation: backend-dev prompt must not contain '\.\.'/
-  )
+test("rejects invalid prompts: escape, absolute, empty, traversal", () => {
+  for (const [label, promptYaml, targetDir, errorPattern] of [
+    ["../escape", "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: '../escape'", undefined, /armada\.yaml: schema violation: backend-dev prompt must not contain '\.\.'/],
+    ["/abs", "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: '/abs'", undefined, /armada\.yaml: schema violation: backend-dev prompt must be a relative path/],
+    ["empty", "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: ''", undefined, /armada\.yaml: schema violation: backend-dev prompt must be a non-empty string/],
+    ["../../../etc/passwd", "project:\n  name: t\n  budget: balanced\nteam:\n  - role: backend-dev\n    model: x\n    enabled: true\n    prompt: '../../etc/passwd'", "/tmp/role-config-test", /armada\.yaml: schema violation: backend-dev prompt must not contain '\.\.'/],
+  ]) {
+    assert.throws(
+      () => parseManifestYaml(promptYaml, targetDir),
+      errorPattern,
+      label
+    )
+  }
 })
 
 test("no overrides still parses to same shape (nulls for new fields)", () => {
@@ -297,40 +275,35 @@ test("rejects supervision.fleet non-boolean", () => {
   )
 })
 
-test("parses missing supervision block defaults fleet to true", () => {
-  const yaml = [
-    "project:",
-    "  name: t",
-    "  budget: balanced",
-    "team:",
-    "  - role: qa",
-    "    model: x",
-    "    enabled: true",
-  ].join("\n")
-  const parsed = parseManifestYaml(yaml)
+test("parses supervision defaults and mixed states correctly", () => {
+  // missing supervision block defaults
+  let parsed = parseManifestYaml([
+    "project:", "  name: t", "  budget: balanced",
+    "team:", "  - role: qa", "    model: x", "    enabled: true",
+  ].join("\n"))
   assert.strictEqual(parsed.project.supervision.plugin, false)
   assert.strictEqual(parsed.project.supervision.fleet, true)
   assert.strictEqual(parsed.project.supervision.watchdog, false)
-})
 
-test("parses supervision.watchdog: true alongside plugin: false, fleet: false", () => {
-  const yaml = [
-    "project:",
-    "  name: t",
-    "  budget: balanced",
-    "  supervision:",
-    "    plugin: false",
-    "    fleet: false",
-    "    watchdog: true",
-    "team:",
-    "  - role: qa",
-    "    model: x",
-    "    enabled: true",
-  ].join("\n")
-  const parsed = parseManifestYaml(yaml)
+  // watchdog: true alongside plugin: false, fleet: false
+  parsed = parseManifestYaml([
+    "project:", "  name: t", "  budget: balanced",
+    "  supervision:", "    plugin: false", "    fleet: false", "    watchdog: true",
+    "team:", "  - role: qa", "    model: x", "    enabled: true",
+  ].join("\n"))
   assert.strictEqual(parsed.project.supervision.plugin, false)
   assert.strictEqual(parsed.project.supervision.fleet, false)
   assert.strictEqual(parsed.project.supervision.watchdog, true)
+
+  // missing watchdog defaults to false
+  parsed = parseManifestYaml([
+    "project:", "  name: t", "  budget: balanced",
+    "  supervision:", "    plugin: true",
+    "team:", "  - role: qa", "    model: x", "    enabled: true",
+  ].join("\n"))
+  assert.strictEqual(parsed.project.supervision.plugin, true)
+  assert.strictEqual(parsed.project.supervision.fleet, true)
+  assert.strictEqual(parsed.project.supervision.watchdog, false)
 })
 
 test("rejects supervision.watchdog non-boolean", () => {
@@ -340,24 +313,6 @@ test("rejects supervision.watchdog non-boolean", () => {
     ),
     /armada\.yaml: schema violation: project\.supervision\.watchdog must be a boolean/
   )
-})
-
-test("parses missing watchdog defaults to false", () => {
-  const yaml = [
-    "project:",
-    "  name: t",
-    "  budget: balanced",
-    "  supervision:",
-    "    plugin: true",
-    "team:",
-    "  - role: qa",
-    "    model: x",
-    "    enabled: true",
-  ].join("\n")
-  const parsed = parseManifestYaml(yaml)
-  assert.strictEqual(parsed.project.supervision.plugin, true)
-  assert.strictEqual(parsed.project.supervision.fleet, true)
-  assert.strictEqual(parsed.project.supervision.watchdog, false)
 })
 
 // -- Phase 2: per-feature ledger paths --
@@ -387,37 +342,16 @@ test("parseManifestYaml accepts optional project.feature", () => {
   assert.strictEqual(parsed.project.feature, "my-feature")
 })
 
-test("parseManifestYaml rejects empty project.feature", () => {
-  assert.throws(
-    () => parseManifestYaml(
-      "project:\n  name: t\n  budget: free\n  feature: ''\nteam:\n  - role: qa\n    model: x\n    enabled: true"
-    ),
-    /schema/
-  )
-})
-
-test("parseManifestYaml rejects project.feature with path separators", () => {
-  assert.throws(
-    () => parseManifestYaml(
-      "project:\n  name: t\n  budget: free\n  feature: 'foo/bar'\nteam:\n  - role: qa\n    model: x\n    enabled: true"
-    ),
-    /schema/
-  )
-  assert.throws(
-    () => parseManifestYaml(
-      "project:\n  name: t\n  budget: free\n  feature: 'foo\\bar'\nteam:\n  - role: qa\n    model: x\n    enabled: true"
-    ),
-    /schema/
-  )
-})
-
-test("parseManifestYaml rejects project.feature with .. traversal", () => {
-  assert.throws(
-    () => parseManifestYaml(
-      "project:\n  name: t\n  budget: free\n  feature: '../escape'\nteam:\n  - role: qa\n    model: x\n    enabled: true"
-    ),
-    /schema/
-  )
+test("parseManifestYaml rejects invalid project.feature: empty, separators, traversal", () => {
+  for (const [label, feature] of [["empty", ""], ["slash", "foo/bar"], ["backslash", "foo\\bar"], ["dots", "../escape"]]) {
+    assert.throws(
+      () => parseManifestYaml(
+        `project:\n  name: t\n  budget: free\n  feature: '${feature}'\nteam:\n  - role: qa\n    model: x\n    enabled: true`
+      ),
+      /schema/,
+      label
+    )
+  }
 })
 
 // -- Phase 2: skills field --
@@ -453,38 +387,19 @@ test("parseManifestYaml accepts empty skills list", () => {
   assert.deepStrictEqual(parsed.project.skills, [])
 })
 
-test("parseManifestYaml parses skills list with entries", () => {
-  const yaml = [
-    "project:",
-    "  name: t",
-    "  budget: free",
-    "  skills:",
-    "    - armada-contract",
-    "    - armada-gate",
-    "team:",
-    "  - role: qa",
-    "    model: x",
-    "    enabled: true",
-    "",
-  ].join("\n")
-  const parsed = parseManifestYaml(yaml)
+test("parseManifestYaml parses skills list with entries and single entry", () => {
+  let parsed = parseManifestYaml([
+    "project:", "  name: t", "  budget: free",
+    "  skills:", "    - armada-contract", "    - armada-gate",
+    "team:", "  - role: qa", "    model: x", "    enabled: true", "",
+  ].join("\n"))
   assert.deepStrictEqual(parsed.project.skills, ["armada-contract", "armada-gate"])
-})
 
-test("parseManifestYaml parses custom skills list", () => {
-  const yaml = [
-    "project:",
-    "  name: t",
-    "  budget: free",
-    "  skills:",
-    "    - armada-contract",
-    "team:",
-    "  - role: qa",
-    "    model: x",
-    "    enabled: true",
-    "",
-  ].join("\n")
-  const parsed = parseManifestYaml(yaml)
+  parsed = parseManifestYaml([
+    "project:", "  name: t", "  budget: free",
+    "  skills:", "    - armada-contract",
+    "team:", "  - role: qa", "    model: x", "    enabled: true", "",
+  ].join("\n"))
   assert.deepStrictEqual(parsed.project.skills, ["armada-contract"])
 })
 

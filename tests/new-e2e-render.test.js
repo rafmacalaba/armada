@@ -49,30 +49,23 @@ const TEMPLATES = [
 ]
 
 for (const tpl of TEMPLATES) {
-  test(`e2e render "${tpl.id}" -- renders vars, scaffolds armada team`, async () => {
+  test(`e2e render "${tpl.id}" -- renders vars, scaffolds armada team, round-trips yaml`, async () => {
     const tmp = join(tmpdir(), `armada-e2e-${tpl.id}-${Date.now()}`)
     mkdirSync(tmp, { recursive: true })
 
-    let code
+    const opts = {
+      name: "my-app",
+      template: join(process.cwd(), "starter", tpl.id),
+      yes: true,
+      cwd: tmp,
+    }
     if (Object.keys(tpl.vars).length > 0) {
       const configPath = join(tmp, "vars.json")
       writeFileSync(configPath, JSON.stringify(tpl.vars), "utf8")
-      code = await runNew({
-        name: "my-app",
-        template: join(process.cwd(), "starter", tpl.id),
-        config: configPath,
-        yes: true,
-        cwd: tmp,
-      })
-    } else {
-      code = await runNew({
-        name: "my-app",
-        template: join(process.cwd(), "starter", tpl.id),
-        yes: true,
-        cwd: tmp,
-      })
+      opts.config = configPath
     }
 
+    const code = await runNew(opts)
     assert.strictEqual(code, 0, `runNew for ${tpl.id} should exit 0`)
     const appDir = join(tmp, "my-app")
     assert.ok(existsSync(appDir), `${tpl.id}: output dir must exist`)
@@ -91,28 +84,8 @@ for (const tpl of TEMPLATES) {
         `${tpl.id}: ${tpl.assertVarInFile.file} should contain substituted var`)
     }
 
-    rmSync(tmp, { recursive: true, force: true })
-  })
-}
-
-// --- armada.yaml round-trip through parseManifestYaml ---
-
-for (const tpl of TEMPLATES) {
-  test(`armada.yaml round-trips through parseManifestYaml for "${tpl.id}"`, async () => {
-    const tmp = join(tmpdir(), `armada-e2e-rt-${tpl.id}-${Date.now()}`)
-    mkdirSync(tmp, { recursive: true })
-
-    const code = await runNew({
-      name: "my-app",
-      template: join(process.cwd(), "starter", tpl.id),
-      yes: true,
-      cwd: tmp,
-    })
-
-    assert.strictEqual(code, 0)
-    const yamlPath = join(tmp, "my-app", "armada", "armada.yaml")
-    assert.ok(existsSync(yamlPath), `${tpl.id}: armada.yaml must exist`)
-
+    // armada.yaml round-trip
+    const yamlPath = join(appDir, "armada", "armada.yaml")
     const yamlText = readFileSync(yamlPath, "utf8")
     let parsed
     try {
@@ -120,7 +93,6 @@ for (const tpl of TEMPLATES) {
     } catch (err) {
       assert.fail(`${tpl.id}: parseManifestYaml threw: ${err.message}`)
     }
-
     assert.ok(parsed.project, `${tpl.id}: parsed must have project`)
     assert.ok(parsed.team, `${tpl.id}: parsed must have team`)
     assert.ok(Array.isArray(parsed.team), `${tpl.id}: team must be array`)
@@ -179,28 +151,17 @@ test("cli seam: armada new --blank --yes output contains correct Next hint", asy
 
 // --- Path safety regressions ---
 
-test("rejects '/' in project name", async () => {
-  const r = await runCli(["new", "bad/name"])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /path separator|invalid/)
-})
-
-test("rejects absolute path as project name", async () => {
-  const r = await runCli(["new", "/tmp/evil"])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /absolute|invalid/)
-})
-
-test("rejects project name starting with dash", async () => {
-  const r = await runCli(["new", "-dash"])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /start with|invalid/)
-})
-
-test("rejects '..' in project name", async () => {
-  const r = await runCli(["new", ".."])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /\.\./)
+test("rejects invalid project names: slash, absolute, dash, dots", async () => {
+  for (const [label, name, pattern] of [
+    ["slash", "bad/name", /path separator|invalid/],
+    ["absolute", "/tmp/evil", /absolute|invalid/],
+    ["dash", "-dash", /start with|invalid/],
+    ["dots", "..", /\.\./],
+  ]) {
+    const r = await runCli(["new", name])
+    assert.strictEqual(r.code, 1, `${label}: exit 1`)
+    assert.match(r.stderr, pattern, `${label}: rejects`)
+  }
 })
 
 test("rejects null bytes in project name (DEF-001)", async () => {
