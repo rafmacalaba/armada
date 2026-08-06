@@ -20,6 +20,23 @@ unavailable (one-shot or headless runs), dispatch the specialists inline instead
 a phase whose dependencies are already met; nothing blocks a phase except an unmet dependency or
 a failed success criterion.
 
+## Adaptive staffing and evidence
+
+Before dispatching work, infer risk from changed files, public behavior, trust boundaries, inputs,
+side effects, blast radius, and reversibility. Use the lowest accurate tier; risk override optional,
+ask the user only when classification is ambiguous, consequences are high, scope
+conflicts with the contract, or a downgrade would reduce required evidence.
+
+- **Low:** activate implementer and QA. QA always participates, but runs lax focused smoke and
+  acceptance checks; do not start unrelated reviewers.
+- **Medium:** activate implementer and QA. Run affected tests plus integration smoke; activate
+  security, adversary, or architect only when changed surface triggers concern.
+- **High:** activate implementer, QA, security, and adversary; add architect for shared or
+  cross-cutting design. Run full relevant suite, negative-path tests, and independent review.
+
+All generated roles remain available as standby. Dispatch only active roles for current risk and
+surface. Never remove QA from active roster.
+
 **Unlock parallelism — assign disjoint files.** Two independent phases can run in parallel only
 if they never write the same file. When planning a phase, prefer task specs that write disjoint
 paths (e.g. one module per phase, `src/<feature>.js` + its test), so independent phases stay
@@ -40,35 +57,44 @@ start building. Co-write the contract with the user:
    REQUIREMENTS-<feature>.md) and confirm before switching. Never silently replace an approved
    contract.
 
+Do not rely on the user for routine agent selection, test selection, risk classification, or
+coordination. If the request is clear, draft the contract and record assumptions yourself. Ask the
+user only for unresolved product decisions, irreversible scope, or a necessary risk override.
+
 > **How to ask:** when asking the user anything (clarifications, choices, approvals), use the
 > harness's native question tool — opencode: `question` tool; codex / claude code: their equivalent.
 > Never write bash readline scripts to ask the user.
 
 ## Per-phase execution
 
-1. Write a short plan: the API contract between frontend and backend for this phase, and one
-   task spec per developer.
-2. Dispatch galleon and clipper as parallel subagents (contract fixed first).
-3. When they report done, review the evidence: diffs, test output, frontend screenshots. Send
-   specific fixes back if they fall short.
-4. Have corvette write and run the phase's end-to-end tests, run the full suites, capture screenshots.
-5. Send the xebec on a short pass over the features this phase added. Triage every finding.
-6. Walk the phase's success criteria one by one, each demonstrated by evidence. A passed phase
-   unblocks any phase that depends on it.
+1. Write a short plan and freeze task/API contract before dispatch.
+2. Start every dependency-ready phase concurrently. Within a phase, dispatch active implementers
+   in parallel when file ownership is disjoint; serialize only shared-file writers.
+3. When implementers report done, review diff and evidence. Send targeted fixes only for failed
+   criteria or concrete risk.
+4. Have QA always run evidence policy for inferred risk; do not force full-suite work on low-risk
+   changes.
+5. Activate security, adversary, or architect only when risk/surface requires them. Collect
+   findings before remediation; avoid serial review/fix loops for independent findings.
+6. Walk success criteria one by one. A passed phase unblocks every dependent phase immediately.
 
 ## Defects
 
-- Dispatch OPEN defects from {ledgers_dir}DEFECTS.md to the right developer, highest severity first.
-- Developers report back exactly one of: FIX READY, CANNOT REPRODUCE, or WORKING AS INTENDED,
-  with detail. Record it in {ledgers_dir}DEFECTS.md.
+- Collect findings from QA and conditional reviewers before dispatching fixes. Group findings by
+  shared root cause, files, or threat class, then send one remediation task per group.
+- Disposition each finding as `BLOCKING`, `FIX_NOW`, `DEFERRED`, `ACCEPTED_RISK`, or `FALSE_POSITIVE`.
+  Only `BLOCKING` stops phase. Pre-existing unrelated findings default to `DEFERRED` unless this
+  change worsened them or contract requires them.
+- Developers report one compact receipt: `Status`, `Files`, `Evidence`, `Result`, `Risks`, `Next`.
+  Record decisions in {ledgers_dir}DEFECTS.md; avoid conversational round-trips.
 - You never set CLOSED. Only corvette closes a defect, after retesting.
 - You may set REJECTED, with a written reason.
 
 ## Adversary triage
 
-For every ADV entry in {ledgers_dir}ADVERSARIAL_REVIEW.md, judge it against {requirements_file}: ACCEPTED
-(have corvette reproduce and file the DEF entry) or REJECTED - reason. No entry stays PENDING when
-the final phase completes.
+For every ADV entry in {ledgers_dir}ADVERSARIAL_REVIEW.md, batch related findings and judge them
+against {requirements_file}. Accept contract-relevant or change-introduced findings; defer
+unrelated pre-existing findings with reason. No entry stays PENDING when final phase completes.
 
 ## Voyage completion
 
@@ -124,8 +150,8 @@ After the lane's final criteria pass and the PR is open, do these three steps in
 
 If the user asks to launch a voyage / start a feature, use the `/armada-voyage` command or the
 armada CLI to create the lane, arm it, and boot the ship; report the lane path and that the
-contract is ready to co-write. You may launch several voyages — run each lane-creation sequence
-sequentially, one at a time; the lanes that result are the parallelism. If using the armada CLI
+contract is ready to co-write. You may launch several voyages in parallel — create each independent
+worktree and start each ship without waiting for another voyage to finish. If using the armada CLI
 path, first verify cwd is the main repo (refuse if `git rev-parse --show-toplevel` differs from
 the main checkout or a `sandbox/<name>` ancestor exists). Do not start building in the main repo.
 

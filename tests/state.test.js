@@ -10,6 +10,7 @@ import {
   setPhaseStatus,
   setNextAction,
   markShipped,
+  applyWorkflow,
 } from "../src/state.js"
 
 // ---- fixtures ------------------------------------------------------------
@@ -58,6 +59,53 @@ test("active state validates prUrl as null or non-empty string", () => {
 test("emptyActive seeds prUrl as null", () => {
   const s = makeActive()
   assert.strictEqual(s.prUrl, null, "emptyActive must default prUrl to null")
+})
+
+test("emptyActive seeds universal QA workflow metadata", () => {
+  const s = makeActive()
+  assert.deepStrictEqual(s.workflow, {
+    risk: null,
+    evidenceClass: null,
+    activeAgents: ["qa"],
+    standbyAgents: [],
+    escalations: [],
+  })
+  validateState(s)
+})
+
+test("applyWorkflow stores immutable risk and staffing evidence", () => {
+  const state = makeActive()
+  const workflow = {
+    risk: "medium",
+    evidenceClass: "targeted",
+    activeAgents: ["backend-dev", "qa"],
+    standbyAgents: ["security"],
+    escalations: ["targeted-security-review"],
+  }
+  const next = applyWorkflow(state, workflow)
+
+  assert.deepStrictEqual(next.workflow, workflow)
+  assert.notStrictEqual(next, state)
+  assert.deepStrictEqual(state.workflow.activeAgents, ["qa"])
+})
+
+test("validateState accepts old active state without workflow metadata", () => {
+  const state = makeActive()
+  delete state.workflow
+  assert.doesNotThrow(() => validateState(state))
+})
+
+test("applyWorkflow requires QA to remain active", () => {
+  assert.throws(
+    () => applyWorkflow(makeActive(), {
+      risk: "low",
+      evidenceClass: "smoke",
+      activeAgents: ["backend-dev"],
+      standbyAgents: ["qa"],
+      escalations: [],
+    }),
+    /qa must remain active/
+  )
 })
 
 test("round-trip feature index entry", () => {

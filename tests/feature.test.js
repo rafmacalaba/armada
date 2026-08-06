@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
 import { runCli, makeTempRepo } from "./helpers.js"
 import { contractStub, extractFinalCriteriaEvidence, createFeature, listFeatures, closeFeature, setActiveContract, readActive } from "../src/feature-commands.js"
@@ -212,6 +212,32 @@ test("feature status shows active feature via deprecation hint, exits 1", async 
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /FEATURE/)
+})
+
+test("status JSON exposes adaptive workflow metadata", async () => {
+  const dir = makeTempRepo({})
+  await runCli(["feature", "new", "workflow-status", "--target", dir])
+
+  const activePath = join(dir, "armada/state/active.json")
+  const active = JSON.parse(readFileSync(activePath, "utf8"))
+  active.workflow = {
+    risk: "medium",
+    evidenceClass: "targeted",
+    activeAgents: ["backend-dev", "qa"],
+    standbyAgents: ["security"],
+    escalations: [],
+  }
+  writeFileSync(activePath, JSON.stringify(active, null, 2) + "\n")
+
+  const result = await runCli(["status", "--json", "--target", dir])
+  assert.strictEqual(result.code, 0)
+  const row = JSON.parse(result.stdout)[0]
+  assert.deepStrictEqual(row.workflow, {
+    risk: "medium",
+    evidenceClass: "targeted",
+    activeAgents: ["backend-dev", "qa"],
+  })
+  rmSync(dir, { recursive: true, force: true })
 })
 
 test("feature status <name> shows named feature via deprecation hint, exits 1", async () => {

@@ -355,6 +355,25 @@ test("orchestrator prompt prefers disjoint files to unlock parallel phases", () 
   assert.match(filled, /parallel|concurrently|collision|clobber/i, "must tie file isolation to parallelism/collision")
 })
 
+test("orchestrator prompt uses adaptive staffing with QA always active", () => {
+  const manifest = makeManifest(".")
+  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
+  assert.match(filled, /QA.*always|always.*QA/i)
+  assert.match(filled, /standby/i)
+  assert.match(filled, /low.*smoke|smoke.*low/i)
+  assert.match(filled, /risk override.*optional/i)
+  assert.match(filled, /Do not rely on the user for routine/i)
+})
+
+test("orchestrator prompt batches findings and preserves parallel voyages", () => {
+  const manifest = makeManifest(".")
+  const filled = fillPrompt(join(__dirname, "..", PROMPT_SOURCE["orchestrator"]), manifest, manifest.project.stack)
+  assert.match(filled, /group.*finding|finding.*group/i)
+  assert.match(filled, /BLOCKING.*FIX_NOW.*DEFERRED/i)
+  assert.match(filled, /parallel voyages|voyages.*parallel/i)
+  assert.match(filled, /structured receipt|compact receipt/i)
+})
+
 test("scaffold rejects path traversal requirementsFile", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-traverse-"))
   const manifest = makeManifest(dir)

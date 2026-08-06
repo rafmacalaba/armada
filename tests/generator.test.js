@@ -334,10 +334,27 @@ test("renderRequirementsMd phases declare dependencies for parallel run", () => 
   assert.match(md, /run in parallel as background subagents/)
 })
 
+test("renderRequirementsMd describes adaptive evidence and universal QA", () => {
+  const md = renderRequirementsMd(baseManifest)
+  assert.match(md, /QA is always active/i)
+  assert.match(md, /low risk.*smoke|smoke.*low risk/i)
+  assert.match(md, /risk override.*optional/i)
+  assert.match(md, /group.*finding|finding.*group/i)
+  assert.match(md, /parallel voyages|voyages.*parallel/i)
+})
+
 test("renderAgentsMd phase gates are dependency-driven", () => {
   const md = renderAgentsMd(baseManifest, buildTeam(baseManifest))
   assert.match(md, /starts as soon as the phases it depends on have passed/i)
   assert.ok(!/Only then does the next phase start/i.test(md), "no rigid sequential gate wording")
+})
+
+test("renderAgentsMd includes adaptive staffing and evidence rules", () => {
+  const md = renderAgentsMd(baseManifest, buildTeam(baseManifest))
+  assert.match(md, /QA.*always|always.*QA/i)
+  assert.match(md, /standby/i)
+  assert.match(md, /BLOCKING.*FIX_NOW.*DEFERRED/i)
+  assert.match(md, /structured receipt|compact receipt/i)
 })
 
 test("renderArmadaCommand lives in generator.js and is pure", () => {
