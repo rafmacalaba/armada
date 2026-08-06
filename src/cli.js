@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 // armada CLI — entry point.
 //
-// Commands (11 total):
+// Commands (12 total):
 //   armada init                 interactive questionnaire -> writes team config
 //   armada new                  create new project from starter template
 //   armada doctor               check providers + env + background dispatch
 //   armada status [--json] [--feature <name>]  feature status from armada/state
 //   armada fleet [session]      per-lane progress dashboard
+//   armada fleet discover [--json] [--register] [--repo <path>]  list/register untracked voyage worktrees
 //   armada voyage <path>        boot a lane + send voyage prompt
 //   armada feature new|list|close  per-feature contract management
 //   armada models [--refresh]   curated model catalog
@@ -49,8 +50,9 @@ import { renderInitSummary } from "./init-summary.js"
 import { bootLane, DriveError } from "./drive.js"
 import { startHeartbeat } from "./heartbeat.js"
 import { openTerminal, buildAttachCommand } from "./terminal-open.js"
-import { listRuns, readRun } from "./fleet-tracker.js"
+import { listRuns, readRun, getStoreDir } from "./fleet-tracker.js"
 import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cmd.js"
+import { listOrphans, renderDiscoverTable, renderDiscoverJson, registerOrphans } from "./fleet-discover.js"
 import { main as statusMain } from "./status-cmd.js"
 import { formatHandoffBlock } from "./handoff.js"
 
@@ -80,6 +82,7 @@ Usage:
   armada doctor                              environment health check
   armada status [--json] [--feature <name>]  feature status from armada/state (table by default)
   armada fleet [session] [--json] [--open]   per-lane progress dashboard (table by default)
+  armada fleet discover [--json] [--register] [--repo <path>]   list/register untracked voyage worktrees
   armada voyage <lane-path> [--heartbeat]    boot a lane session and send the voyage prompt (TUI-ready handshake)
   armada voyage-handoff <name> [<name>...]  print handoff block for dispatched voyages
   armada feature new <name>                  create per-feature contract + register
@@ -948,6 +951,11 @@ async function driveCmd(args, cmdName = "drive") {
 }
 
 async function fleetCmd(args) {
+  // Route discover subcommand
+  if (args[0] === "discover") {
+    return discoverCmd(args.slice(1))
+  }
+
   if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
   if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
   const json = args.includes("--json")
@@ -989,6 +997,61 @@ async function fleetCmd(args) {
     }
   }
 
+  return 0
+}
+
+async function discoverCmd(args) {
+  if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
+
+  const json = args.includes("--json")
+  const register = args.includes("--register")
+
+  const repoPath = flagValue(args, "--repo") || process.cwd()
+  const repoDir = resolve(repoPath)
+  if (!existsSync(repoDir)) {
+    console.error(`error: repo path not found: ${repoDir}`)
+    process.exitCode = 1
+    return 1
+  }
+
+  const runsDir = getStoreDir()
+  const orphans = listOrphans({ repoDir, runsDir })
+
+  if (json) {
+    if (register) {
+      try {
+        await registerOrphans(orphans, { storeDir: runsDir })
+      } catch (err) {
+        console.error(`error: ${err?.message ?? err}`)
+        process.exitCode = 1
+        return 1
+      }
+    }
+    console.log(renderDiscoverJson(orphans))
+    return 0
+  }
+
+  if (register) {
+    // Non-JSON register with TTY confirmation
+    if (process.stdin.isTTY) {
+      const ok = await confirm(`register ${orphans.length} orphan(s)?`)
+      if (ok !== true) {
+        console.log("aborted: no runs registered")
+        return 0
+      }
+    }
+    try {
+      await registerOrphans(orphans, { storeDir: runsDir })
+    } catch (err) {
+      console.error(`error: ${err?.message ?? err}`)
+      process.exitCode = 1
+      return 1
+    }
+    console.log(renderDiscoverTable(orphans))
+    return 0
+  }
+
+  console.log(renderDiscoverTable(orphans))
   return 0
 }
 
