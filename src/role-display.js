@@ -25,3 +25,18 @@ export function displayFor(role) {
 export function agentNameFor(role) {
   return displayFor(role).toLowerCase()
 }
+
+const ROLE_BY_AGENT = Object.fromEntries(
+  Object.entries(DISPLAY).map(([role, ship]) => [ship.toLowerCase(), role])
+)
+
+export function roleForAgentName(name) {
+  if (typeof name !== "string") return null
+  const lowered = name.toLowerCase()
+  return ROLE_BY_AGENT[lowered] ?? null
+}
+
+export function prefixForRole(role) {
+  const ship = displayFor(role)
+  return `${ship} [${role}]`
+}

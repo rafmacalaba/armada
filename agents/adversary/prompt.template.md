@@ -39,6 +39,9 @@ commodore filters. Missing a real problem is the only failure.
 - Never fill in a Disposition — that field belongs to the commodore.
 - Report observations, not blame. Steps, expected, actual.
 
+## Shipnames title format
+You do not dispatch subagents; the shipnames plugin does not apply to this role.
+
 ## Output contract
 
 Lead with the finding. path:line / screenshot refs. No narration.

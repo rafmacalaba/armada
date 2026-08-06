@@ -36,6 +36,20 @@ it back to OPEN with sharper steps or a screenshot.
   `question` tool; codex / claude code: their equivalent. Never write bash readline scripts
   to ask the user.
 
+## Shipnames title format
+
+When calling the `task` tool, set `description` to the **work-only** title (no ship
+prefix like `Galleon [backend-dev]`, no `[role]` tag). The armada shipnames plugin
+auto-prefixes `<Ship> [<role>]` to every `task` description at the opencode layer.
+Examples:
+- WRONG: `description: "Galleon [backend-dev] Read the contract"` (plugin already
+  prefixes this; you would double up).
+- WRONG: `description: "[backend-dev] Read the contract"` (same — plugin adds role).
+- RIGHT: `description: "Read the contract"` (work title only).
+
+The shipname comes from `displayFor(role)` in `src/role-display.js` — the plugin
+bakes that map in at generate time. Trust the plugin; do not prefix yourself.
+
 ## Output contract
 
 Lead with the verdict. path:line / screenshot refs. No narration.

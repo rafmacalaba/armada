@@ -74,6 +74,7 @@ Usage:
   armada init --supervision-plugin           opt-in thin supervision plugin (.opencode/plugins/)
   armada init --no-fleet-tracker              opt-out from default-on fleet tracker plugin
   armada init --watchdog                      opt-in subagent watchdog plugin (.opencode/plugins/)
+  armada init --no-shipnames                  opt-out from default-on shipnames TUI-prefix plugin
   armada init --requirements <file>          per-feature contract file (default armada/REQUIREMENTS.md)
   armada init --target <dir>                 scaffold into a directory (default cwd)
   armada init --from-armada armada/armada.yaml      regenerate from manifest
@@ -449,6 +450,10 @@ async function init(args) {
     manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: true }
     manifest.project.supervision.watchdog = true
   }
+  if (args.includes("--no-shipnames")) {
+    manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: true }
+    manifest.project.supervision.shipnames = false
+  }
   const reqIdx = args.indexOf("--requirements")
   if (reqIdx !== -1 && args[reqIdx + 1] && !args[reqIdx + 1].startsWith("--")) {
     try {
@@ -517,7 +522,7 @@ export function defaultManifest(target = ".") {
       useAgentBrowser: false,
       headless: false,
       yolo: false,
-      supervision: { plugin: false, fleet: true, watchdog: false },
+      supervision: { plugin: false, fleet: true, watchdog: false, shipnames: true },
       requirementsFile: "armada/REQUIREMENTS.md",
       stack: {},
     },

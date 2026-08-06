@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process"
-import { existsSync, lstatSync, realpathSync } from "node:fs"
+import { existsSync, lstatSync, realpathSync, readFileSync } from "node:fs"
 import { join } from "node:path"
 import { displayFor, agentNameFor } from "./role-display.js"
 import { CATALOG, ROLES, BUDGETS, modelFor } from "./model-catalog.js"
@@ -325,6 +325,40 @@ export async function runDoctor(opts = {}) {
         ? ".opencode/plugins/armada-watchdog.js present"
         : "supervision.watchdog is true but .opencode/plugins/armada-watchdog.js missing — re-run armada init",
     })
+  }
+
+  if (opts.project?.supervision?.shipnames !== undefined) {
+    const pluginPath = join(opts.targetDir ?? ".", ".opencode/plugins/armada-shipnames.js")
+    if (opts.project.supervision.shipnames === false) {
+      checks.push({
+        name: "shipnames plugin",
+        status: "pass",
+        detail: "disabled by user (--no-shipnames)",
+      })
+    } else if (existsSync(pluginPath)) {
+      let status = "pass"
+      let detail = ".opencode/plugins/armada-shipnames.js present"
+      try {
+        const src = readFileSync(pluginPath, "utf8")
+        // Validate structural markers — module-level exports cannot be checked
+        // via new Function(), but well-formed plugin output is guaranteed by the
+        // generator. A manually-edited file missing these markers is corrupt.
+        if (!src.includes("ArmadaShipnames") || !src.includes("tool.execute.before")) {
+          status = "fail"
+          detail = ".opencode/plugins/armada-shipnames.js present but missing expected exports — re-run armada init"
+        }
+      } catch {
+        status = "fail"
+        detail = ".opencode/plugins/armada-shipnames.js present but unreadable — re-run armada init"
+      }
+      checks.push({ name: "shipnames plugin", status, detail })
+    } else {
+      checks.push({
+        name: "shipnames plugin",
+        status: "skip",
+        detail: ".opencode/plugins/armada-shipnames.js not present (opted out or not yet scaffolded)",
+      })
+    }
   }
 
   if (opts.targetDir) {
