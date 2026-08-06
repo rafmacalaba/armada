@@ -36,16 +36,21 @@ armada turns your repository into a **self-organizing AI engineering fleet**. In
 
 ---
 
-## Quickstart
+## Quick start
 
 ```bash
 # 1. Install globally (enables 'armada' command anywhere)
 npm install -g armada
 
-# 2. New project (your template of choice)
-armada new my-app --template https://github.com/cookiecutter/cookiecutter-django
+# 2. New project — Interactive: picks category from a questionnaire, fills vars, scaffolds
+armada new my-app
 cd my-app
 opencode                              # Commodore welcomes you
+
+# Non-interactive variants:
+armada new my-app --blank              # empty project + armada team, no prompts
+armada new my-app --config ./vars.json # vars from JSON, category still asked
+armada new my-app --yes                # defaults, no prompts
 
 # 3. Existing repo (auto-detects stack & scaffolds team)
 cd your-repo
@@ -207,7 +212,7 @@ armada uses itself. The fleet built armada's own session-based state system auto
 | Command | What it does |
 |---|---|
 | `armada init` | Scaffold the team into an existing repo |
-| `armada new <name>` | Create a new project from a cookiecutter template |
+| `armada new <name>` | Create a new project: interactive questionnaire or first-party template |
 | `armada doctor` | Environment health check |
 | `armada status` | Where the fleet is: active feature, phase, next action |
 | `armada fleet` | Cross-repo per-lane progress dashboard |
@@ -223,23 +228,57 @@ Four slash commands run inside the opencode TUI: `/armada`, `/armada-scout`, `/a
 
 ---
 
-## armada new: Cookiecutter templates
+## armada new: First-party templates
 
-`armada new` now takes any cookiecutter-compatible template. We dropped the built-in starter list; use the cookiecutter ecosystem for project templates.
+`armada new <name>` without flags runs an interactive questionnaire: it asks which category
+to scaffold, then fills template variables (TTY only — non-TTY defaults to `blank`). Six
+categories ship with armada:
+
+| Category | Stack | When to use |
+|---|---|---|
+| `blank` | (empty) | Clean slate — just the armada team, no project shell |
+| `web-app` | TypeScript + Vite + React | Browser app |
+| `ml-training` | Python 3 | ML experiments, training scripts |
+| `research-paper` | LaTeX | Academic writing, BibTeX |
+| `api-service` | TypeScript + Express | HTTP service with health endpoint |
+| `cli-tool` | TypeScript + commander | CLI binary with subcommands |
+
+Pick a category non-interactively with `--blank` or `--config ./vars.json` (see flags below).
+
+> **`armada new` already runs `armada init`.** After `armada new` completes, the armada team
+> is already in the project — do NOT run `armada init` separately. Use `armada init` only for
+> in-place setup of existing repos.
+
+## Advanced: external templates
+
+Power users can point `armada new` at any cookiecutter-compatible template:
 
 ```bash
-# Built-in agents, your template of choice
+# Git URL — fetches the repo, renders cookiecutter placeholders
 armada new my-app --template https://github.com/cookiecutter/cookiecutter-django
 armada new my-app --template https://github.com/your-org/your-template
+
+# Local path — copies the template directory
 armada new my-app --template ./my-local-template
 
 # Pass variables without prompts
 armada new my-app --template <url> --config ./vars.json
 ```
 
-The CLI is cookiecutter-compatible: any template with `{{ cookiecutter.varname }}` placeholders works. Variables are resolved from `--config <file.json>`, `COOKIECUTTER_*` env vars, or interactive prompts. Git URL templates are fetched via `git clone --depth 1`. Supported patterns: `{{ cookiecutter.varname }}` (Jinja2 conditionals and loops are not supported in v1).
+Backward compatible: `--template` is optional, not required. Any template with
+`{{ cookiecutter.varname }}` placeholders works. Variables are resolved from
+`--config <file.json>`, `COOKIECUTTER_*` env vars, or interactive prompts. Git URL templates
+are fetched via `git clone --depth 1`. Supported patterns: `{{ cookiecutter.varname }}`
+(Jinja2 conditionals and loops are not supported in v1).
 
-The cookiecutter substitution is best-effort for v1.0.0 — only `{{ cookiecutter.varname }}` patterns. Jinja2 expressions, conditionals, and loops are not evaluated.
+## armada new: Flags
+
+| Flag | Effect |
+|---|---|
+| `--blank` | Skip questionnaire, use `blank` template |
+| `--template <url\|path>` | Use an external template (clones git URL, copies local path) |
+| `--config <file.json>` | Vars from JSON file (overrides prompts) |
+| `--yes` | Use defaults, skip all prompts |
 
 ---
 
