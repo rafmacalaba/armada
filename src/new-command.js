@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, cpSync, rmSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, lstatSync, cpSync, rmSync } from "node:fs"
 import { join, resolve, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
@@ -48,10 +48,11 @@ export function discoverVariables(templateDir) {
       if (entry === ".git") continue
       const p = join(dir, entry)
       try {
-        const st = statSync(p)
-        if (st.isDirectory()) {
+        const lst = lstatSync(p)
+        if (lst.isSymbolicLink()) continue
+        if (lst.isDirectory()) {
           _scanDir(p)
-        } else if (st.isFile()) {
+        } else if (lst.isFile()) {
           // Try to read as text; skip if binary
           let content
           try {
@@ -78,18 +79,24 @@ export function discoverVariables(templateDir) {
  */
 export function renderCookiecutterTemplate(srcDir, destDir, vars) {
   mkdirSync(destDir, { recursive: true })
+  let symlinksSkipped = 0
   for (const entry of readdirSync(srcDir)) {
     if (entry === ".git") continue
     const srcPath = join(srcDir, entry)
     const destPath = join(destDir, entry)
-    let st
+    let lst
     try {
-      st = statSync(srcPath)
+      lst = lstatSync(srcPath)
     } catch {
       continue
     }
-    if (st.isDirectory()) {
-      renderCookiecutterTemplate(srcPath, destPath, vars)
+    if (lst.isSymbolicLink()) {
+      symlinksSkipped++
+      continue
+    }
+    if (lst.isDirectory()) {
+      const sub = renderCookiecutterTemplate(srcPath, destPath, vars)
+      symlinksSkipped += sub.symlinksSkipped
     } else {
       let content
       try {
@@ -103,6 +110,7 @@ export function renderCookiecutterTemplate(srcDir, destDir, vars) {
       writeFileSync(destPath, content, "utf8")
     }
   }
+  return { symlinksSkipped }
 }
 
 /**
