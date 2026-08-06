@@ -237,6 +237,7 @@ armada uses itself. The fleet built armada's own session-based state system auto
 | `armada doctor` | Environment health check |
 | `armada status` | Where the fleet is: active feature, phase, next action |
 | `armada fleet` | Cross-repo per-lane progress dashboard |
+| `armada fleet discover [--json] [--register] [--repo <path>]` | List/register untracked voyage worktrees |
 | `armada voyage <lane>` | Boot a lane session for feature work |
 | `armada feature <new\|list\|close>` | Per-feature contract management |
 | `armada models [budget]` | Curated model catalog (free / balanced / power) |
