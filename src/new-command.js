@@ -283,7 +283,7 @@ export async function runNew(opts = {}) {
   if (opts.template) {
     // External template: path or URL
     try {
-      if (opts.template.startsWith("http://") || opts.template.startsWith("https://") || opts.template.startsWith("git@") || opts.template.startsWith("ssh://")) {
+      if (opts.template.startsWith("http://") || opts.template.startsWith("https://") || opts.template.startsWith("git@") || opts.template.startsWith("ssh://") || opts.template.startsWith("file://")) {
         templateDir = cloneTemplate(opts.template)
         tempCloned = true
       } else {
@@ -375,12 +375,28 @@ export async function runNew(opts = {}) {
 
   // Resolve variables
   const resolved = await resolveVariables(discovered, opts, defaultVars)
-  if (!resolved) return 1
+  if (!resolved) {
+    if (tempCloned) {
+      try { rmSync(templateDir, { recursive: true, force: true }) } catch {}
+    }
+    return 1
+  }
 
   const [vars] = resolved
 
   // Render template to target
-  renderCookiecutterTemplate(templateDir, targetDir, vars)
+  try {
+    renderCookiecutterTemplate(templateDir, targetDir, vars)
+  } catch (err) {
+    console.error(`template render failed: ${err.message}`)
+    rmSync(targetDir, { recursive: true, force: true })
+    process.exitCode = 1
+    return 1
+  } finally {
+    if (tempCloned) {
+      try { rmSync(templateDir, { recursive: true, force: true }) } catch {}
+    }
+  }
 
   // Validate JSON integrity of rendered files (DEF-007)
   const JSON_VALIDATE_FILES = ["package.json", "tsconfig.json"]
@@ -396,11 +412,6 @@ export async function runNew(opts = {}) {
         return 1
       }
     }
-  }
-
-  // Clean up temp clone
-  if (tempCloned) {
-    try { rmSync(templateDir, { recursive: true, force: true }) } catch {}
   }
 
   // Scaffold armada team into the new project

@@ -1,8 +1,9 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { execSync } from "node:child_process"
 import { runNew } from "../src/new-command.js"
 import { runCli, makeTempRepo } from "./helpers.js"
 
@@ -242,5 +243,44 @@ test("DEF-009: --template with a file path errors with 'not a directory'", async
 
   assert.strictEqual(code, 1, `expected code 1, got ${code}`)
   process.exitCode = 0
+  rmSync(tmp, { recursive: true, force: true })
+})
+
+test("DEF-011: cloneTemplate temp dir cleaned on error path", async () => {
+  const tmp = join(tmpdir(), "armada-def011-" + Date.now())
+  mkdirSync(tmp, { recursive: true })
+
+  // Create a local git repo to serve as template
+  const repoDir = join(tmp, "repo")
+  mkdirSync(repoDir, { recursive: true })
+  writeFileSync(join(repoDir, "README.md"), "# {{ cookiecutter.project_name }}", "utf8")
+  execSync("git init -b main", { cwd: repoDir, stdio: "pipe" })
+  execSync("git config user.email t@t", { cwd: repoDir, stdio: "pipe" })
+  execSync("git config user.name t", { cwd: repoDir, stdio: "pipe" })
+  execSync("git add -A && git commit -m init", { cwd: repoDir, stdio: "pipe" })
+
+  // Use file:// URL to trigger cloneTemplate
+  const repoUrl = "file://" + repoDir
+
+  // Snapshot tmpdir before test
+  const before = new Set(readdirSync(tmpdir()))
+
+  // Bad config causes resolveVariables to return null (error path)
+  const code = await runNew({
+    name: "def011-app",
+    template: repoUrl,
+    config: "/nonexistent/config.json",
+    yes: true,
+    cwd: tmp,
+  })
+
+  assert.strictEqual(code, 1, `expected code 1, got ${code}`)
+  process.exitCode = 0
+
+  // Verify no new armada-cc-* temp dir leaked
+  const after = readdirSync(tmpdir())
+  const leaked = after.filter((e) => e.startsWith("armada-cc-") && !before.has(e))
+  assert.strictEqual(leaked.length, 0, `temp dir leaked: ${leaked.join(", ")}`)
+
   rmSync(tmp, { recursive: true, force: true })
 })
