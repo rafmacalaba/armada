@@ -4,7 +4,7 @@ import assert from "node:assert"
 import { fillPrompt, fillTemplate, scaffold, uninstall, PROMPT_SOURCE, GITIGNORE_START, GITIGNORE_END, slugify, validateTargetDir } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { agentNameFor } from "../src/role-display.js"
-import { renderArmadaVoyageCommand, renderArmadaFleetPlugin, renderArmadaWatchdogPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
+import { renderArmadaVoyageCommand, renderArmadaFleetPlugin, renderArmadaWatchdogPlugin, renderArmadaShipnamesPlugin, renderAgentsMd, buildTeam } from "../src/generator.js"
 import { detectStack } from "../src/stack-detect.js"
 import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSync, mkdirSync, symlinkSync, realpathSync } from "node:fs"
 import { tmpdir } from "node:os"
@@ -540,6 +540,50 @@ test("watchdog plugin removed on uninstall", () => {
   const removed = uninstall(manifest)
   assert.ok(!existsSync(plugin), "watchdog plugin removed on uninstall")
   assert.ok(removed.includes(".opencode/plugins/armada-watchdog.js"))
+  rmSync(dir, { recursive: true, force: true })
+})
+// -- Phase 2: shipnames plugin scaffold --
+test("shipnames plugin written by default", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-sn-"))
+  const manifest = makeManifest(dir)
+  scaffold(manifest, manifest.project.stack)
+  assert.ok(existsSync(join(dir, ".opencode/plugins/armada-shipnames.js")), "shipnames plugin written by default")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("shipnames plugin written when supervision.shipnames is true", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-sn2-"))
+  const manifest = makeManifest(dir)
+  manifest.project.supervision = { shipnames: true, fleet: false }
+  scaffold(manifest, manifest.project.stack)
+  const plugin = join(dir, ".opencode/plugins/armada-shipnames.js")
+  assert.ok(existsSync(plugin), "shipnames plugin written when enabled")
+  const src = readFileSync(plugin, "utf8")
+  assert.match(src, /export const ArmadaShipnames/)
+  assert.match(src, /tool\.execute\.before/)
+  assert.strictEqual(src, renderArmadaShipnamesPlugin(), "content matches generator output")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("shipnames plugin skipped when supervision.shipnames is false", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-sn3-"))
+  const manifest = makeManifest(dir)
+  manifest.project.supervision = { shipnames: false }
+  scaffold(manifest, manifest.project.stack)
+  assert.ok(!existsSync(join(dir, ".opencode/plugins/armada-shipnames.js")), "shipnames plugin not written when disabled")
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("shipnames plugin removed on uninstall", () => {
+  const dir = mkdtempSync(join(tmpdir(), "armada-sn4-"))
+  const manifest = makeManifest(dir)
+  manifest.project.supervision = { shipnames: true }
+  scaffold(manifest, manifest.project.stack)
+  const plugin = join(dir, ".opencode/plugins/armada-shipnames.js")
+  assert.ok(existsSync(plugin), "shipnames plugin present before uninstall")
+  const removed = uninstall(manifest)
+  assert.ok(!existsSync(plugin), "shipnames plugin removed on uninstall")
+  assert.ok(removed.includes(".opencode/plugins/armada-shipnames.js"))
   rmSync(dir, { recursive: true, force: true })
 })
 // -- Phase 1: managed .gitignore block --

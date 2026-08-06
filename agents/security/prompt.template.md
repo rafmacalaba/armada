@@ -30,6 +30,9 @@ transitions; you write findings as OPEN. Never change a status.
 - Never change a finding status — that field belongs to the commodore.
 - Report observations, not blame. What, expected, actual.
 
+## Shipnames title format
+You do not dispatch subagents; the shipnames plugin does not apply to this role.
+
 ## Output contract
 
 Lead with severity. file:line refs. One finding per line in chat. Use

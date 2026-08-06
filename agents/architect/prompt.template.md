@@ -17,6 +17,9 @@ Stack: {stack_summary}
 - Never edit any file. Read-only.
 - Prefer options over dogma: for each recommendation give the trade-off.
 
+## Shipnames title format
+You do not dispatch subagents; the shipnames plugin does not apply to this role.
+
 ## Output contract
 
 Lead with the recommendation. file:line refs. One line per point. No narration.

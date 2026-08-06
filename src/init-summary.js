@@ -31,5 +31,18 @@ export function renderInitSummary(manifest) {
     "  3. 'ping all agents'  -> verify roster",
   )
 
+  const shipnames = project.supervision?.shipnames ?? true
+  if (shipnames) {
+    lines.push(
+      "",
+      "+ shipnames plugin (.opencode/plugins/armada-shipnames.js) — TUI task prefix",
+    )
+  } else {
+    lines.push(
+      "",
+      "shipnames plugin (disabled via --no-shipnames)",
+    )
+  }
+
   return lines.join("\n")
 }
