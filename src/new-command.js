@@ -217,6 +217,9 @@ export async function runNew(opts = {}) {
   const cwd = opts.cwd || process.cwd()
   const name = opts.name
 
+  // Allow tests to override the catalog path
+  const catalogPath = opts._catalogPath || CATALOG_PATH
+
   // Reset exit code for programmatic use
   process.exitCode = 0
 
@@ -299,14 +302,14 @@ export async function runNew(opts = {}) {
         // Load catalog and show interactive picker
         let catalog
         try {
-          catalog = JSON.parse(readFileSync(CATALOG_PATH, "utf8"))
+          catalog = JSON.parse(readFileSync(catalogPath, "utf8"))
         } catch {
-          console.error("cannot load starter catalog")
+          console.error(`cannot load starter catalog at ${catalogPath}`)
           process.exitCode = 1
           return 1
         }
         if (!catalog || !Array.isArray(catalog.categories)) {
-          console.error(`starter catalog missing 'categories' array at ${CATALOG_PATH}`)
+          console.error(`starter catalog missing 'categories' array at ${catalogPath}`)
           process.exitCode = 1
           return 1
         }
@@ -322,14 +325,14 @@ export async function runNew(opts = {}) {
     // Resolve template path from catalog entry
     let catalogData
     try {
-      catalogData = JSON.parse(readFileSync(CATALOG_PATH, "utf8"))
+      catalogData = JSON.parse(readFileSync(catalogPath, "utf8"))
     } catch {
-      console.error("cannot load starter catalog")
+      console.error(`cannot load starter catalog at ${catalogPath}`)
       process.exitCode = 1
       return 1
     }
     if (!catalogData || !Array.isArray(catalogData.categories)) {
-      console.error(`starter catalog missing 'categories' array at ${CATALOG_PATH}`)
+      console.error(`starter catalog missing 'categories' array at ${catalogPath}`)
       process.exitCode = 1
       return 1
     }

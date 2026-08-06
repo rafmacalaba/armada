@@ -19,6 +19,27 @@ test("missing _catalog.json: non-TTY default to blank still works", async () => 
   rmSync(tmp, { recursive: true, force: true })
 })
 
+// --- DEF-006: catalog load error includes file path ---
+
+test("DEF-006: catalog load error includes file path", async () => {
+  const tmp = join(tmpdir(), `armada-def006-${Date.now()}`)
+  mkdirSync(tmp, { recursive: true })
+
+  // Point at a nonexistent catalog to trigger the load error
+  const nonexistentPath = join(tmp, "nonexistent", "_catalog.json")
+
+  const code = await runNew({
+    name: "def006-app",
+    yes: true,
+    cwd: tmp,
+    _catalogPath: nonexistentPath,
+  })
+
+  assert.strictEqual(code, 1, `expected code 1, got ${code}`)
+  process.exitCode = 0
+  rmSync(tmp, { recursive: true, force: true })
+})
+
 // --- Malformed JSON in --config produces clear error ---
 
 test("malformed JSON in --config file produces clear error", async () => {
@@ -85,33 +106,23 @@ test("discoverVariables on empty dir returns empty list", () => {
 // --- Malformed catalog: missing categories array ---
 
 test("DEF-003: catalog missing categories key produces clear error with path", async () => {
-  const catalogPath = join(process.cwd(), "starter", "_catalog.json")
-  const backupPath = catalogPath + ".def003-backup"
-
-  // Backup real catalog
-  try { rmSync(backupPath, { force: true }) } catch {}
-  renameSync(catalogPath, backupPath)
+  const tmp = join(tmpdir(), `armada-def003-${Date.now()}`)
+  mkdirSync(tmp, { recursive: true })
 
   // Write fake catalog with no categories key
-  writeFileSync(catalogPath, JSON.stringify({ foo: [] }), "utf8")
+  const fakeCatalogPath = join(tmp, "_catalog.json")
+  writeFileSync(fakeCatalogPath, JSON.stringify({ foo: [] }), "utf8")
 
-  try {
-    const tmp = join(tmpdir(), `armada-def003-${Date.now()}`)
-    mkdirSync(tmp, { recursive: true })
+  const code = await runNew({
+    name: "def003-app",
+    yes: true,
+    cwd: tmp,
+    _catalogPath: fakeCatalogPath,
+  })
 
-    const code = await runNew({
-      name: "def003-app",
-      yes: true,
-      cwd: tmp,
-    })
-
-    assert.strictEqual(code, 1, `expected code 1 for missing categories, got ${code}`)
-    process.exitCode = 0
-    rmSync(tmp, { recursive: true, force: true })
-  } finally {
-    // Restore real catalog
-    renameSync(backupPath, catalogPath)
-  }
+  assert.strictEqual(code, 1, `expected code 1 for missing categories, got ${code}`)
+  process.exitCode = 0
+  rmSync(tmp, { recursive: true, force: true })
 })
 
 // --- Config file not found ---
