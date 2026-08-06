@@ -1,8 +1,7 @@
 # Operator guide
 
 Install, upgrade, uninstall, rollback, and the full CLI reference. This is the day-to-day
-manual; [user-guide.md](./user-guide.md) is the quickstart. Supersedes the older
-`docs/using-armada.md` (marked superseded at the top of that file).
+manual; [user-guide.md](./user-guide.md) is the quickstart.
 
 ## Requirements
 
@@ -24,7 +23,7 @@ npx @rafmacalaba/armada <command>     # no install; package has a single bin, np
 Verify:
 
 ```bash
-armada --version      # armada v1.0.0
+armada --version      # print installed version
 armada doctor         # all checks pass
 ```
 
