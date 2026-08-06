@@ -363,20 +363,9 @@ shell commands: if the edit tool would deny a file, do not modify that file any 
 
 ## Adaptive delivery
 
-- Commodore infers low, medium, or high risk from changed files, public behavior, trust boundaries,
-  inputs, side effects, blast radius, and reversibility.
-- QA is always active. Low risk uses lax smoke and acceptance checks; medium risk uses affected
-  tests and integration smoke; high risk uses the full relevant suite and negative-path tests.
-- Other roles remain standby until risk or changed surface requires them. Ask the user for a risk
-  override only when classification is ambiguous, consequences are high, scope conflicts with the
-  contract, or a downgrade would reduce evidence.
-- Do not rely on the user for routine agent, test, risk, or coordination choices. Draft clear
-  contracts and record assumptions; ask only for unresolved product decisions or irreversible scope.
-- Start every dependency-ready phase in parallel. Serialize only shared-file writers. Separate
-  voyages use separate worktrees and can run in parallel without waiting for one another.
-- Group findings by root cause, files, or threat class. Dispositions are \`BLOCKING\`, \`FIX_NOW\`, \`DEFERRED\`,
-  \`ACCEPTED_RISK\`, or \`FALSE_POSITIVE\`; only \`BLOCKING\` stops work. Use one compact
-  structured receipt per task: \`Status\`, \`Files\`, \`Evidence\`, \`Result\`, \`Risks\`, \`Next\`.
+- Commodore infers risk; QA always active; evidence depth follows risk. Other roles stay standby.
+- Ask user risk override only for ambiguity, high consequence, contract conflict, or downgrade.
+- Dependency-ready phases and separate voyages run parallel; serialize shared writers. Group findings before fixes; only \`BLOCKING\` stops work. Use compact receipts.
 
 ## ${defectFile} — the defect ledger
 
@@ -509,15 +498,9 @@ export function renderRequirementsMd(manifest) {
 
 ## Adaptive workflow
 
-- QA is always active. Low risk uses smoke evidence, medium risk uses targeted evidence, and high
-  risk uses full relevant evidence plus negative-path checks.
-- Commodore infers risk and keeps non-required agents on standby. Risk override is optional and is
-  requested only for ambiguity, high consequence, contract conflict, or evidence downgrade.
-- Independent phases and separate voyages run in parallel. Shared-file writers serialize only the
-  conflicting task.
-- Findings are grouped by root cause, files, or threat class before one remediation and verification
-  pass. Only \`BLOCKING\` findings stop implementation; unrelated pre-existing findings can be
-  \`DEFERRED\` with rationale.
+- QA is always active. Low risk uses smoke, medium targeted, and high full evidence.
+- Non-required agents stay standby. Risk override is optional and only for ambiguity, consequence, contract conflict, or evidence downgrade.
+- Dependency-ready phases and separate voyages run in parallel; shared writers serialize. Group findings before fixes; only \`BLOCKING\` stops implementation.
 
 ## Success criteria
 

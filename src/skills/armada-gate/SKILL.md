@@ -26,6 +26,14 @@ Criteria:
 Result: PASS | FAIL
 ```
 
+## Adaptive depth
+
+- QA always gates. Low risk uses focused smoke and acceptance; medium uses affected tests and
+  integration smoke; high uses full relevant and negative-path evidence.
+- Activate security, adversary, or architect only when risk or changed surface requires them.
+- Group findings by root cause, files, or threat class before remediation. Only `BLOCKING` stops
+  phase; defer unrelated pre-existing findings with rationale.
+
 ## Rules
 
 - Never skip a criterion without a documented reason.

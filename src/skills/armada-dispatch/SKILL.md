@@ -16,3 +16,11 @@ When two or more tasks are independent, dispatch them as parallel subagents. The
 5. When NOT to parallelize: shared output file, sequential dependency between tasks, or one task's output is the other's input. Serialize writers on a reused subagent session.
 
 Example: Phase 2 (API) and Phase 3 (UI) are independent and write `src/api/` vs `src/ui/` — dispatch both as parallel background subagents.
+
+## Adaptive roster
+
+- Infer risk from changed surface; keep non-required roles standby.
+- QA is always active. Low risk uses implementer + QA; high risk adds security and adversary, with
+  architect for shared or cross-cutting design.
+- Separate voyages use separate worktrees and run concurrently. Return compact receipts with
+  `Status`, `Files`, `Evidence`, `Result`, `Risks`, and `Next`.

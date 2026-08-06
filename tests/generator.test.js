@@ -343,6 +343,12 @@ test("renderRequirementsMd describes adaptive evidence and universal QA", () => 
   assert.match(md, /parallel voyages|voyages.*parallel/i)
 })
 
+test("renderRequirementsMd keeps adaptive policy compact", () => {
+  const md = renderRequirementsMd(baseManifest)
+  const section = md.slice(md.indexOf("## Adaptive workflow"), md.indexOf("## Success criteria"))
+  assert.ok(section.split("\n").length <= 7, "requirements policy must stay compact")
+})
+
 test("renderAgentsMd phase gates are dependency-driven", () => {
   const md = renderAgentsMd(baseManifest, buildTeam(baseManifest))
   assert.match(md, /starts as soon as the phases it depends on have passed/i)
@@ -353,8 +359,15 @@ test("renderAgentsMd includes adaptive staffing and evidence rules", () => {
   const md = renderAgentsMd(baseManifest, buildTeam(baseManifest))
   assert.match(md, /QA.*always|always.*QA/i)
   assert.match(md, /standby/i)
-  assert.match(md, /BLOCKING.*FIX_NOW.*DEFERRED/i)
+  assert.match(md, /BLOCKING/i)
   assert.match(md, /structured receipt|compact receipt/i)
+})
+
+test("renderAgentsMd keeps adaptive policy compact", () => {
+  const md = renderAgentsMd(baseManifest, buildTeam(baseManifest))
+  const section = md.slice(md.indexOf("## Adaptive delivery"), md.indexOf("## armada/"))
+  assert.ok(section.split("\n").length <= 8, "AGENTS policy must stay compact")
+  assert.doesNotMatch(section, /full relevant suite|negative-path/i, "detailed evidence belongs in gate skill")
 })
 
 test("renderArmadaCommand lives in generator.js and is pure", () => {
