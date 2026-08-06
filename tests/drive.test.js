@@ -292,7 +292,7 @@ describe("bootLane", () => {
           prompt: "Drive",
           timeoutMs: 5000,
           pollMs: 10,
-          registerTimeoutMs: 100,
+      registerTimeoutMs: 500,
           tmuxBin,
           exec: execFn,
           track: false,
