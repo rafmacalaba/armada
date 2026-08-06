@@ -303,6 +303,11 @@ export async function runNew(opts = {}) {
           process.exitCode = 1
           return 1
         }
+        if (!catalog || !Array.isArray(catalog.categories)) {
+          console.error(`starter catalog missing 'categories' array at ${CATALOG_PATH}`)
+          process.exitCode = 1
+          return 1
+        }
         category = await pickCategory(catalog.categories, opts)
         if (category === null) {
           console.error("no category selected")
@@ -318,6 +323,11 @@ export async function runNew(opts = {}) {
       catalogData = JSON.parse(readFileSync(CATALOG_PATH, "utf8"))
     } catch {
       console.error("cannot load starter catalog")
+      process.exitCode = 1
+      return 1
+    }
+    if (!catalogData || !Array.isArray(catalogData.categories)) {
+      console.error(`starter catalog missing 'categories' array at ${CATALOG_PATH}`)
       process.exitCode = 1
       return 1
     }

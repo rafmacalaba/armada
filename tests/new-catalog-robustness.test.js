@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs"
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, renameSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { runNew, discoverVariables } from "../src/new-command.js"
@@ -80,6 +80,38 @@ test("discoverVariables on empty dir returns empty list", () => {
   const vars = discoverVariables(tmp)
   assert.deepStrictEqual(vars, [])
   rmSync(tmp, { recursive: true, force: true })
+})
+
+// --- Malformed catalog: missing categories array ---
+
+test("DEF-003: catalog missing categories key produces clear error with path", async () => {
+  const catalogPath = join(process.cwd(), "starter", "_catalog.json")
+  const backupPath = catalogPath + ".def003-backup"
+
+  // Backup real catalog
+  try { rmSync(backupPath, { force: true }) } catch {}
+  renameSync(catalogPath, backupPath)
+
+  // Write fake catalog with no categories key
+  writeFileSync(catalogPath, JSON.stringify({ foo: [] }), "utf8")
+
+  try {
+    const tmp = join(tmpdir(), `armada-def003-${Date.now()}`)
+    mkdirSync(tmp, { recursive: true })
+
+    const code = await runNew({
+      name: "def003-app",
+      yes: true,
+      cwd: tmp,
+    })
+
+    assert.strictEqual(code, 1, `expected code 1 for missing categories, got ${code}`)
+    process.exitCode = 0
+    rmSync(tmp, { recursive: true, force: true })
+  } finally {
+    // Restore real catalog
+    renameSync(backupPath, catalogPath)
+  }
 })
 
 // --- Config file not found ---
