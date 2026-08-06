@@ -240,6 +240,44 @@ test("DEF-008: template symlinks are not followed during render", async () => {
   rmSync(tmp, { recursive: true, force: true })
 })
 
+test("DEF-015: HTML-escape substitution in Markdown and HTML files", async () => {
+  const tmp = join(tmpdir(), "armada-def015-" + Date.now())
+  mkdirSync(tmp, { recursive: true })
+
+  const templateDir = join(tmp, "template")
+  mkdirSync(templateDir, { recursive: true })
+  writeFileSync(join(templateDir, "README.md"), "# {{ cookiecutter.project_name }}\n\n{{ cookiecutter.description }}\n", "utf8")
+  writeFileSync(join(templateDir, "index.html"), '<!DOCTYPE html>\n<title>{{ cookiecutter.description }}</title>\n', "utf8")
+
+  writeFileSync(join(tmp, "vars.json"), JSON.stringify({
+    project_name: "safe-app",
+    description: '<script>alert(1)</script>'
+  }), "utf8")
+
+  const code = await runNew({
+    name: "def015-app",
+    template: templateDir,
+    config: join(tmp, "vars.json"),
+    yes: true,
+    cwd: tmp,
+  })
+
+  assert.strictEqual(code, 0, `expected code 0, got ${code}`)
+  process.exitCode = 0
+
+  // README.md: must have HTML-escaped script tag
+  const readme = readFileSync(join(tmp, "def015-app", "README.md"), "utf8")
+  assert.ok(!/<script>/i.test(readme), "README.md must not contain raw <script>")
+  assert.match(readme, /&lt;script&gt;/, "README.md should have HTML-escaped script tag")
+
+  // index.html: should have HTML-escaped script tag
+  const html = readFileSync(join(tmp, "def015-app", "index.html"), "utf8")
+  assert.ok(!/<script>/i.test(html), "index.html must not contain raw <script>")
+  assert.match(html, /&lt;script&gt;/, "index.html should have HTML-escaped script tag")
+
+  rmSync(tmp, { recursive: true, force: true })
+})
+
 test("DEF-009: --template with a file path errors with 'not a directory'", async () => {
   const tmp = join(tmpdir(), "armada-def009-" + Date.now())
   mkdirSync(tmp, { recursive: true })

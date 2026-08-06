@@ -112,15 +112,27 @@ export function renderCookiecutterTemplate(srcDir, destDir, vars) {
       }
       // Files with .json extension: JSON-encode substitution values to prevent injection (DEF-014)
       const isJsonFile = destPath.endsWith(".json")
+      // Files with .md or .html extension: HTML-escape to prevent stored XSS (DEF-015)
+      const isMdFile = destPath.endsWith(".md")
+      const isHtmlFile = destPath.endsWith(".html")
+      const needsHtmlEscape = isMdFile || isHtmlFile
       content = content.replace(VARIABLE_RE, (m, key) => {
         if (vars[key] === undefined) return m
+        let value = vars[key]
         if (isJsonFile) {
           // JSON.stringify wraps in quotes and escapes inner quotes/backslashes;
           // .slice(1, -1) strips the outer quotes so the value fits inside the
           // template's existing JSON string delimiters.
-          return JSON.stringify(vars[key]).slice(1, -1)
+          value = JSON.stringify(value).slice(1, -1)
+        } else if (needsHtmlEscape) {
+          value = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
         }
-        return vars[key]
+        // Warn on HTML/JSX files when value contains suspicious patterns (DEF-015)
+        if ((isHtmlFile || destPath.endsWith(".jsx") || destPath.endsWith(".tsx")) &&
+            (vars[key].includes("<script") || vars[key].includes("</"))) {
+          console.error(`warning: variable "${key}" injected into ${destPath} contains suspicious HTML; consider escaping`)
+        }
+        return value
       })
       writeFileSync(destPath, content, "utf8")
     }
