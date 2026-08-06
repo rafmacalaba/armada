@@ -364,6 +364,22 @@ export async function runNew(opts = {}) {
   // Render template to target
   renderCookiecutterTemplate(templateDir, targetDir, vars)
 
+  // Validate JSON integrity of rendered files (DEF-007)
+  const JSON_VALIDATE_FILES = ["package.json", "tsconfig.json"]
+  for (const rel of JSON_VALIDATE_FILES) {
+    const filePath = join(targetDir, rel)
+    if (existsSync(filePath)) {
+      try {
+        JSON.parse(readFileSync(filePath, "utf8"))
+      } catch {
+        console.error(`rendered ${rel} is not valid JSON — variable values may have broken structure at ${filePath}`)
+        rmSync(targetDir, { recursive: true, force: true })
+        process.exitCode = 1
+        return 1
+      }
+    }
+  }
+
   // Clean up temp clone
   if (tempCloned) {
     try { rmSync(templateDir, { recursive: true, force: true }) } catch {}

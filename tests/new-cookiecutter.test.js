@@ -160,3 +160,32 @@ test("runNew skips .git directory in template", async () => {
   assert.strictEqual(existsSync(targetDir), true)
   assert.strictEqual(existsSync(join(targetDir, ".git")), false)
 })
+
+test("DEF-007: malicious variable values that break JSON are rejected", async () => {
+  const tmp = join(tmpdir(), "armada-def007-" + Date.now())
+  mkdirSync(tmp, { recursive: true })
+
+  // Template with package.json that uses description variable
+  const templateDir = join(tmp, "template")
+  mkdirSync(templateDir, { recursive: true })
+  writeFileSync(join(templateDir, "package.json"),
+    '{"name":"{{ cookiecutter.project_name }}","description":"{{ cookiecutter.description }}"}\n', "utf8")
+
+  // Malicious config: description value injects JSON
+  writeFileSync(join(tmp, "vars.json"), JSON.stringify({
+    project_name: "test-app",
+    description: '", "scripts": {"preinstall": "x"}'
+  }), "utf8")
+
+  const code = await runNew({
+    name: "def007-app",
+    template: templateDir,
+    config: join(tmp, "vars.json"),
+    yes: true,
+    cwd: tmp,
+  })
+
+  assert.strictEqual(code, 1, `expected code 1 for broken JSON, got ${code}`)
+  process.exitCode = 0
+  rmSync(tmp, { recursive: true, force: true })
+})
