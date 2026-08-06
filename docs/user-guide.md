@@ -19,13 +19,15 @@ dispatch, node, and the global armada binary (`src/doctor.js:82-225`).
 ### New project
 
 ```bash
-npx @rafmacalaba/armada new my-app --type web-app --beginner --yes
+npx @rafaelmacalaba/armada new my-app
 cd my-app
 opencode
 ```
 
-`new` renders the starter and scaffolds the team in one step (`src/new-command.js:211-214`),
-so `opencode` boots straight into the orchestrator.
+`new` runs the interactive questionnaire, renders the starter, and scaffolds the team in one
+step (`src/new-command.js:211-214`) — no separate `armada init` needed. Non-TTY falls back to
+the `blank` template. Skip prompts with `--blank`, `--config ./vars.json`, or `--yes`; use an
+external Cookiecutter template with `--template <url|path>`.
 
 ### Existing repo
 
@@ -68,14 +70,20 @@ Flags: `--stack`, `--budget`, `--from-armada`, `--requirements`, `--target`, `--
 `--no-fleet-tracker`, `--watchdog`. Full table in
 [operator-guide.md#cli-reference](./operator-guide.md#cli-reference).
 
-### armada new <name> — new project from a curated starter
+### armada new <name> — new project from a first-party or external template
 
 ```bash
-armada new my-app --type web-app --beginner --yes
+armada new my-app                       # interactive: picks category, fills vars
+armada new my-app --blank               # empty project + team, no prompts
+armada new my-app --config ./vars.json  # vars from JSON, category still asked
+armada new my-app --yes                 # defaults, no prompts
+armada new my-app --template <url|path> # external Cookiecutter template
 ```
 
-Categories: `web-app`, `ml-training`, `research-paper` (`src/new-command.js:143-147`).
-Flags: `--type <category>`, `--beginner`, `--experienced`, `--yes`.
+Categories: `blank`, `web-app`, `ml-training`, `research-paper`, `api-service`, `cli-tool`
+(`src/new-command.js:143-147`). Flags: `--blank`, `--template <url|path>`,
+`--config <file.json>`, `--yes`. `armada new` runs `armada init` internally — do not run it
+again afterwards.
 
 ### armada doctor — environment health check
 

@@ -1,0 +1,46 @@
+{
+  "categories": [
+    {
+      "id": "blank",
+      "name": "Blank project",
+      "description": "Empty project — just the armada team scaffolded.",
+      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "" },
+      "dir": "starter/blank"
+    },
+    {
+      "id": "web-app",
+      "name": "Web application",
+      "description": "TypeScript + Vite + React frontend.",
+      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "node_version": "20" },
+      "dir": "starter/web-app"
+    },
+    {
+      "id": "ml-training",
+      "name": "ML training project",
+      "description": "Python 3 project for machine learning experiments.",
+      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "python_version": "3.11" },
+      "dir": "starter/ml-training"
+    },
+    {
+      "id": "research-paper",
+      "name": "Research paper",
+      "description": "LaTeX project for academic papers.",
+      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "" },
+      "dir": "starter/research-paper"
+    },
+    {
+      "id": "api-service",
+      "name": "API service",
+      "description": "TypeScript + Express backend API.",
+      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "node_version": "20" },
+      "dir": "starter/api-service"
+    },
+    {
+      "id": "cli-tool",
+      "name": "CLI tool",
+      "description": "TypeScript + commander command-line tool.",
+      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "node_version": "20" },
+      "dir": "starter/cli-tool"
+    }
+  ]
+}

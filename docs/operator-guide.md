@@ -119,8 +119,10 @@ global help block; the canonical reference is this table.
 | | `--supervision-plugin` | opt-in supervision plugin (`armada-supervision.js`) |
 | | `--no-fleet-tracker` | opt out of the default-on fleet-tracker plugin |
 | | `--watchdog` | opt-in subagent watchdog plugin |
-| `armada new <name>` | `--type <web-app\|ml-training\|research-paper>` | starter category |
-| | `--beginner` / `--experienced` | recommended stack / per-layer drill-down |
+| `armada new <name>` | — | interactive questionnaire (6 categories); non-TTY defaults to `blank` |
+| | `--blank` | skip questionnaire, use `blank` template |
+| | `--template <url\|path>` | external Cookiecutter template (git URL or local path) |
+| | `--config <file.json>` | vars from JSON (overrides prompts) |
 | | `--yes` | skip prompts |
 | `armada doctor` | — | |
 | `armada status` | `--json` | machine output |

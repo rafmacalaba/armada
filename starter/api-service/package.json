@@ -1,0 +1,25 @@
+{
+  "name": "{{ cookiecutter.project_name }}",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.3"
+  },
+  "engines": {
+    "node": ">={{ cookiecutter.node_version }}"
+  },
+  "author": "{{ cookiecutter.author_name }} <{{ cookiecutter.author_email }}>",
+  "description": "{{ cookiecutter.description }}"
+}

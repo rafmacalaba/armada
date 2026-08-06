@@ -1,0 +1,27 @@
+{
+  "name": "{{ cookiecutter.project_name }}",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "{{ cookiecutter.project_name }}": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.3"
+  },
+  "engines": {
+    "node": ">={{ cookiecutter.node_version }}"
+  },
+  "author": "{{ cookiecutter.author_name }} <{{ cookiecutter.author_email }}>",
+  "description": "{{ cookiecutter.description }}"
+}

@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, cpSync, rmSync } from "node:fs"
-import { join, resolve } from "node:path"
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, statSync, lstatSync, cpSync, rmSync } from "node:fs"
+import { join, resolve, dirname } from "node:path"
+import { fileURLToPath } from "node:url"
 import { homedir } from "node:os"
 import { execSync, spawnSync } from "node:child_process"
 import { createInterface } from "node:readline/promises"
@@ -9,6 +10,11 @@ import { tmpdir } from "node:os"
 import { scaffold } from "./scaffold.js"
 import { detectStack } from "./stack-detect.js"
 import { ROLES, modelFor } from "./model-catalog.js"
+import { pickCategory } from "./questionnaire.js"
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const PACKAGE_ROOT = resolve(__dirname, "..")
+const CATALOG_PATH = resolve(PACKAGE_ROOT, "starter", "_catalog.json")
 
 const VARIABLE_RE = /\{\{\s*cookiecutter\.(\w+)\s*\}\}/g
 
@@ -42,10 +48,11 @@ export function discoverVariables(templateDir) {
       if (entry === ".git") continue
       const p = join(dir, entry)
       try {
-        const st = statSync(p)
-        if (st.isDirectory()) {
+        const lst = lstatSync(p)
+        if (lst.isSymbolicLink()) continue
+        if (lst.isDirectory()) {
           _scanDir(p)
-        } else if (st.isFile()) {
+        } else if (lst.isFile()) {
           // Try to read as text; skip if binary
           let content
           try {
@@ -72,18 +79,28 @@ export function discoverVariables(templateDir) {
  */
 export function renderCookiecutterTemplate(srcDir, destDir, vars) {
   mkdirSync(destDir, { recursive: true })
+  let symlinksSkipped = 0
   for (const entry of readdirSync(srcDir)) {
     if (entry === ".git") continue
     const srcPath = join(srcDir, entry)
-    const destPath = join(destDir, entry)
-    let st
+    let destPath = join(destDir, entry)
+    // Rename dot.gitignore -> .gitignore on copy (npm-packlist excludes .gitignore)
+    if (entry === "dot.gitignore") {
+      destPath = join(destDir, ".gitignore")
+    }
+    let lst
     try {
-      st = statSync(srcPath)
+      lst = lstatSync(srcPath)
     } catch {
       continue
     }
-    if (st.isDirectory()) {
-      renderCookiecutterTemplate(srcPath, destPath, vars)
+    if (lst.isSymbolicLink()) {
+      symlinksSkipped++
+      continue
+    }
+    if (lst.isDirectory()) {
+      const sub = renderCookiecutterTemplate(srcPath, destPath, vars)
+      symlinksSkipped += sub.symlinksSkipped
     } else {
       let content
       try {
@@ -93,10 +110,34 @@ export function renderCookiecutterTemplate(srcDir, destDir, vars) {
         cpSync(srcPath, destPath)
         continue
       }
-      content = content.replace(VARIABLE_RE, (m, key) => vars[key] !== undefined ? vars[key] : m)
+      // Files with .json extension: JSON-encode substitution values to prevent injection (DEF-014)
+      const isJsonFile = destPath.endsWith(".json")
+      // Files with .md or .html extension: HTML-escape to prevent stored XSS (DEF-015)
+      const isMdFile = destPath.endsWith(".md")
+      const isHtmlFile = destPath.endsWith(".html")
+      const needsHtmlEscape = isMdFile || isHtmlFile
+      content = content.replace(VARIABLE_RE, (m, key) => {
+        if (vars[key] === undefined) return m
+        let value = vars[key]
+        if (isJsonFile) {
+          // JSON.stringify wraps in quotes and escapes inner quotes/backslashes;
+          // .slice(1, -1) strips the outer quotes so the value fits inside the
+          // template's existing JSON string delimiters.
+          value = JSON.stringify(value).slice(1, -1)
+        } else if (needsHtmlEscape) {
+          value = value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+        }
+        // Warn on HTML/JSX files when value contains suspicious patterns (DEF-015)
+        if ((isHtmlFile || destPath.endsWith(".jsx") || destPath.endsWith(".tsx")) &&
+            (vars[key].includes("<script") || vars[key].includes("</"))) {
+          console.error(`warning: variable "${key}" injected into ${destPath} contains suspicious HTML; consider escaping`)
+        }
+        return value
+      })
       writeFileSync(destPath, content, "utf8")
     }
   }
+  return { symlinksSkipped }
 }
 
 /**
@@ -120,12 +161,13 @@ function cloneTemplate(url) {
 
 /**
  * Resolve variables for a template.
- * Precedence: --config JSON > COOKIECUTTER_ env vars > prompt (TTY) > empty string (non-TTY)
+ * Precedence: --config JSON > COOKIECUTTER_ env vars > prompt (TTY) > defaultVars > empty string (non-TTY)
  * @param {string[]} discovered names of variables found in template
  * @param {{ config?: string, yes?: boolean }} opts
+ * @param {Record<string, string>} [defaultVars] fallback values from catalog
  * @returns {Promise<[Record<string, string>, Record<string, string>]>} [resolved, applied]
  */
-async function resolveVariables(discovered, opts) {
+export async function resolveVariables(discovered, opts, defaultVars) {
   const vars = {}
   const applied = {}
 
@@ -163,11 +205,11 @@ async function resolveVariables(discovered, opts) {
 
   const unresolved = discovered.filter((n) => !(n in vars))
 
-  // 3. prompt (TTY) or blank (--yes / non-TTY)
+  // 3. prompt (TTY) or defaultVars / blank (--yes / non-TTY)
   if (unresolved.length > 0) {
     if (opts.yes || !process.stdin.isTTY) {
       for (const name of unresolved) {
-        vars[name] = ""
+        vars[name] = (defaultVars && defaultVars[name] !== undefined) ? defaultVars[name] : ""
         applied[name] = "default"
       }
     } else {
@@ -210,16 +252,24 @@ export async function runNew(opts = {}) {
   const cwd = opts.cwd || process.cwd()
   const name = opts.name
 
+  // Allow tests to override the catalog path
+  const catalogPath = opts._catalogPath || CATALOG_PATH
+
   // Reset exit code for programmatic use
   process.exitCode = 0
 
   if (!name) {
-    console.error("Usage: armada new <project-name> --template <url|path> [--config <file.json>] [--yes]")
+    console.error("Usage: armada new <project-name> [--blank] [--template <url|path>] [--config <file.json>] [--yes]")
     process.exitCode = 1
     return 1
   }
 
   // Validate name for path safety
+  if (name.includes("\0")) {
+    console.error(`invalid project name "${name}": must not contain null bytes`)
+    process.exitCode = 1
+    return 1
+  }
   if (name.includes("/") || name.includes("\\")) {
     console.error(`invalid project name "${name}": must not contain path separators`)
     process.exitCode = 1
@@ -240,11 +290,8 @@ export async function runNew(opts = {}) {
     process.exitCode = 1
     return 1
   }
-
-  // Require --template
-  if (!opts.template) {
-    console.error("missing required flag: --template <url|path>")
-    console.error("Usage: armada new <project-name> --template <url|path> [--config <file.json>] [--yes]")
+  if (name.length > 100) {
+    console.error(`invalid project name: must be 100 characters or fewer (got ${name.length})`)
     process.exitCode = 1
     return 1
   }
@@ -256,43 +303,144 @@ export async function runNew(opts = {}) {
     return 1
   }
 
-  // Fetch template
+  // Determine template source
   let templateDir
   let tempCloned = false
-  try {
-    if (opts.template.startsWith("http://") || opts.template.startsWith("https://") || opts.template.startsWith("git@") || opts.template.startsWith("ssh://")) {
-      templateDir = cloneTemplate(opts.template)
-      tempCloned = true
-    } else {
-      templateDir = resolve(opts.template)
-    }
-  } catch (err) {
-    console.error(String(err?.message ?? err))
-    process.exitCode = 1
-    return 1
-  }
+  let defaultVars
 
-  if (!existsSync(templateDir)) {
-    console.error(`template not found: ${opts.template}`)
-    process.exitCode = 1
-    return 1
+  if (opts.template) {
+    // External template: path or URL
+    try {
+      if (opts.template.startsWith("http://") || opts.template.startsWith("https://") || opts.template.startsWith("git@") || opts.template.startsWith("ssh://") || opts.template.startsWith("file://")) {
+        templateDir = cloneTemplate(opts.template)
+        tempCloned = true
+      } else {
+        templateDir = resolve(opts.template)
+      }
+    } catch (err) {
+      console.error(String(err?.message ?? err))
+      process.exitCode = 1
+      return 1
+    }
+
+    if (!existsSync(templateDir)) {
+      console.error(`template not found: ${opts.template}`)
+      process.exitCode = 1
+      return 1
+    }
+
+    if (!statSync(templateDir).isDirectory()) {
+      console.error(`template path is not a directory: ${opts.template}`)
+      process.exitCode = 1
+      return 1
+    }
+  } else {
+    // Internal template: pick category, resolve from catalog
+    let category
+
+    if (opts.blank) {
+      category = "blank"
+    } else {
+      const nonInteractive = opts.yes || !process.stdin.isTTY
+      if (nonInteractive) {
+        category = "blank"
+      } else {
+        // Load catalog and show interactive picker
+        let catalog
+        try {
+          catalog = JSON.parse(readFileSync(catalogPath, "utf8"))
+        } catch {
+          console.error(`cannot load starter catalog at ${catalogPath}`)
+          process.exitCode = 1
+          return 1
+        }
+        if (!catalog || !Array.isArray(catalog.categories)) {
+          console.error(`starter catalog missing 'categories' array at ${catalogPath}`)
+          process.exitCode = 1
+          return 1
+        }
+        category = await pickCategory(catalog.categories, opts)
+        if (category === null) {
+          console.error("no category selected")
+          process.exitCode = 1
+          return 1
+        }
+      }
+    }
+
+    // Resolve template path from catalog entry
+    let catalogData
+    try {
+      catalogData = JSON.parse(readFileSync(catalogPath, "utf8"))
+    } catch {
+      console.error(`cannot load starter catalog at ${catalogPath}`)
+      process.exitCode = 1
+      return 1
+    }
+    if (!catalogData || !Array.isArray(catalogData.categories)) {
+      console.error(`starter catalog missing 'categories' array at ${catalogPath}`)
+      process.exitCode = 1
+      return 1
+    }
+    const entry = catalogData.categories.find((c) => c.id === category)
+    if (!entry) {
+      console.error(`unknown category: ${category}`)
+      process.exitCode = 1
+      return 1
+    }
+    templateDir = resolve(PACKAGE_ROOT, entry.dir)
+    defaultVars = entry.defaultVars ? { ...entry.defaultVars, project_name: name } : { project_name: name }
+
+    if (!existsSync(templateDir)) {
+      console.error(`template not found for category "${category}": ${entry.dir}`)
+      process.exitCode = 1
+      return 1
+    }
   }
 
   // Discover variables in the template
   const discovered = discoverVariables(templateDir)
 
   // Resolve variables
-  const resolved = await resolveVariables(discovered, opts)
-  if (!resolved) return 1
+  const resolved = await resolveVariables(discovered, opts, defaultVars)
+  if (!resolved) {
+    if (tempCloned) {
+      try { rmSync(templateDir, { recursive: true, force: true }) } catch {}
+    }
+    return 1
+  }
 
   const [vars] = resolved
 
   // Render template to target
-  renderCookiecutterTemplate(templateDir, targetDir, vars)
+  try {
+    renderCookiecutterTemplate(templateDir, targetDir, vars)
+  } catch (err) {
+    console.error(`template render failed: ${err.message}`)
+    // Guard against ENAMETOOLONG when targetDir itself exceeds filesystem limits
+    try { rmSync(targetDir, { recursive: true, force: true }) } catch {}
+    process.exitCode = 1
+    return 1
+  } finally {
+    if (tempCloned) {
+      try { rmSync(templateDir, { recursive: true, force: true }) } catch {}
+    }
+  }
 
-  // Clean up temp clone
-  if (tempCloned) {
-    try { rmSync(templateDir, { recursive: true, force: true }) } catch {}
+  // Validate JSON integrity of rendered files (DEF-007)
+  const JSON_VALIDATE_FILES = ["package.json", "tsconfig.json"]
+  for (const rel of JSON_VALIDATE_FILES) {
+    const filePath = join(targetDir, rel)
+    if (existsSync(filePath)) {
+      try {
+        JSON.parse(readFileSync(filePath, "utf8"))
+      } catch {
+        console.error(`rendered ${rel} is not valid JSON — variable values may have broken structure at ${filePath}`)
+        rmSync(targetDir, { recursive: true, force: true })
+        process.exitCode = 1
+        return 1
+      }
+    }
   }
 
   // Scaffold armada team into the new project

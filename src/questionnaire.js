@@ -5,6 +5,7 @@
 // fall back to line-based input when stdin is not a TTY.
 
 import { createInterface } from "node:readline/promises"
+import { createInterface as createInterfaceSync } from "node:readline"
 import { stdin, stdout } from "node:process"
 
 import { ROLES, CATALOG, modelFor, fallbackFor } from "./model-catalog.js"
@@ -138,4 +139,82 @@ export async function runQuestionnaire(rootDir = ".", { input, output } = {}) {
 export function guessName(dir) {
   const parts = dir.split("/").filter(Boolean)
   return parts[parts.length - 1] || "my-project"
+}
+
+/**
+ * Interactive category picker for `armada new`.
+ * @param {Array<{id: string, name: string, description: string, dir: string}>} categories
+ * @param {{ blank?: boolean, template?: string, input?: any, output?: any }} [opts]
+ * @returns {Promise<string|null>} category id, "blank", or null (external template)
+ */
+export async function pickCategory(categories, opts = {}) {
+  if (opts.blank) return "blank"
+  if (opts.template) return null
+
+  const inp = opts.input ?? stdin
+  const out = opts.output ?? stdout
+  if (!inp.isTTY) return "blank"
+
+  out.write("\nProject templates:\n")
+  categories.forEach((c, i) => {
+    out.write(`  ${i + 1}. ${c.name} — ${c.description}\n`)
+  })
+
+  const rl = createInterfaceSync({ input: inp, output: out })
+  let attempts = 0
+  const MAX_ATTEMPTS = 3
+
+  return new Promise((resolve) => {
+    // DEF-013: handle stdin close — resolve with first entry instead of hanging
+    let resolved = false
+    const safeResolve = (val) => {
+      if (resolved) return
+      resolved = true
+      try { rl.close() } catch {}
+      resolve(val)
+    }
+    rl.on("close", () => safeResolve(categories[0].id))
+
+    const ask = () => {
+      if (attempts >= MAX_ATTEMPTS) {
+        return safeResolve(null)
+      }
+      rl.question(`Pick 1-${categories.length} [1] `, (raw) => {
+        attempts++
+        const trimmed = raw.trim()
+        if (!trimmed) {
+          return safeResolve(categories[0].id)
+        }
+
+        // Try numeric index first — must be in range
+        const idx = parseInt(trimmed, 10)
+        if (Number.isInteger(idx)) {
+          if (idx >= 1 && idx <= categories.length) {
+            return safeResolve(categories[idx - 1].id)
+          }
+          if (attempts < MAX_ATTEMPTS) {
+            out.write(`Invalid choice: ${trimmed}. Pick 1-${categories.length}.\n`)
+            return ask()
+          }
+          out.write(`Invalid choice: ${trimmed}. Giving up after ${MAX_ATTEMPTS} attempts.\n`)
+          return safeResolve(null)
+        }
+
+        // Try case-insensitive id match
+        const lower = trimmed.toLowerCase()
+        const match = categories.find((c) => c.id.toLowerCase() === lower)
+        if (match) {
+          return safeResolve(match.id)
+        }
+
+        if (attempts < MAX_ATTEMPTS) {
+          out.write(`Unrecognized: "${trimmed}". Pick 1-${categories.length} or a template id.\n`)
+          return ask()
+        }
+        out.write(`Unrecognized: "${trimmed}". Giving up after ${MAX_ATTEMPTS} attempts.\n`)
+        safeResolve(null)
+      })
+    }
+    ask()
+  })
 }

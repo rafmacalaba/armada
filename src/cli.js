@@ -64,8 +64,8 @@ Evidence-gated AI-engineer teams for opencode, natively (no plugin).
 
 Usage:
   armada init                                interactive setup
-  armada new <name> --template <url|path> [--config <file.json>] [--yes]
-                          create new project from cookiecutter template
+  armada new <name> [--blank] [--template <url|path>] [--config <file.json>] [--yes]
+                          interactive project setup (questionnaire-driven; flags below for non-interactive use)
   armada init --stack <s> --budget <b>       declarative setup
   armada init --headless                     CI-safe: orchestrator bash allowed (opencode run)
   armada init --yolo                         autonomous: no permission prompts (bash allow, edit boundaries kept)
@@ -230,13 +230,31 @@ export async function main(argv = process.argv.slice(2)) {
         }
       }
       const templateIdx = rest.indexOf("--template")
+      if (templateIdx !== -1) {
+        const val = rest[templateIdx + 1]
+        if (val === undefined || val.startsWith("--")) {
+          console.error("--template requires a value")
+          process.exitCode = 1
+          return 1
+        }
+      }
       const template = templateIdx !== -1 ? rest[templateIdx + 1] : undefined
       const configIdx = rest.indexOf("--config")
+      if (configIdx !== -1) {
+        const val = rest[configIdx + 1]
+        if (val === undefined || val.startsWith("--")) {
+          console.error("--config requires a value")
+          process.exitCode = 1
+          return 1
+        }
+      }
       const config = configIdx !== -1 ? rest[configIdx + 1] : undefined
+      const blank = rest.includes("--blank")
       const code = await runNew({
         name,
         template,
         config,
+        blank,
         yes: rest.includes("--yes"),
       })
       return code ?? process.exitCode ?? 0

@@ -30,7 +30,7 @@ availability, and background subagent dispatch. Run it after every install or up
 
 ## Option A: New project
 
-The fastest path — create a project using Cookiecutter-style presets:
+The fastest path — interactive questionnaire picks a starter, fills vars, scaffolds the team:
 
 ```bash
 armada new my-app
@@ -38,15 +38,22 @@ cd my-app
 opencode                              # boots into the Commodore
 ```
 
-Three starters ship today:
+`armada new` already runs `armada init`, so the team is ready the moment it finishes — do not
+run `armada init` again. In a non-TTY (scripted) context it defaults to the `blank` template.
 
-| Template | Stack |
+Skip the questionnaire with the flags (`--blank`, `--config ./vars.json`, `--yes`) or use an
+external Cookiecutter template with `--template <url|path>`.
+
+Six first-party categories ship today:
+
+| Category | Stack |
 |---|---|
-| `web-app` | Next.js 15 + Tailwind 4 + TypeScript |
-| `ml-training` | Python + PyTorch + uv |
-| `research-paper` | LaTeX + Makefile |
-
-Pass `--beginner --yes` if you want non-interactive setup, or drop flags to run the interactive questionnaire with per-layer drill-down (package manager, monorepo layout, auth strategy, deploy target, CI).
+| `blank` | (empty) |
+| `web-app` | TypeScript + Vite + React |
+| `ml-training` | Python 3 |
+| `research-paper` | LaTeX |
+| `api-service` | TypeScript + Express |
+| `cli-tool` | TypeScript + commander |
 
 ---
 
