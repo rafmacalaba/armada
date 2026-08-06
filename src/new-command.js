@@ -110,7 +110,18 @@ export function renderCookiecutterTemplate(srcDir, destDir, vars) {
         cpSync(srcPath, destPath)
         continue
       }
-      content = content.replace(VARIABLE_RE, (m, key) => vars[key] !== undefined ? vars[key] : m)
+      // Files with .json extension: JSON-encode substitution values to prevent injection (DEF-014)
+      const isJsonFile = destPath.endsWith(".json")
+      content = content.replace(VARIABLE_RE, (m, key) => {
+        if (vars[key] === undefined) return m
+        if (isJsonFile) {
+          // JSON.stringify wraps in quotes and escapes inner quotes/backslashes;
+          // .slice(1, -1) strips the outer quotes so the value fits inside the
+          // template's existing JSON string delimiters.
+          return JSON.stringify(vars[key]).slice(1, -1)
+        }
+        return vars[key]
+      })
       writeFileSync(destPath, content, "utf8")
     }
   }

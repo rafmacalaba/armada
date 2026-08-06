@@ -162,8 +162,8 @@ test("runNew skips .git directory in template", async () => {
   assert.strictEqual(existsSync(join(targetDir, ".git")), false)
 })
 
-test("DEF-007: malicious variable values that break JSON are rejected", async () => {
-  const tmp = join(tmpdir(), "armada-def007-" + Date.now())
+test("DEF-007/DEF-014: malicious variable values in JSON files are safely escaped", async () => {
+  const tmp = join(tmpdir(), "armada-def014-" + Date.now())
   mkdirSync(tmp, { recursive: true })
 
   // Template with package.json that uses description variable
@@ -172,22 +172,36 @@ test("DEF-007: malicious variable values that break JSON are rejected", async ()
   writeFileSync(join(templateDir, "package.json"),
     '{"name":"{{ cookiecutter.project_name }}","description":"{{ cookiecutter.description }}"}\n', "utf8")
 
-  // Malicious config: description value injects JSON
+  // SEC-006 attack: JSON-valid injection bypasses post-render parse check
   writeFileSync(join(tmp, "vars.json"), JSON.stringify({
     project_name: "test-app",
-    description: '", "scripts": {"preinstall": "x"}'
+    description: '", "scripts": {"preinstall": "echo PWNED"}, "private": "", "dummy": "'
   }), "utf8")
 
   const code = await runNew({
-    name: "def007-app",
+    name: "def014-app",
     template: templateDir,
     config: join(tmp, "vars.json"),
     yes: true,
     cwd: tmp,
   })
 
-  assert.strictEqual(code, 1, `expected code 1 for broken JSON, got ${code}`)
+  assert.strictEqual(code, 0, `expected code 0, got ${code}`)
   process.exitCode = 0
+
+  // Rendered package.json must be valid JSON
+  const pkgPath = join(tmp, "def014-app", "package.json")
+  assert.strictEqual(existsSync(pkgPath), true, "package.json should exist")
+  let parsed
+  assert.doesNotThrow(() => { parsed = JSON.parse(readFileSync(pkgPath, "utf8")) }, "rendered package.json should be valid JSON")
+
+  // No injected scripts key — the attack value is confined to the description string
+  assert.strictEqual(parsed.scripts, undefined, "no injected scripts key")
+  assert.strictEqual(parsed.private, undefined, "no injected private key")
+  assert.strictEqual(parsed.name, "test-app", "name should be preserved")
+  assert.ok(typeof parsed.description === "string", "description should be a string")
+  assert.match(parsed.description, /scripts/, "description string should contain the escaped attack text")
+
   rmSync(tmp, { recursive: true, force: true })
 })
 
