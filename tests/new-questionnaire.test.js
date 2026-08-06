@@ -297,3 +297,21 @@ test("cli 'armada new' does NOT print 'missing required flag: --template'", asyn
   assert.strictEqual(r.stderr.includes("missing required flag: --template"), false)
   assert.strictEqual(r.stderr.includes("--template"), false)
 })
+
+test("DEF-002: --template with no value errors", async () => {
+  const tmp = join(tmpdir(), "armada-def002-" + Date.now())
+  mkdirSync(tmp, { recursive: true })
+  const r = await runCli(["new", "my-app", "--template"], { cwd: tmp })
+  assert.strictEqual(r.code, 1, `expected code 1, got ${r.code}`)
+  assert.match(r.stderr, /--template requires a value/)
+  rmSync(tmp, { recursive: true, force: true })
+})
+
+test("DEF-002: --config with no value errors", async () => {
+  const tmp = join(tmpdir(), "armada-def002b-" + Date.now())
+  mkdirSync(tmp, { recursive: true })
+  const r = await runCli(["new", "my-app", "--config"], { cwd: tmp })
+  assert.strictEqual(r.code, 1, `expected code 1, got ${r.code}`)
+  assert.match(r.stderr, /--config requires a value/)
+  rmSync(tmp, { recursive: true, force: true })
+})

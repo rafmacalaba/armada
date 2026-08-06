@@ -230,8 +230,24 @@ export async function main(argv = process.argv.slice(2)) {
         }
       }
       const templateIdx = rest.indexOf("--template")
+      if (templateIdx !== -1) {
+        const val = rest[templateIdx + 1]
+        if (val === undefined || val.startsWith("--")) {
+          console.error("--template requires a value")
+          process.exitCode = 1
+          return 1
+        }
+      }
       const template = templateIdx !== -1 ? rest[templateIdx + 1] : undefined
       const configIdx = rest.indexOf("--config")
+      if (configIdx !== -1) {
+        const val = rest[configIdx + 1]
+        if (val === undefined || val.startsWith("--")) {
+          console.error("--config requires a value")
+          process.exitCode = 1
+          return 1
+        }
+      }
       const config = configIdx !== -1 ? rest[configIdx + 1] : undefined
       const blank = rest.includes("--blank")
       const code = await runNew({
