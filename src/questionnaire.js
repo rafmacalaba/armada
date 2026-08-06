@@ -5,6 +5,7 @@
 // fall back to line-based input when stdin is not a TTY.
 
 import { createInterface } from "node:readline/promises"
+import { createInterface as createInterfaceSync } from "node:readline"
 import { stdin, stdout } from "node:process"
 
 import { ROLES, CATALOG, modelFor, fallbackFor } from "./model-catalog.js"
@@ -154,28 +155,62 @@ export async function pickCategory(categories, opts = {}) {
   const out = opts.output ?? stdout
   if (!inp.isTTY) return "blank"
 
-  const rl = createInterface({ input: inp, output: out })
   out.write("\nProject templates:\n")
   categories.forEach((c, i) => {
     out.write(`  ${i + 1}. ${c.name} — ${c.description}\n`)
   })
-  const raw = await rl.question(`Pick 1-${categories.length} [1] `)
-  rl.close()
 
-  const trimmed = raw.trim()
-  if (!trimmed) return categories[0].id
+  const rl = createInterfaceSync({ input: inp, output: out })
+  let attempts = 0
+  const MAX_ATTEMPTS = 3
 
-  // Try numeric index first
-  const idx = parseInt(trimmed, 10)
-  if (Number.isInteger(idx) && idx >= 1 && idx <= categories.length) {
-    return categories[idx - 1].id
-  }
+  return new Promise((resolve) => {
+    const ask = () => {
+      if (attempts >= MAX_ATTEMPTS) {
+        rl.close()
+        return resolve(null)
+      }
+      rl.question(`Pick 1-${categories.length} [1] `, (raw) => {
+        attempts++
+        const trimmed = raw.trim()
+        if (!trimmed) {
+          rl.close()
+          return resolve(categories[0].id)
+        }
 
-  // Try case-insensitive id match
-  const lower = trimmed.toLowerCase()
-  const match = categories.find((c) => c.id.toLowerCase() === lower)
-  if (match) return match.id
+        // Try numeric index first — must be in range
+        const idx = parseInt(trimmed, 10)
+        if (Number.isInteger(idx)) {
+          if (idx >= 1 && idx <= categories.length) {
+            rl.close()
+            return resolve(categories[idx - 1].id)
+          }
+          if (attempts < MAX_ATTEMPTS) {
+            out.write(`Invalid choice: ${trimmed}. Pick 1-${categories.length}.\n`)
+            return ask()
+          }
+          out.write(`Invalid choice: ${trimmed}. Giving up after ${MAX_ATTEMPTS} attempts.\n`)
+          rl.close()
+          return resolve(null)
+        }
 
-  // Fallback to first entry
-  return categories[0].id
+        // Try case-insensitive id match
+        const lower = trimmed.toLowerCase()
+        const match = categories.find((c) => c.id.toLowerCase() === lower)
+        if (match) {
+          rl.close()
+          return resolve(match.id)
+        }
+
+        if (attempts < MAX_ATTEMPTS) {
+          out.write(`Unrecognized: "${trimmed}". Pick 1-${categories.length} or a template id.\n`)
+          return ask()
+        }
+        out.write(`Unrecognized: "${trimmed}". Giving up after ${MAX_ATTEMPTS} attempts.\n`)
+        rl.close()
+        resolve(null)
+      })
+    }
+    ask()
+  })
 }

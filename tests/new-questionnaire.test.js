@@ -1,6 +1,6 @@
 import { test } from "node:test"
 import assert from "node:assert"
-import { PassThrough } from "node:stream"
+import { PassThrough, Readable } from "node:stream"
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -12,13 +12,23 @@ import { runCli } from "./helpers.js"
 function mockInput(data, isTTY = true) {
   const stream = new PassThrough()
   stream.isTTY = !!isTTY
-  // Schedule data after a tick so readline can set up its listener first
   if (data !== undefined) {
     setImmediate(() => {
       stream.write(data)
       stream.end()
     })
   }
+  return stream
+}
+
+function mockMultiInput(lines, isTTY = true) {
+  const stream = new PassThrough()
+  stream.isTTY = !!isTTY
+  const data = Array.isArray(lines) ? lines.join("") : lines
+  setImmediate(() => {
+    stream.write(data)
+    stream.end()
+  })
   return stream
 }
 
@@ -76,11 +86,13 @@ test("pickCategory TTY numbered input selects third entry", async () => {
   assert.strictEqual(result, "api-service")
 })
 
-test("pickCategory TTY out-of-range number defaults to first entry", async () => {
-  const input = mockInput("42\n", true)
+test("DEF-005: pickCategory TTY out-of-range number rejects and re-prompts", async () => {
+  // 999 is out of range (max 3), then 2 is valid
+  const input = mockMultiInput(["999\n", "2\n"], true)
   const output = mockOutput()
   const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, "blank")
+  assert.strictEqual(result, "web-app", "should select entry 2 after rejecting 999")
+  assert.match(output.buffer(), /invalid/i, "should show invalid error message")
 })
 
 test("pickCategory TTY case-insensitive id match", async () => {
@@ -97,11 +109,11 @@ test("pickCategory TTY exact id match (lowercase)", async () => {
   assert.strictEqual(result, "api-service")
 })
 
-test("pickCategory TTY unmatched input falls back to first entry", async () => {
-  const input = mockInput("nonexistent\n", true)
+test("pickCategory TTY unmatched input re-prompts then returns null after 3 attempts", async () => {
+  const input = mockMultiInput(["nonexistent\n", "bad\n", "nope\n"], true)
   const output = mockOutput()
   const result = await pickCategory(catalog, { input, output })
-  assert.strictEqual(result, "blank")
+  assert.strictEqual(result, null)
 })
 
 // --- runNew matrix tests ---
