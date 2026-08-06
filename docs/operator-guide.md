@@ -60,6 +60,34 @@ Two steps:
 
 If `armada/armada.yaml` is missing, run `armada init` first, then upgrade.
 
+## Changing models or provider
+
+Models live in three places:
+
+- `opencode.json` top-level `model`
+- `.opencode/agent/<role>.md` per-role `model:` frontmatter
+- `provider.openrouter.models` (or other provider blocks) in `opencode.json`
+  (`src/generator.js:202-238`, `docs/auth-and-cost.md:116`)
+
+How to change:
+
+1. Edit `armada.yaml` per-role `model:` / `fallback:` — recommended; the manifest is the
+   source of truth.
+2. Hand-edit `opencode.json` `provider.<x>.models` (or a `provider.<x>` block) for a
+   provider switch.
+3. Hand-edit `.opencode/agent/<role>.md` `model:` frontmatter for a one-off tweak.
+
+opencode reads these files on session start; there is no live reload on session exit.
+Changes take effect on the next `opencode` launch in the repo. If the project is on a
+manifest, run `armada init --from-armada armada/armada.yaml --restart` first (see the
+[Upgrade](#upgrade) flow above); user-owned `opencode.json` keys are preserved by
+`mergeOpenCodeJson` (`src/generator.js:240-260`). No daemon to restart, no env to export.
+
+Example — switch openrouter to opencode-go/zen: set the provider block in `armada.yaml`,
+re-run `armada init --restart`. armada owns only `provider.openrouter` under `provider`
+(`src/generator.js:291-306`); a hand-added `provider.zen` block is not in the owned-key
+set and is preserved across re-scaffolds.
+
 ## Rollback
 
 1. Install the previous version:
