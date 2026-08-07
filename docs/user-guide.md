@@ -269,8 +269,8 @@ Files read to verify every claim:
 - `src/role-display.js` (via P0 evidence lines 6-15) — role-to-ship map.
 - `src/status-cmd.js:23-24`, `src/fleet-tracker.js:193`, `src/handoff.js` — via P0 evidence.
 - `package.json` — version 0.9.2, engines, bin.
-- `docs/stability/P1/aliases-audit.md` — P1 alias/exit-code changes (reconcile documented
-  alias, ping/scout removed).
+- `CHANGELOG.md` — P1 alias/exit-code changes (reconcile documented as alias, ping/scout
+  removed).
 
 Verdict: PASS — every command, flag, and exit code in this guide matches current source.
 Date: 2026-08-05.

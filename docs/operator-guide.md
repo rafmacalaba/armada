@@ -6,7 +6,7 @@ manual; [user-guide.md](./user-guide.md) is the quickstart.
 ## Requirements
 
 - Node.js >= 20 (`package.json:29`). Older runtimes are not supported.
-- opencode CLI installed and on PATH — `armada doctor` verifies it (`src/doctor.js:86-91`).
+- opencode CLI installed and on PATH — `armada doctor` verifies it (`src/doctor.js:190-201`).
 - A provider credential: OpenCode Go by default (free tier available); OpenRouter optional
   for power-tier models. See [auth-and-cost.md](./auth-and-cost.md).
 - The only runtime dependency of the armada package itself is `yaml` (`package.json:42`).
@@ -29,7 +29,7 @@ armada doctor         # all checks pass
 
 The published package ships `src`, `template`, `starter`, `agents`, `presets`, `docs`
 (`package.json:12-19`). The npm pack smoke (P0) confirmed the tarball installs to an isolated
-prefix and the `armada` bin runs (`docs/stability/P0/npm-pack-smoke.md`).
+prefix and the `armada` bin runs (see [CHANGELOG.md](../CHANGELOG.md)).
 
 ## Upgrade
 
@@ -99,7 +99,7 @@ set and is preserved across re-scaffolds.
 3. `armada doctor` to confirm the older binary is consistent with the manifest.
 
 Version compatibility: the manifest schema is backward-compatible across the current 0.x line;
-`armada init --from-armada` validates the manifest (`src/cli.js:310-316`) and fails with a
+`armada init --from-armada` validates the manifest (`src/cli.js:383-402`) and fails with a
 clear parse error if it cannot read it.
 
 ## Uninstall
@@ -126,9 +126,10 @@ are removed only with `--all` (`src/scaffold.js:545-549`).
 
 ## CLI reference
 
-All 12 commands plus the documented alias. Every flag below is implemented in `src/cli.js`
-(the dispatch switch is `src/cli.js:139-221`). Note: `armada <cmd> --help` prints the same
-global help block; the canonical reference is this table.
+All 14 commands plus the documented alias. Every flag below is implemented in `src/cli.js`
+(the dispatch switch is `src/cli.js:189-309`). Note: `armada <cmd> --version` prints the
+global version; `armada help` prints the full help block; the canonical reference is this
+table.
 
 | Command | Flag | Meaning |
 |---|---|---|
@@ -138,8 +139,8 @@ global help block; the canonical reference is this table.
 | | `--requirements <file>` | contract file (default `armada/REQUIREMENTS.md`) |
 | | `--target <dir>` | scaffold into a directory (default cwd) |
 | | `--yes` | non-interactive defaults |
-| | `--yolo` | autonomous: `permission: { "*": "allow" }`, no permission prompts |
-| | `--headless` | CI-safe: orchestrator bash allowed (for `opencode run`) |
+| | `--yolo` | autonomous: `permission: { "*": "allow" }`, no permission prompts; bash allow for orchestrator/qa only — read-only roles stay bash-restricted, `external_directory` stays `deny` |
+| | `--headless` | CI-safe: orchestrator bash scoped to git + read-only inspection (for `opencode run`) — not a blanket allow |
 | | `--dry-run` | print files without writing |
 | | `--no-browser` | disable browser testing + agent-browser flags |
 | | `--restart` | force re-scaffold; overwrites armada-owned files, preserves user files |
@@ -195,7 +196,7 @@ global help block; the canonical reference is this table.
 | `armada feature status [name]` | `armada status --feature <name>` |
 
 Each prints a deprecation hint on stderr, runs the underlying action, and exits non-zero
-(`src/cli.js:147-201`; behavior verified in P1, `docs/stability/P1/aliases-audit.md`).
+(`src/cli.js:189-309`; behavior verified in P1 — see [CHANGELOG.md](../CHANGELOG.md)).
 
 ### Removed commands
 
@@ -275,11 +276,9 @@ Files read to verify every claim:
 - `src/status-cmd.js:23-24`, `src/fleet-tracker.js:193`, `src/model-catalog.js:116-118` —
   state paths (referenced via P0 evidence).
 - `package.json` — version, engines, bin, files, dependencies.
-- `docs/stability/P0/npm-pack-smoke.md` — packed install + bin verified.
-- `docs/stability/P1/aliases-audit.md` + `docs/stability/P1/exec-summary.md` — alias and
-  exit-code behavior changed in P1.
-- `docs/stability/P0/commands-inventory.md` — cross-checked; superseded where P1 changed
-  behavior (reconcile exit codes, ping/scout removal).
+- `docs/stability/P5/release-checklist.md` — pre-shipping checklist (packed install + bin
+  verified in P0; alias and exit-code behavior changed in P1; reconcile exit codes and
+  ping/scout removal checked against `src/cli.js`).
 
 Verdict: PASS — install, upgrade, rollback, uninstall, flag table, exit codes, and ownership
 all match current source.

@@ -114,8 +114,8 @@ Files read to verify every claim:
   `184-219` (plugin checks).
 - `src/cli.js:325-359` — budget/plugin flag wiring; `src/cli.js:75-77` — resume exit codes.
 - `opencode.json` (generated) — `provider.openrouter.models` with `allow_fallbacks`.
-- `docs/stability/P0/public-presentation.md` — P-15 (auth docs), P-16 (cost docs), P-17
-  (recovery split) closed by this doc.
+  (P-15 auth docs, P-16 cost docs, P-17 recovery split — closed by this doc; see
+  [CHANGELOG.md](../CHANGELOG.md)).
 - `src/fleet-tracker.js:117` (STALLED threshold) — referenced via P0 evidence.
 
 Verdict: PASS — every provider, model ID, cost hint, and recovery path matches current code.

@@ -209,9 +209,11 @@ model catalog (primary + fallback per budget tier) is at
 [docs/auth-and-cost.md#model-selection](./docs/auth-and-cost.md#model-selection).
 
 The one thing worth restating here: the boundaries are **enforced by permissions in the agent
-frontmatter** — not by prompt politeness. The SDK resolves the most specific rule first, so a
-read-only role physically cannot edit, and the orchestrator physically cannot do its own code
-writes.
+frontmatter** — not by prompt politeness. Bash/rule resolution is **order / last-match**, not
+most-specific-first: a later matching rule wins, so armada merges `SAFE_BASH` first in `buildTeam()`
+and the agent's own rules (base + playbook + per-role override) appended after it take effect.
+Because of this a read-only role physically cannot write, and the orchestrator physically cannot do
+its own code writes; yolo broadens only `bash` for orchestrator/qa, never `edit`.
 
 ### The relationship graph
 
