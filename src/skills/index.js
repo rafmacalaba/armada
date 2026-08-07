@@ -27,6 +27,7 @@ export const armadaLedger = readSkill("armada-ledger")
 export const armadaContextBudget = readSkill("armada-context-budget")
 export const armadaTdd = readSkill("armada-tdd")
 export const armadaSdd = readSkill("armada-sdd")
+export const armadaVoyageFinish = readSkill("armada-voyage-finish")
 
 export const skillRegistry = [
   armadaContract,
@@ -38,4 +39,5 @@ export const skillRegistry = [
   armadaContextBudget,
   armadaTdd,
   armadaSdd,
+  armadaVoyageFinish,
 ]

@@ -67,6 +67,40 @@ gh run list --workflow=release.yml --limit 1   # expect completed/success
 4. Verify: `npm view @rafmacalaba/armada version` and
    `gh release view v0.3.0`.
 
+## Path C — automated via `armada release <version>`
+
+Requires a clean working tree on a feature branch and `gh` authenticated. `armada release`
+automates the release flow in two steps and stops at `npm publish` — the maintainer runs that
+manually.
+
+Step 1 — bump + CHANGELOG regen + test + commit + push + open PR, one command:
+
+```bash
+armada release 1.1.0
+```
+
+It validates the version (valid semver, greater than current), bumps `package.json` and
+`src/cli.js` `VERSION`, regenerates `CHANGELOG.md` from conventional commits, runs the test
+suite, commits, pushes the branch, and opens a PR. Then it stops — do not publish until the PR
+merges.
+
+Step 2 — after the PR merges, post-merge regen + tag + push + GitHub release:
+
+```bash
+git pull
+armada release --continue
+```
+
+It regenerates `CHANGELOG.md`, runs the test suite, tags `v1.1.0`, pushes the tag, and creates
+the GitHub release via `gh release create`. Then it stops. Publish manually:
+
+```bash
+npm publish --access public
+```
+
+Source: `src/release-command.js` (exports `validateVersion`, `regenChangelog`, `releaseStep1`,
+`releaseStep2`, `productionInjection`). Contract: `armada/REQUIREMENTS.md` Phase 2.
+
 ## Gotchas learned the hard way
 
 - **npm 2FA is enforced on publish even with a token** — `EOTP`. Only an *Automation* granular

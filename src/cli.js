@@ -55,6 +55,7 @@ import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cm
 import { listOrphans, renderDiscoverTable, renderDiscoverJson, registerOrphans } from "./fleet-discover.js"
 import { main as statusMain } from "./status-cmd.js"
 import { formatHandoffBlock } from "./handoff.js"
+import { releaseStep1, releaseStep2, validateVersion, productionInjection } from "./release-command.js"
 
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
@@ -88,6 +89,8 @@ Usage:
   armada feature new <name>                  create per-feature contract + register
   armada feature list                        list open/in-progress/shipped features
   armada feature close <name>                verify evidence + mark shipped
+  armada release <version> [--dry-run]       automated PR-first release (step 1)
+  armada release --continue [--dry-run]      tag + GitHub release after PR merge (step 2)
   armada models [budget]                     show curated model catalog
   armada models --refresh                    merge live provider models
   armada models --list-openrouter            live OpenRouter model list
@@ -296,6 +299,8 @@ export async function main(argv = process.argv.slice(2)) {
       return statusCmd(rest)
     case "voyage-handoff":
       return voyageHandoffCmd(rest)
+    case "release":
+      return releaseCmd(rest)
     case "help":
     case "-h":
     case "--help":
@@ -1080,6 +1085,67 @@ function voyageHandoffCmd(names) {
   console.log(formatHandoffBlock(names))
   return 0
 }
+async function releaseCmd(args) {
+  // --help / -h
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log(HELP)
+    return 0
+  }
+
+  const dryRun = args.includes("--dry-run")
+  const isContinue = args.includes("--continue")
+
+  // Filter out flags to find the version argument.
+  const positional = args.filter((a) => !a.startsWith("--"))
+
+  if (isContinue) {
+    // --continue: step 2 (tag + release)
+    try {
+      await releaseStep2({
+        dryRun,
+        injected: productionInjection,
+      })
+    } catch (err) {
+      console.error(String(err?.message ?? err))
+      process.exitCode = 1
+      return 1
+    }
+    return 0
+  }
+
+  // Step 1: requires version argument.
+  if (positional.length === 0) {
+    console.error("version required (e.g. armada release 1.2.0)")
+    process.exitCode = 1
+    return 1
+  }
+
+  const version = positional[0]
+
+  // Validate version early so the user gets a clear error.
+  try {
+    const currentVersion = await productionInjection.getCurrentVersion()
+    validateVersion(version, currentVersion)
+  } catch (err) {
+    console.error(String(err?.message ?? err))
+    process.exitCode = 1
+    return 1
+  }
+
+  try {
+    await releaseStep1(version, {
+      dryRun,
+      injected: productionInjection,
+    })
+  } catch (err) {
+    console.error(String(err?.message ?? err))
+    process.exitCode = 1
+    return 1
+  }
+
+  return 0
+}
+
 async function featureCmd(args) {
   if (args.includes("-h") || args.includes("--help")) { console.log(HELP); return 0 }
   if (args.includes("-v") || args.includes("--version")) { process.stdout.write("armada v" + VERSION + "\n"); return 0 }
