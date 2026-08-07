@@ -262,7 +262,7 @@ test("orchestrator prompt validates core rules, state, parallelism, and adaptive
   // routes writes through subagents
   assert.match(filled, /dispatch/i)
   assert.match(filled, /write|edit/i)
-  assert.match(filled, /never write or edit code/)
+  assert.match(filled, /never write or edit files/)
   // reads active state on session start
   assert.match(filled, /armada\/state\/active\.json/)
   assert.match(filled, /session start|session begins|on start/i)

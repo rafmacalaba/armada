@@ -849,3 +849,5 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 - [x] **fix(cli): complete 1.0.4 version bump in src/cli.js** (#124) (2026-08-07). The release commit f0cc6e8 bumped `package.json` to 1.0.4 but left `src/cli.js:62` hardcoded at "1.0.3", making `tests/version-flag.test.js` and the doctor test red. Also updated `tests/cli.test.js:713` to read the expected version from `package.json` (mirroring `tests/version-flag.test.js:8`) so future release bumps don't require a test edit. 466/466 suite green.
 
 - [x] **fix(voyage-cwd): absolute path + lane-cwd** (#<pending>). Default drive prompt now names `<absLane>/armada/REQUIREMENTS.md`; tmux `new-session -c <absLane>` puts the team in the worktree. Locked by `tests/voyage-prompt-cwd.test.js`.
+
+- [x] tighten orchestrator no-trivial exception + matrix (#126) (2026-08-07).

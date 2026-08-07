@@ -31,11 +31,12 @@ const BASE_PERMISSIONS = {
   orchestrator: {
     edit: {
       "*": "deny",
-      "*.md": "allow",
       "REQUIREMENTS.md": "deny",
       "AGENTS.md": "deny",
       ".opencode/*": "deny",
       "armada/*": "deny",
+      "armada/state/active.json": "allow",
+      "armada/state/features/*": "allow",
       "armada/ledgers/*/DEFECTS.md": "allow",
       "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "allow",
     },

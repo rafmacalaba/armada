@@ -1,9 +1,16 @@
 import { test } from "node:test"
 import assert from "node:assert"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { ROLES, CATALOG, modelFor, fallbackFor, BUDGETS } from "../src/model-catalog.js"
 import { deepMerge, buildTeam, renderAgentFile, renderOpenCodeJson, renderAgentsMd, renderRequirementsMd, renderManifestYaml, renderArmadaCommand, renderArmadaScoutCommand, renderArmadaResumeCommand, renderArmadaVoyageCommand, renderArmadaSupervisionPlugin, renderArmadaFleetPlugin, renderArmadaWatchdogPlugin } from "../src/generator.js"
 import { displayFor } from "../src/role-display.js"
 import { parseManifestYaml } from "../src/manifest.js"
+import { resolvePermission } from "./helpers.js"
+
+const __dirname = fileURLToPath(new URL(".", import.meta.url))
+const ORCH_PROMPT_PATH = join(__dirname, "..", "agents", "orchestrator", "prompt.template.md")
 
 const baseManifest = {
   project: {
@@ -798,4 +805,87 @@ test("all 4 armada command renderers emit subtask: true", () => {
     assert.ok(m, `frontmatter found in ${r.name} output`)
     assert.match(m[1], /subtask:\s*true/, `${r.name} frontmatter must include "subtask: true"`)
   }
+})
+
+// -- Phase 2 (orchestrator-no-trivial): lock the new contract --
+
+test("orchestrator prompt hard rule 2 forbids trivial framing and lists the 4 legitimate write paths", () => {
+  const prompt = readFileSync(ORCH_PROMPT_PATH, "utf8")
+  // the 4 legitimate write paths are named explicitly
+  assert.ok(prompt.includes("armada/state/active.json"), "must list armada/state/active.json")
+  assert.ok(prompt.includes("armada/state/features/*"), "must list armada/state/features/*")
+  assert.ok(prompt.includes("armada/ledgers/*/DEFECTS.md"), "must list armada/ledgers/*/DEFECTS.md")
+  assert.ok(prompt.includes("armada/ledgers/*/ADVERSARIAL_REVIEW.md"), "must list armada/ledgers/*/ADVERSARIAL_REVIEW.md")
+  // the trivial / one-line / too-small framing is explicitly forbidden
+  assert.match(prompt, /trivial[\s\S]*one-line[\s\S]*too small/i,
+    "must forbid the trivial/one-line/too small framing")
+  // old "never write or edit code" wording is gone (new wording is "files")
+  assert.doesNotMatch(prompt, /never write or edit code/i,
+    "must not contain the old 'never write or edit code' wording")
+  // cost discipline block likewise uses "files", not "code"
+  assert.doesNotMatch(prompt, /Never write or edit code/,
+    "cost discipline must say 'files' not 'code'")
+  assert.match(prompt, /Never write or edit files/, "cost discipline uses the new 'files' wording")
+})
+
+test("orchestrator.edit matrix has no *.md blanket and the 4 explicit allows", () => {
+  const team = buildTeam(baseManifest)
+  const orch = team.find((a) => a.role === "orchestrator")
+  const edit = orch.permissions.edit
+  // the *.md blanket is gone
+  assert.strictEqual(edit["*.md"], undefined, "no *.md blanket allow")
+  // the 4 explicit allows are present
+  assert.strictEqual(edit["armada/state/active.json"], "allow")
+  assert.strictEqual(edit["armada/state/features/*"], "allow")
+  assert.strictEqual(edit["armada/ledgers/*/DEFECTS.md"], "allow")
+  assert.strictEqual(edit["armada/ledgers/*/ADVERSARIAL_REVIEW.md"], "allow")
+  // deny rules intact
+  assert.strictEqual(edit["*"], "deny")
+  assert.strictEqual(edit["REQUIREMENTS.md"], "deny")
+  assert.strictEqual(edit["AGENTS.md"], "deny")
+  assert.strictEqual(edit[".opencode/*"], "deny")
+  assert.strictEqual(edit["armada/*"], "deny")
+})
+
+test("resolvePermission resolves state+ledger writes to allow and everything else to deny", () => {
+  const team = buildTeam(baseManifest)
+  const edit = team.find((a) => a.role === "orchestrator").permissions.edit
+  // the 4 legitimate write paths resolve to allow despite *: deny
+  for (const p of [
+    "armada/state/active.json",
+    "armada/state/features/orchestrator-no-trivial.json",
+    "armada/ledgers/foo/DEFECTS.md",
+    "armada/ledgers/foo/ADVERSARIAL_REVIEW.md",
+  ]) {
+    assert.strictEqual(resolvePermission(edit, p), "allow", `expected allow for ${p}`)
+  }
+  // everything else resolves to deny (most hit *: deny, some hit armada/*: deny)
+  for (const p of [
+    "TODO.md",
+    "README.md",
+    "docs/foo.md",
+    "src/generator.js",
+    "AGENTS.md",
+    ".opencode/agent/commodore.md",
+    "armada/contracts/foo.md",
+    "armada/ledgers/foo/SECURITY_FINDINGS.md",
+  ]) {
+    assert.strictEqual(resolvePermission(edit, p), "deny", `expected deny for ${p}`)
+  }
+})
+
+test("yolo mode does not widen orchestrator agent-level edit boundaries", () => {
+  const baseTeam = buildTeam(baseManifest)
+  const baseEdit = baseTeam.find((a) => a.role === "orchestrator").permissions.edit
+  // yolo only rewrites bash, not edit
+  const m = structuredClone(baseManifest)
+  m.project.yolo = true
+  const yoloTeam = buildTeam(m)
+  const yoloOrch = yoloTeam.find((a) => a.role === "orchestrator")
+  // bash is widened (autonomous), edit is byte-identical to base
+  assert.strictEqual(yoloOrch.permissions.bash["*"], "allow", "yolo widens bash to allow")
+  assert.deepStrictEqual(yoloOrch.permissions.edit, baseEdit,
+    "yolo must not widen the orchestrator edit matrix")
+  // sanity: the edit matrix still denies the catch-all
+  assert.strictEqual(yoloOrch.permissions.edit["*"], "deny")
 })
