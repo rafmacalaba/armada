@@ -753,7 +753,7 @@ The fleet model was hardened on opencode: **subagents + orchestrator, runnable i
 - [x] **Safe-bash defaults.** Tiered `SAFE_BASH` allowlist in `src/generator.js`: read-only commands
   (read tier) for every role, write commands (write tier) for dev roles only (orchestrator, qa,
   backend, frontend); merged first in `buildTeam()`; yolo still flattens to `*`; path safety left to
-  `opencode.json` `external_directory: "deny"`. (#302) (2026-08-07)
+  `opencode.json` `external_directory: "deny"`. (#128) (2026-08-07)
 
 ### Security & robustness — done
 
