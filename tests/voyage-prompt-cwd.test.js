@@ -1,22 +1,27 @@
 import { test } from "node:test"
 import assert from "node:assert"
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, realpathSync } from "node:fs"
-import { join } from "node:path"
+import { join, basename } from "node:path"
 import { tmpdir } from "node:os"
 import { makeBin, runCli } from "./helpers.js"
 
 // Fake tmux that records every invocation we care about to a state dir
 // passed via FAKE_TMUX_STATE. We capture:
-//   - new-session argv  -> $D/newsession.log  (one arg per line, blank line separator)
-//   - send-keys argv   -> $D/sendkeys.log    (one arg per line, blank line separator)
+//   - has-session argv -> $D/hassession.log (one arg per line, blank line separator)
+//   - new-session argv -> $D/newsession.log (one arg per line, blank line separator)
+//   - send-keys argv   -> $D/sendkeys.log  (one arg per line, blank line separator)
 // capture-pane prints a ready+register pane so bootLane reaches the prompt send.
-// has-session exits 1 so bootLane creates a fresh session.
+// has-session exits 1 by default so bootLane creates a fresh session; set
+// FAKE_TMUX_HAS_SESSION=0 to make it exit 0 (reattach path).
 const FAKE_TMUX = [
   "#!/bin/sh",
   "D=\"${FAKE_TMUX_STATE:-/tmp/armada-fake-tmux}\"",
   "mkdir -p \"$D\" 2>/dev/null",
   "case \"$1\" in",
-  "  has-session) exit 1 ;;",
+  "  has-session)",
+  "    for a in \"$@\"; do printf '%s\\n' \"$a\"; done >> \"$D/hassession.log\"",
+  "    printf '\\n' >> \"$D/hassession.log\"",
+  "    exit ${FAKE_TMUX_HAS_SESSION:-1} ;;",
   "  new-session)",
   "    for a in \"$@\"; do printf '%s\\n' \"$a\"; done >> \"$D/newsession.log\"",
   "    printf '\\n' >> \"$D/newsession.log\"",
@@ -60,6 +65,26 @@ function extractCwd(invocations) {
   return null
 }
 
+// Find the session name passed to `new-session -s <name>`.
+function extractSessionName(invocations) {
+  for (const args of invocations) {
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === "-s") return args[i + 1] ?? null
+    }
+  }
+  return null
+}
+
+// Find the target name passed to `has-session -t <name>`.
+function extractHasSessionTarget(invocations) {
+  for (const args of invocations) {
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === "-t") return args[i + 1] ?? null
+    }
+  }
+  return null
+}
+
 function freshState() {
   const stateDir = mkdtempSync(join(tmpdir(), "voyage-cwd-state-"))
   const binDir = makeBin({
@@ -76,7 +101,10 @@ function readLogs(stateDir) {
   const sk = existsSync(join(stateDir, "sendkeys.log"))
     ? readFileSync(join(stateDir, "sendkeys.log"), "utf8")
     : ""
-  return { newSession: parseArgLog(ns), sendKeys: parseArgLog(sk) }
+  const hs = existsSync(join(stateDir, "hassession.log"))
+    ? readFileSync(join(stateDir, "hassession.log"), "utf8")
+    : ""
+  return { newSession: parseArgLog(ns), sendKeys: parseArgLog(sk), hasSession: parseArgLog(hs) }
 }
 
 function cleanup(stateDir, binDir, laneDir) {
@@ -178,5 +206,86 @@ test("voyage with no lane arg (lanePath '.') uses process.cwd() as cwd and absol
     )
   } finally {
     cleanup(stateDir, binDir, workDir)
+  }
+})
+
+// Test 4: default session name is `voyage-<basename(lanePath)>`.
+test("voyage default session name is prefixed with voyage-", async () => {
+  const { stateDir, binDir } = freshState()
+  const laneDir = mkdtempSync(join(tmpdir(), "voyage-prefix-default-"))
+  try {
+    const r = await runCli(["voyage", "--no-open", "--no-track", laneDir], {
+      env: { PATH: binDir, FAKE_TMUX_STATE: stateDir },
+    })
+    assert.strictEqual(r.code, 0, `voyage exited ${r.code}: ${r.stderr}`)
+
+    const logs = readLogs(stateDir)
+    assert.ok(logs.newSession.length >= 1, "new-session must be invoked")
+    const name = extractSessionName(logs.newSession)
+    assert.ok(name, "new-session must be called with -s <name>")
+    const expected = `voyage-${basename(laneDir)}`
+    assert.strictEqual(
+      name, expected,
+      `default session name must be "${expected}" (voyage-<basename>); got ${name}`,
+    )
+  } finally {
+    cleanup(stateDir, binDir, laneDir)
+  }
+})
+
+// Test 5: explicit --name bypasses the prefix (no double prefix).
+test("voyage --name <text> overrides the voyage- prefix with no double prefix", async () => {
+  const { stateDir, binDir } = freshState()
+  const laneDir = mkdtempSync(join(tmpdir(), "voyage-prefix-explicit-"))
+  try {
+    const r = await runCli(["voyage", "--no-open", "--no-track", laneDir, "--name", "myname"], {
+      env: { PATH: binDir, FAKE_TMUX_STATE: stateDir },
+    })
+    assert.strictEqual(r.code, 0, `voyage exited ${r.code}: ${r.stderr}`)
+
+    const logs = readLogs(stateDir)
+    assert.ok(logs.newSession.length >= 1, "new-session must be invoked")
+    const name = extractSessionName(logs.newSession)
+    assert.ok(name, "new-session must be called with -s <name>")
+    assert.strictEqual(
+      name, "myname",
+      `explicit --name must be used as-is (no voyage- prefix); got ${name}`,
+    )
+  } finally {
+    cleanup(stateDir, binDir, laneDir)
+  }
+})
+
+// Test 6: reattach path uses the prefixed session name (has-session -t).
+test("voyage reattach (has-session) targets the prefixed session name", async () => {
+  const { stateDir, binDir } = freshState()
+  const laneDir = mkdtempSync(join(tmpdir(), "voyage-prefix-reattach-"))
+  try {
+    // has-session exits 0 -> bootLane takes the reattach branch.
+    const r = await runCli(["voyage", "--no-open", "--no-track", laneDir], {
+      env: { PATH: binDir, FAKE_TMUX_STATE: stateDir, FAKE_TMUX_HAS_SESSION: "0" },
+    })
+    assert.strictEqual(r.code, 0, `voyage exited ${r.code}: ${r.stderr}`)
+
+    const logs = readLogs(stateDir)
+    assert.ok(logs.hasSession.length >= 1, "has-session must be invoked")
+    const target = extractHasSessionTarget(logs.hasSession)
+    assert.ok(target, "has-session must be called with -t <name>")
+    const expected = `voyage-${basename(laneDir)}`
+    assert.strictEqual(
+      target, expected,
+      `has-session -t must target the prefixed name "${expected}"; got ${target}`,
+    )
+    // new-session must NOT be invoked on the reattach path.
+    assert.strictEqual(
+      logs.newSession.length, 0,
+      `new-session must not be invoked when reattaching; got ${logs.newSession.length} call(s)`,
+    )
+    assert.ok(
+      /already running/.test(r.stdout),
+      `stdout should report reattach; got: ${r.stdout}`,
+    )
+  } finally {
+    cleanup(stateDir, binDir, laneDir)
   }
 })
