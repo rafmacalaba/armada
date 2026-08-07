@@ -35,24 +35,37 @@ export async function ask(question, { default: dflt, validate, input, output } =
   return answer
 }
 
-// Pure parser for a pickModel answer. Returns { model, variant }.
-// - empty/whitespace          -> options[defaultIdx] (the recommended default)
-// - integer 1-N               -> options[idx-1]
-// - integer but out of range  -> options[defaultIdx] (original fallback)
-// - non-numeric (parseInt NaN) -> a custom model id: { model: raw, variant: null }
+// Whitelist for custom model ids typed by the user. Lowercase only,
+// alphanumerics plus dot, hyphen, underscore in each name segment.
+//   opencode-go/zen/<model>
+//   openrouter/<owner>/<model>
+export const CUSTOM_MODEL_PATTERN =
+  /^(opencode-go\/zen\/[a-z0-9._-]+|openrouter\/[a-z0-9._-]+\/[a-z0-9._-]+)$/
+
+// Strictly-numeric option selector: a positive integer with no leading zero
+// or sign (matches "1".."N" only, rejects "0", "-1", "1.5", "01").
+const NUMERIC_OPTION_PATTERN = /^[1-9]\d*$/
+
+// Pure parser for a pickModel answer. Returns { model, variant } or null.
+// - empty/whitespace                          -> options[defaultIdx] (default)
+// - positive integer in 1..N                  -> options[idx-1]
+// - positive integer but out of range        -> null (re-prompt)
+// - custom model id matching CUSTOM_MODEL_PATTERN -> { model: trimmed, variant: null }
+// - anything else                             -> null (re-prompt)
 export function parseModelChoice(raw, options, defaultIdx = 0) {
   const trimmed = (raw ?? "").trim()
   if (!trimmed) return { model: options[defaultIdx].value, variant: options[defaultIdx].variant }
-  const idx = parseInt(trimmed, 10)
-  if (Number.isNaN(idx)) {
-    // Non-numeric input: treat it as a custom model id typed by the user.
+  if (NUMERIC_OPTION_PATTERN.test(trimmed)) {
+    const idx = Number(trimmed)
+    if (idx >= 1 && idx <= options.length) {
+      return { model: options[idx - 1].value, variant: options[idx - 1].variant }
+    }
+    return null
+  }
+  if (CUSTOM_MODEL_PATTERN.test(trimmed)) {
     return { model: trimmed, variant: null }
   }
-  if (idx >= 1 && idx <= options.length) {
-    return { model: options[idx - 1].value, variant: options[idx - 1].variant }
-  }
-  // Out-of-range integer: preserve original fallback-to-default behavior.
-  return { model: options[defaultIdx].value, variant: options[defaultIdx].variant }
+  return null
 }
 
 // Offer a model choice for one role: primary (recommended) vs fallback vs free.
@@ -68,9 +81,16 @@ export async function pickModel(role, { input, output } = {}) {
   const out = output ?? stdout
   out.write(`\n${role} (${e.label}):\n`)
   options.forEach((o, i) => out.write(`  ${i + 1}. ${o.label}\n`))
-  const raw = await rl.question(`Pick 1-${options.length} [1] `)
+  out.write(`  Or type a custom model id: opencode-go/zen/<model> or openrouter/<owner>/<model>\n`)
+  let choice
+  while (true) {
+    const raw = await rl.question(`Pick 1-${options.length} or type a custom model id [1] `)
+    choice = parseModelChoice(raw, options, 0)
+    if (choice !== null) break
+    out.write(`  Invalid choice. Use 1-${options.length} or a custom model id (opencode-go/zen/<model> or openrouter/<owner>/<model>).\n`)
+  }
   rl.close()
-  return parseModelChoice(raw, options, 0)
+  return choice
 }
 
 // Compact review table shown before anything is written.
