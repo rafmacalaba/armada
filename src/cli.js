@@ -49,7 +49,7 @@ import { main as resumeMain } from "./resume-cli.js"
 import { renderInitSummary } from "./init-summary.js"
 import { bootLane, DriveError } from "./drive.js"
 import { startHeartbeat } from "./heartbeat.js"
-import { openTerminal, buildAttachCommand } from "./terminal-open.js"
+import { openTerminal, buildAttachCommand, tryAttachOrPrint } from "./terminal-open.js"
 import { listRuns, readRun, getStoreDir } from "./fleet-tracker.js"
 import { renderFleetTable, renderFleetDetail, renderFleetJson } from "./fleet-cmd.js"
 import { listOrphans, renderDiscoverTable, renderDiscoverJson, registerOrphans } from "./fleet-discover.js"
@@ -776,22 +776,12 @@ export function flagValue(args, flag) {
 }
 async function getAutoOpenSuffix(name) {
   try {
-    const result = await openTerminal({
-      name,
+    const result = await tryAttachOrPrint(name, {
       platform: process.platform,
       env: process.env,
     })
-    if (result.opened) {
-      if (result.mode === "tab") {
-        return ` (auto-attached in tab of ${result.kind})`
-      }
-      if (result.mode === "window") {
-        return ` (auto-attached in new window of ${result.kind})`
-      }
-      return ` (auto-attached in ${result.kind})`
-    }
-    if (result.mode === "hint") {
-      return ` (auto-attach skipped: ${result.reason})`
+    if (result.ok) {
+      return ` (auto-attached in ${result.detail})`
     }
     return ` (auto-attach skipped: unable to open terminal)`
   } catch {
@@ -821,7 +811,15 @@ async function driveCmd(args, cmdName = "drive") {
       process.exitCode = 1
       return 1
     }
-    console.log(buildAttachCommand(attachName))
+    const result = await tryAttachOrPrint(attachName, {
+      env: process.env,
+      platform: process.platform,
+    })
+    if (result.ok) {
+      console.log(`armada ${cmdName} attach: opened ${result.kind} for '${attachName}'`)
+    } else {
+      console.log(result.command)
+    }
     return 0
   }
 

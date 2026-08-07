@@ -1,6 +1,6 @@
 import { accessSync, constants } from "node:fs"
 import { join } from "node:path"
-import { spawn } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
 
 export function detectOS(platform) {
   if (platform === "darwin") return "macos"
@@ -262,4 +262,54 @@ export async function openTerminal({
 
   // No template (hint case)
   return { opened: false, kind: strategy.kind, mode: "hint", hint: attachCmd, reason: strategy.reason }
+}
+
+// tryAttachOrPrint(name, opts)
+// opts: { env, platform, openTerminalFn, spawnSyncFn } — all optional.
+//   env defaults to process.env, platform to process.platform,
+//   openTerminalFn defaults to openTerminal, spawnSyncFn to child_process.spawnSync.
+// Returns one of:
+//   { ok: true, kind: "openTerminal", detail: string }
+//     openTerminal opened a terminal for the session.
+//   { ok: true, kind: "tmux-new-window", detail: string }
+//     openTerminal failed but TMUX env was set and `tmux new-window -t <name>` succeeded.
+//   { ok: false, command: string }
+//     Nothing worked; caller should print the command for the user to run.
+export async function tryAttachOrPrint(name, opts = {}) {
+  const env = opts.env ?? process.env
+  const platform = opts.platform ?? process.platform
+  const openTerminalFn = opts.openTerminalFn ?? openTerminal
+  const spawnSyncFn = opts.spawnSyncFn ?? spawnSync
+  const attachCmd = buildAttachCommand(name)
+
+  let opened
+  try {
+    opened = await openTerminalFn({ name, platform, env })
+  } catch (err) {
+    opened = { opened: false, kind: "none", mode: "hint", hint: attachCmd, reason: `openTerminal threw: ${err?.message ?? err}` }
+  }
+
+  if (opened?.opened) {
+    const detail = opened.mode === "tab"
+      ? `tab of ${opened.kind}`
+      : opened.mode === "window"
+        ? `new window of ${opened.kind}`
+        : `${opened.kind}`
+    return { ok: true, kind: "openTerminal", detail }
+  }
+
+  // Fallback: inside an existing tmux session, spawn a new window.
+  if (env?.TMUX) {
+    try {
+      const res = spawnSyncFn("tmux", ["new-window", "-t", name], { env })
+      const status = res?.status ?? 1
+      if (status === 0) {
+        return { ok: true, kind: "tmux-new-window", detail: "tmux new-window" }
+      }
+    } catch {
+      // fall through to fallback command
+    }
+  }
+
+  return { ok: false, command: attachCmd }
 }
