@@ -841,10 +841,8 @@ async function driveCmd(args, cmdName = "drive") {
   // --no-track: skip fleet tracker recording
   const noTrack = args.includes("--no-track")
 
-  // --prompt <text>: drive prompt
-  const DEFAULT_PROMPT = "Voyage the contract in armada/REQUIREMENTS.md. Phase-gate on evidence. Run independent phases in parallel. Don't advance a phase without passing its criteria."
+  // --prompt <text>: drive prompt (default resolved after absLane below)
   const rawPrompt = flagValue(args, "--prompt")
-  const prompt = rawPrompt ?? DEFAULT_PROMPT
 
   // Detect --prompt with a value that starts with -- (was filtered out by flagValue)
   const promptIdx = args.indexOf("--prompt")
@@ -893,9 +891,15 @@ async function driveCmd(args, cmdName = "drive") {
     return 1
   }
 
-  // cwd: parent of lane path (so team in worktree can see live repo),
-  // or process cwd when lane path is "."
-  const cwd = lanePath === "." ? process.cwd() : resolve(absLane, "..")
+  // Default prompt names the absolute path to the lane's contract so the
+  // commodore never has to guess which REQUIREMENTS.md to voyage.
+  const contractPath = lanePath === "." ? `${process.cwd()}/armada/REQUIREMENTS.md` : `${absLane}/armada/REQUIREMENTS.md`
+  const DEFAULT_PROMPT = `Voyage the contract in ${contractPath}. Phase-gate on evidence. Run independent phases in parallel. Don't advance a phase without passing its criteria.`
+  const prompt = rawPrompt ?? DEFAULT_PROMPT
+
+  // cwd: the lane itself (the worktree root). Team works in the worktree;
+  // live repo is reachable via `cd ../..`. process.cwd() when lanePath === ".".
+  const cwd = lanePath === "." ? process.cwd() : absLane
 
   try {
     const result = await bootLane({
