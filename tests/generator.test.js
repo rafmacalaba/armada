@@ -889,3 +889,88 @@ test("yolo mode does not widen orchestrator agent-level edit boundaries", () => 
   // sanity: the edit matrix still denies the catch-all
   assert.strictEqual(yoloOrch.permissions.edit["*"], "deny")
 })
+
+// -- Phase 1: safe-bash tiered allowlist --
+
+test("SAFE_BASH: every role's bash block contains expected read globs", () => {
+  const team = buildTeam(baseManifest)
+  const readCommands = [
+    "ls*", "cat*", "head*", "tail*", "find*", "grep*", "wc*",
+    "pwd", "echo*", "which*", "env", "printenv", "true", "false",
+    "test*", "git status*", "git diff*", "git log*", "git branch*",
+    "git rev-parse*", "git show*", "uname*", "date*", "whoami*", "file *",
+  ]
+  for (const role of ROLES) {
+    const agent = team.find((a) => a.role === role)
+    assert.ok(agent, `role ${role} must exist`)
+
+    // docs has bash: "deny" (string), skip command-level checks
+    if (role === "docs") {
+      assert.strictEqual(agent.permissions.bash, "deny", "docs bash must remain 'deny' string")
+      continue
+    }
+
+    const bash = agent.permissions.bash
+    assert.ok(typeof bash === "object" && bash !== null, `${role} bash must be an object`)
+    for (const cmd of readCommands) {
+      assert.strictEqual(bash[cmd], "allow", `${role} must allow: ${cmd}`)
+    }
+  }
+})
+
+test("SAFE_BASH: dev roles contain write globs; non-dev roles do NOT", () => {
+  const team = buildTeam(baseManifest)
+  const devRoles = ["orchestrator", "qa", "backend-dev", "frontend-dev"]
+  const readOnlyRoles = ["security", "adversary", "architect", "docs"]
+  const writeCommands = ["mkdir*", "touch*", "cp*", "mv*", "rm*", "rmdir*", "ln*", "tee*"]
+
+  for (const role of devRoles) {
+    const agent = team.find((a) => a.role === role)
+    const bash = agent.permissions.bash
+    for (const cmd of writeCommands) {
+      assert.strictEqual(bash[cmd], "allow", `dev role ${role} must allow: ${cmd}`)
+    }
+  }
+
+  for (const role of readOnlyRoles) {
+    const agent = team.find((a) => a.role === role)
+    const bash = agent.permissions.bash
+    for (const cmd of writeCommands) {
+      assert.ok(
+        bash[cmd] === undefined || bash[cmd] === "deny",
+        `read-only role ${role} must NOT allow: ${cmd} (got ${bash[cmd]})`
+      )
+    }
+  }
+})
+
+test("SAFE_BASH: manifest override still wins over the tier allowlist", () => {
+  const m = structuredClone(baseManifest)
+  m.team = [
+    { role: "backend-dev", model: modelFor("backend-dev", "balanced"), variant: null, fallback: null, enabled: true,
+      permissions: { bash: { "ls*": "deny", "mkdir*": "deny" } } },
+    ...ROLES.filter((r) => r !== "backend-dev").map((r) => ({ role: r, model: modelFor(r, "balanced"), variant: null, fallback: null, enabled: true })),
+  ]
+  const team = buildTeam(m)
+  const backend = team.find((a) => a.role === "backend-dev")
+  // manifest override wins over SAFE_BASH tier allowlist
+  assert.strictEqual(backend.permissions.bash["ls*"], "deny", "manifest override must set ls* to deny")
+  assert.strictEqual(backend.permissions.bash["mkdir*"], "deny", "manifest override must set mkdir* to deny")
+  // non-overridden safe-bash commands still present
+  assert.strictEqual(backend.permissions.bash["cat*"], "allow", "non-overridden cat* must remain allow")
+  assert.strictEqual(backend.permissions.bash["pwd"], "allow", "non-overridden pwd must remain allow")
+})
+
+test("SAFE_BASH: headless orchestrator bash does NOT contain mkdir*", () => {
+  const m = structuredClone(baseManifest)
+  m.project.headless = true
+  const team = buildTeam(m)
+  const orch = team.find((a) => a.role === "orchestrator")
+  // headless overwrites bash entirely, so write commands are absent
+  assert.strictEqual(orch.permissions.bash["*"], "deny")
+  assert.strictEqual(orch.permissions.bash["git status*"], "allow")
+  assert.strictEqual(orch.permissions.bash["cat*"], "allow")
+  assert.strictEqual(orch.permissions.bash["mkdir*"], undefined, "headless orchestrator must NOT have mkdir*")
+  assert.strictEqual(orch.permissions.bash["rm*"], undefined, "headless orchestrator must NOT have rm*")
+  assert.strictEqual(orch.permissions.bash["cp*"], undefined, "headless orchestrator must NOT have cp*")
+})

@@ -750,6 +750,10 @@ The fleet model was hardened on opencode: **subagents + orchestrator, runnable i
   (SDK resolves most-specific-first). Verified live: headless run with zero permission prompts.
 - [x] **Live validation: 5-phase dependency graph** ran end-to-end (dependency gating, collision-aware
   serialization, parallel qa∥adversary gate work, 5/5 tests). Recorded in `docs/validation.md`.
+- [x] **Safe-bash defaults.** Tiered `SAFE_BASH` allowlist in `src/generator.js`: read-only commands
+  (read tier) for every role, write commands (write tier) for dev roles only (orchestrator, qa,
+  backend, frontend); merged first in `buildTeam()`; yolo still flattens to `*`; path safety left to
+  `opencode.json` `external_directory: "deny"`. (#128) (2026-08-07)
 
 ### Security & robustness — done
 
