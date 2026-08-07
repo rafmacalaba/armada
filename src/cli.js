@@ -828,12 +828,14 @@ async function driveCmd(args, cmdName = "drive") {
   // Positional arg: <lane-path>, default "."
   const lanePath = args.find((a) => !a.startsWith("--")) || "."
 
-  // --name <session>: tmux session name, default basename of lane path
+  // --name <session>: tmux session name, default `voyage-<basename>` so
+  // armada-launched sessions are easy to spot in `tmux ls`. An explicit
+  // --name bypasses the prefix (full control for the user).
   const rawName = flagValue(args, "--name")
-  const name = rawName ?? basename(resolve(lanePath))
+  const sessionName = rawName ?? `voyage-${basename(resolve(lanePath))}`
 
-  if (name.startsWith("-")) {
-    console.error(`error: session name cannot start with "-" (got: ${name})`)
+  if (sessionName.startsWith("-")) {
+    console.error(`error: session name cannot start with "-" (got: ${sessionName})`)
     process.exitCode = 1
     return 1
   }
@@ -875,7 +877,7 @@ async function driveCmd(args, cmdName = "drive") {
   const printAttach = args.includes("--print-attach")
 
   if (printAttach) {
-    console.log(buildAttachCommand(name))
+    console.log(buildAttachCommand(sessionName))
     if (cmdName === "drive") {
       process.exitCode = 1
       return 1
@@ -903,7 +905,7 @@ async function driveCmd(args, cmdName = "drive") {
 
   try {
     const result = await bootLane({
-      name,
+      name: sessionName,
       cwd,
       command: "opencode",
       prompt,
@@ -918,24 +920,24 @@ async function driveCmd(args, cmdName = "drive") {
       if (noOpen) {
         attachSuffix = " (--no-open: skipped auto-attach)"
       } else {
-        attachSuffix = await getAutoOpenSuffix(name)
+        attachSuffix = await getAutoOpenSuffix(sessionName)
       }
-      console.log(`armada ${cmdName}: session "${name}" already running (reattached).${attachSuffix}`)
+      console.log(`armada ${cmdName}: session "${sessionName}" already running (reattached).${attachSuffix}`)
     } else {
       if (noOpen) {
         attachSuffix = " (--no-open: skipped auto-attach)"
       } else {
-        attachSuffix = await getAutoOpenSuffix(name)
+        attachSuffix = await getAutoOpenSuffix(sessionName)
       }
       // Start heartbeat on first boot when --heartbeat flag is set and tracking is enabled
       if (args.includes("--heartbeat") && !noTrack) {
-        const hb = await startHeartbeat({ session: name, intervalMs: 30_000 })
-        activeHeartbeats.set(name, hb)
-        console.log(`started heartbeat for ${name}`)
+        const hb = await startHeartbeat({ session: sessionName, intervalMs: 30_000 })
+        activeHeartbeats.set(sessionName, hb)
+        console.log(`started heartbeat for ${sessionName}`)
       }
-      console.log(`armada ${cmdName}: session "${name}" ready, prompt registered.${attachSuffix}`)
+      console.log(`armada ${cmdName}: session "${sessionName}" ready, prompt registered.${attachSuffix}`)
       if (args.includes("--heartbeat") && !noTrack) {
-        console.log(`heartbeat running for "${name}" every 30s — ${cmdName} stays resident to keep the lane entry fresh. Ctrl-C to stop.`)
+        console.log(`heartbeat running for "${sessionName}" every 30s — ${cmdName} stays resident to keep the lane entry fresh. Ctrl-C to stop.`)
       }
     }
     if (cmdName === "drive") {

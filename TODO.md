@@ -851,3 +851,5 @@ launch `--yolo`, and let the orchestrator walk you through the requirements befo
 - [x] **fix(voyage-cwd): absolute path + lane-cwd** (#<pending>). Default drive prompt now names `<absLane>/armada/REQUIREMENTS.md`; tmux `new-session -c <absLane>` puts the team in the worktree. Locked by `tests/voyage-prompt-cwd.test.js`.
 
 - [x] tighten orchestrator no-trivial exception + matrix (#126) (2026-08-07).
+
+- [x] **feat(voyage): prefix tmux session names with voyage-** (#127) (2026-08-07). Default session name is now `voyage-<basename(lanePath)>` so armada-launched tmux sessions are easy to spot in `tmux ls`. Explicit `--name <text>` bypasses the prefix (no double-prefix). Both `new-session` and `has-session -t` paths use the prefixed name. 3 new tests in `tests/voyage-prompt-cwd.test.js`: default prefix, explicit `--name` override, reattach targets prefixed name. 472/0 pass.
