@@ -4,6 +4,37 @@ All notable changes to armada are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Features
+
+- single triage authority + consistency audit + regression suite (#131)
+- single triage authority + consistency audit + regression suite
+- armada-voyage-finish skill + armada release <version> command (#130)
+- add armada-voyage-finish
+- add release-command module
+
+## Bug Fixes
+
+- remove armada/armada.yaml from git add list
+- survive CI without committed armada.yaml or opencode.json
+- survive CI without .opencode/ on disk
+- re-render AGENTS.md from armada.yaml after rebase onto master
+
+## Chores
+
+- sync master with origin
+- PR-number fix for F1/F5 + voyage summary (#130)
+- AGENTS.md voyage header re-title
+
+## Docs
+
+- Path C — armada release <version>
+- F5 release-command entry
+
+## Tests
+
+- release-command unit tests with mocked injection
+- voyage-finish registry + scaffold e2e
+
 ## [Unreleased]
 
 ### Added
