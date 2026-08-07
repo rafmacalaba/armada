@@ -24,6 +24,40 @@ export function deepMerge(base, override) {
   return result
 }
 
+// Tiered safe-bash allowlist: harmless shell commands that never trigger a
+// permission prompt. Read commands apply to every role; write commands apply
+// to dev roles (orchestrator, qa, backend-dev, frontend-dev).
+// Path safety delegated to opencode.json permission.external_directory: "deny".
+export const SAFE_BASH = Object.freeze({
+  read: Object.freeze({
+    "ls*": "allow", "cat*": "allow", "head*": "allow", "tail*": "allow",
+    "find*": "allow", "grep*": "allow", "wc*": "allow", "pwd": "allow",
+    "echo*": "allow", "which*": "allow", "env": "allow", "printenv": "allow",
+    "true": "allow", "false": "allow", "test*": "allow",
+    "git status*": "allow", "git diff*": "allow", "git log*": "allow",
+    "git branch*": "allow", "git rev-parse*": "allow", "git show*": "allow",
+    "uname*": "allow", "date*": "allow", "whoami*": "allow", "file *": "allow",
+  }),
+  write: Object.freeze({
+    "mkdir*": "allow", "touch*": "allow", "cp*": "allow", "mv*": "allow",
+    "rm*": "allow", "rmdir*": "allow", "ln*": "allow", "tee*": "allow",
+  }),
+})
+
+// Map each role to its bash tier. Dev roles get read+write; security,
+// adversary, architect, and docs get read-only. Unknown roles default to
+// "read" (fail-safe).
+const ROLE_BASH_TIER = {
+  orchestrator: "read+write",
+  qa: "read+write",
+  "backend-dev": "read+write",
+  "frontend-dev": "read+write",
+  security: "read",
+  adversary: "read",
+  architect: "read",
+  docs: "read",
+}
+
 // Permission model shared by every role. Mirrors the personal-space pattern:
 // strict file ownership enforced at SDK level (not just prompt). Keys are
 // opencode permission globs.
@@ -140,7 +174,13 @@ export function buildTeam(manifest) {
   return ROLES.map((role) => {
     const override = teamByRole[role]
     const enabled = override ? override.enabled !== false : false
-    const permissions = deepMerge(structuredClone(BASE_PERMISSIONS[role] || {}), override?.permissions)
+    const roleTier = ROLE_BASH_TIER[role] || "read"
+    const safeBashPerms = { bash: structuredClone(SAFE_BASH.read) }
+    if (roleTier === "read+write") Object.assign(safeBashPerms.bash, structuredClone(SAFE_BASH.write))
+    const permissions = deepMerge(
+      deepMerge(safeBashPerms, structuredClone(BASE_PERMISSIONS[role] || {})),
+      override?.permissions
+    )
     if (headless && role === "orchestrator") {
       // Non-interactive runs (opencode run / CI) auto-reject `ask` permissions,
       // which stalls the orchestrator's git-status/diff/log + inspection calls.

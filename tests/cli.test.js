@@ -767,3 +767,32 @@ test("subcommand -v/-h prints version/help and exits 0", async () => {
     assert.match(r.stdout, expected, `${cmd} ${flag} should print correctly`)
   }
 })
+
+// -- Phase 1: safe-bash tiered allowlist e2e --
+
+test("init emits tiered safe-bash allowlist in agent files", async () => {
+  const dir = makeTempRepo({})
+  const r = await runCli(["init", "--yes", "--budget", "free", "--no-browser"], { cwd: dir })
+  assert.strictEqual(r.code, 0)
+
+  // backend-dev (galleon) gets read+write
+  const galleon = parseFrontmatter(
+    readFileSync(join(dir, ".opencode/agent/galleon.md"), "utf8")
+      .slice(readFileSync(join(dir, ".opencode/agent/galleon.md"), "utf8").indexOf("---") + 3)
+      .split("---")[0]
+  )
+  assert.strictEqual(galleon.permission.bash["ls*"], "allow", "backend-dev must allow ls*")
+  assert.strictEqual(galleon.permission.bash["mkdir*"], "allow", "backend-dev must allow mkdir*")
+  assert.strictEqual(galleon.permission.bash["rm*"], "allow", "backend-dev must allow rm*")
+
+  // security (frigate) gets read-only
+  const frigate = parseFrontmatter(
+    readFileSync(join(dir, ".opencode/agent/frigate.md"), "utf8")
+      .slice(readFileSync(join(dir, ".opencode/agent/frigate.md"), "utf8").indexOf("---") + 3)
+      .split("---")[0]
+  )
+  assert.strictEqual(frigate.permission.bash["ls*"], "allow", "security must allow ls*")
+  assert.strictEqual(frigate.permission.bash["mkdir*"], undefined, "security must NOT have mkdir*")
+  assert.strictEqual(frigate.permission.bash["rm*"], undefined, "security must NOT have rm*")
+  assert.strictEqual(frigate.permission.bash["cp*"], undefined, "security must NOT have cp*")
+})
