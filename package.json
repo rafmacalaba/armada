@@ -1,7 +1,7 @@
 {
   "name": "@rafamacalaba/armada",
-  "version": "1.0.4",
-  "description": "Turn any repo into a self-organizing AI engineering team \u2014 one command, 8 specialists, evidence-gated delivery. For opencode.",
+  "version": "1.0.5",
+  "description": "Turn any repo into a self-organizing AI engineering team — one command, 8 specialists, evidence-gated delivery. For opencode.",
   "type": "module",
   "repository": {
     "type": "git",
