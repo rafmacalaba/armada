@@ -35,8 +35,28 @@ export async function ask(question, { default: dflt, validate, input, output } =
   return answer
 }
 
+// Pure parser for a pickModel answer. Returns { model, variant }.
+// - empty/whitespace          -> options[defaultIdx] (the recommended default)
+// - integer 1-N               -> options[idx-1]
+// - integer but out of range  -> options[defaultIdx] (original fallback)
+// - non-numeric (parseInt NaN) -> a custom model id: { model: raw, variant: null }
+export function parseModelChoice(raw, options, defaultIdx = 0) {
+  const trimmed = (raw ?? "").trim()
+  if (!trimmed) return { model: options[defaultIdx].value, variant: options[defaultIdx].variant }
+  const idx = parseInt(trimmed, 10)
+  if (Number.isNaN(idx)) {
+    // Non-numeric input: treat it as a custom model id typed by the user.
+    return { model: trimmed, variant: null }
+  }
+  if (idx >= 1 && idx <= options.length) {
+    return { model: options[idx - 1].value, variant: options[idx - 1].variant }
+  }
+  // Out-of-range integer: preserve original fallback-to-default behavior.
+  return { model: options[defaultIdx].value, variant: options[defaultIdx].variant }
+}
+
 // Offer a model choice for one role: primary (recommended) vs fallback vs free.
-async function pickModel(role) {
+export async function pickModel(role, { input, output } = {}) {
   const e = CATALOG[role]
   const options = [
     { label: `${modelFor(role, "balanced")} (Recommended)`, value: modelFor(role, "balanced"), variant: e.variant },
@@ -44,14 +64,13 @@ async function pickModel(role) {
     { label: `fallback: ${fallbackFor(role)}`, value: fallbackFor(role) },
     { label: `power: ${e.power}`, value: e.power, variant: e.variant },
   ]
-  const rl = createInterface({ input: stdin, output: stdout })
-  console.log(`\n${role} (${e.label}):`)
-  options.forEach((o, i) => console.log(`  ${i + 1}. ${o.label}`))
+  const rl = createInterface({ input: input ?? stdin, output: output ?? stdout })
+  const out = output ?? stdout
+  out.write(`\n${role} (${e.label}):\n`)
+  options.forEach((o, i) => out.write(`  ${i + 1}. ${o.label}\n`))
   const raw = await rl.question(`Pick 1-${options.length} [1] `)
   rl.close()
-  const idx = parseInt(raw, 10)
-  const choice = Number.isInteger(idx) && idx >= 1 && idx <= options.length ? options[idx - 1] : options[0]
-  return { model: choice.value, variant: choice.variant }
+  return parseModelChoice(raw, options, 0)
 }
 
 // Compact review table shown before anything is written.
