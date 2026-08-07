@@ -52,51 +52,44 @@ export function runCli(args, opts = {}) {
 }
 
 /**
- * Convert an opencode permission glob into a match test against a path.
- * Standalone "*" is the catch-all (matches across "/"); an embedded "*"
- * matches a single path segment ("[^/]*"). Everything else is literal.
+ * Convert an opencode permission glob into a match test against a value.
+ * Mirrors the installed opencode SDK Wildcard.match (v1.18.x):
+ * - both glob and value are normalized with backslashes -> forward slashes
+ * - regex specials are escaped; `*` -> `.*` (matches ACROSS path
+ *   separators — `*` is a cross-segment wildcard, not a single segment);
+ *   `?` -> `.`
+ * - a trailing ` .*` becomes `( .*)?` (optional trailing token), the form
+ *   opencode's shell tool emits for its `always` allow patterns
+ * - the regex is anchored ^...$ with the `s` (dotAll) flag so `.`/`.*` match
+ *   newlines too
+ * A standalone `*` therefore matches everything (the catch-all).
  */
-function globMatches(glob, path) {
-  if (glob === "*") return true
-  const escaped = glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*")
-  return new RegExp("^" + escaped + "$").test(path)
+function globMatches(glob, value) {
+  const g = String(glob).replaceAll("\\", "/")
+  const v = String(value).replaceAll("\\", "/")
+  let re = g.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")
+  if (re.endsWith(" .*")) re = re.slice(0, -3) + "( .*)?"
+  return new RegExp("^" + re + "$", "s").test(v)
 }
 
 /**
- * Specificity score for a glob: [literalSegmentCount, segmentCount, length].
- * Higher tuple = more specific. Literal paths beat globs; more segments beat
- * fewer; longer patterns break ties. This mirrors the opencode SDK's
- * most-specific-rule-wins resolution.
+ * Resolve an opencode permission matrix against a value.
+ * Mirrors the installed SDK Permission.evaluate: iterate the ruleset in
+ * insertion order and return the LAST matching rule (last-match-wins); when
+ * no rule matches, the SDK defaults to "ask". `*` is the catch-all and only
+ * wins when it is the last matching rule, so rule order in the matrix is
+ * decisive — specific allows/denies must follow a `*` catch-all to override
+ * it.
+ * @param {Record<string, string>} matrix  role permission map { glob -> action }
+ * @param {string} value                    absolute or relative path / command
+ * @returns {"allow"|"deny"|"ask"}
  */
-function specificity(glob) {
-  const segments = glob.split("/")
-  const literalSegments = segments.filter((s) => !s.includes("*")).length
-  return [literalSegments, segments.length, glob.length]
-}
-
-/**
- * Resolve an opencode edit-permission matrix against a file path.
- * Mirrors SDK resolution: the most specific matching pattern wins; "*" is the
- * catch-all fallback. Returns "allow" | "deny" | "ask" (or undefined if no
- * pattern matches at all, which should not happen when "*" is present).
- * @param {Record<string, string>} edit  role edit map { glob -> permission }
- * @param {string} path                  absolute or relative file path
- * @returns {string|undefined}
- */
-export function resolvePermission(edit, path) {
-  const entries = Object.entries(edit)
-  const matched = entries
-    .filter(([glob]) => globMatches(glob, path))
-    .sort((a, b) => {
-      const sa = specificity(a[0])
-      const sb = specificity(b[0])
-      // compare tuples descending
-      for (let i = 0; i < sa.length; i++) {
-        if (sa[i] !== sb[i]) return sb[i] - sa[i]
-      }
-      return 0
-    })
-  return matched.length ? matched[0][1] : undefined
+export function resolvePermission(matrix, value) {
+  let result = "ask"
+  for (const [glob, action] of Object.entries(matrix)) {
+    if (globMatches(glob, value)) result = action
+  }
+  return result
 }
 
 export function parseFrontmatter(frontmatterYaml) {

@@ -279,7 +279,7 @@ test("orchestrator prompt validates core rules, state, parallelism, and adaptive
   // batches findings, preserves parallel voyages
   assert.match(filled, /group.*finding|finding.*group/i)
   assert.match(filled, /BLOCKING.*FIX_NOW.*DEFERRED/i)
-  assert.match(filled, /parallel voyages|voyages.*parallel/i)
+  assert.match(filled, /parallel voyages|voyages[\s\S]*parallel/i)
   assert.match(filled, /structured receipt|compact receipt/i)
 })
 
@@ -686,7 +686,11 @@ test("rendered qa agent permissions: owns ledgers, e2e, screenshots; denies rest
   const edit = frontmatterPerms(content)
 
   assert.strictEqual(edit["*"], "deny", "qa must deny *")
-  assert.strictEqual(edit["armada/ledgers/*"], "allow", "qa must allow armada/ledgers/*")
+  // QA owns DEFECTS.md only (create/close/reopen); it must NOT carry the
+  // ledgers-dir glob, which would also grant ADVERSARIAL_REVIEW.md /
+  // SECURITY_FINDINGS.md writes.
+  assert.strictEqual(edit["armada/ledgers/*/DEFECTS.md"], "allow", "qa must allow armada/ledgers/*/DEFECTS.md")
+  assert.strictEqual(edit["armada/ledgers/*"], undefined, "qa must NOT own the ledgers dir glob")
   assert.strictEqual(edit["armada/e2e/*"], "allow", "qa must allow armada/e2e/*")
   assert.strictEqual(edit["armada/screenshots/*"], "allow", "qa must allow armada/screenshots/*")
   // Defense: root ledgers not explicitly allowed -> denied by *

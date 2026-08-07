@@ -277,9 +277,11 @@ See [Why armada?](./docs/WHY.md) for the full rationale and evidence.
 | `armada fleet` | Cross-repo per-lane progress dashboard |
 | `armada fleet discover [--json] [--register] [--repo <path>]` | List or register untracked voyage worktrees |
 | `armada voyage <lane>` | Boot a lane session for feature work |
+| `armada voyage-handoff <name> [<name>...]` | Print handoff blocks for dispatched voyages |
 | `armada feature <new\|list\|close>` | Manage feature contracts |
 | `armada models [budget]` | Show curated model catalog |
 | `armada resume` | Resume after an interrupted session |
+| `armada reconcile` | Alias for `armada resume` (check evidence drifts) |
 | `armada uninstall` | Remove armada-generated artifacts |
 | `armada help` | Show usage and version |
 
