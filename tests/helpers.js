@@ -51,6 +51,54 @@ export function runCli(args, opts = {}) {
   })
 }
 
+/**
+ * Convert an opencode permission glob into a match test against a path.
+ * Standalone "*" is the catch-all (matches across "/"); an embedded "*"
+ * matches a single path segment ("[^/]*"). Everything else is literal.
+ */
+function globMatches(glob, path) {
+  if (glob === "*") return true
+  const escaped = glob.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*")
+  return new RegExp("^" + escaped + "$").test(path)
+}
+
+/**
+ * Specificity score for a glob: [literalSegmentCount, segmentCount, length].
+ * Higher tuple = more specific. Literal paths beat globs; more segments beat
+ * fewer; longer patterns break ties. This mirrors the opencode SDK's
+ * most-specific-rule-wins resolution.
+ */
+function specificity(glob) {
+  const segments = glob.split("/")
+  const literalSegments = segments.filter((s) => !s.includes("*")).length
+  return [literalSegments, segments.length, glob.length]
+}
+
+/**
+ * Resolve an opencode edit-permission matrix against a file path.
+ * Mirrors SDK resolution: the most specific matching pattern wins; "*" is the
+ * catch-all fallback. Returns "allow" | "deny" | "ask" (or undefined if no
+ * pattern matches at all, which should not happen when "*" is present).
+ * @param {Record<string, string>} edit  role edit map { glob -> permission }
+ * @param {string} path                  absolute or relative file path
+ * @returns {string|undefined}
+ */
+export function resolvePermission(edit, path) {
+  const entries = Object.entries(edit)
+  const matched = entries
+    .filter(([glob]) => globMatches(glob, path))
+    .sort((a, b) => {
+      const sa = specificity(a[0])
+      const sb = specificity(b[0])
+      // compare tuples descending
+      for (let i = 0; i < sa.length; i++) {
+        if (sa[i] !== sb[i]) return sb[i] - sa[i]
+      }
+      return 0
+    })
+  return matched.length ? matched[0][1] : undefined
+}
+
 export function parseFrontmatter(frontmatterYaml) {
   return YAML.parse(frontmatterYaml)
 }
