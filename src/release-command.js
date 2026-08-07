@@ -208,7 +208,7 @@ export async function releaseStep1(version, { dryRun = false, injected = {} } = 
   // 7. Git add + commit + push.
   steps.push("git add + commit + push")
   if (!dryRun) {
-    let r = await inj.exec('git add package.json src/cli.js CHANGELOG.md armada/armada.yaml')
+    let     r = await inj.exec('git add package.json src/cli.js CHANGELOG.md')
     if (r && r.code !== undefined && r.code !== 0) throw new Error(`git add failed: ${r.stderr || ""}`)
 
     r = await inj.exec(`git commit -m "chore(release): bump to v${version}"`)
