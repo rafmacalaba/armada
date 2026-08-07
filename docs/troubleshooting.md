@@ -76,7 +76,7 @@ providers, openrouter auth, background dispatch, node, and the global armada bin
 - **Fix:** use the canonical form: `voyage`, `init --from-armada --restart`,
   `init --budget <name>`, `status --feature <name>` (`src/cli.js:147-201`).
 - **Note:** `armada reconcile` is a documented alias of `resume`, not deprecated; it exits
-  0/1/2 like resume (P1 change, `docs/stability/P1/aliases-audit.md`).
+  0/1/2 like resume (P1 change, see [CHANGELOG.md](../CHANGELOG.md)).
 
 ## armada resume exits 2
 
@@ -165,7 +165,7 @@ Files read to verify every claim:
 - `src/fleet-tracker.js:117` — STALLED threshold (referenced via P0 evidence).
 - `src/model-catalog.js:116-118` — cache path.
 - `docs/RELEASING.md:21-23` — two-version rule.
-- `docs/stability/P1/aliases-audit.md` — reconcile/alias exit-code behavior.
+- `CHANGELOG.md` — reconcile/alias exit-code behavior.
 
 Verdict: PASS — every error condition maps to a real code path and a working fix.
 Date: 2026-08-05.

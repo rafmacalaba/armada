@@ -8,8 +8,8 @@ response to expect.
 - **GitHub issues** — the single public channel for both questions and bugs:
   <https://github.com/rafmacalaba/armada/issues>
 - **Bugs and feature requests** — file an issue with the template below. There are no issue
-  templates in the repo yet (P0 audit, `docs/stability/P0/public-presentation.md` P-12);
-  use the checklist below instead.
+  templates in the repo yet (P0 audit gap — tracked in
+  [release-checklist](./stability/P5/release-checklist.md)); use the checklist below instead.
 - **Security findings** — open an issue and mark it security-related in the title/body.
   Do not post exploit details in a public thread before maintainers have had a chance to
   respond.
@@ -65,11 +65,11 @@ Files read to verify every claim:
 - `.git/config` — remote URL `git@github.com:rafmacalaba/armada.git` (the issues
   link derives from it).
 - `package.json` — version 0.9.2, license MIT. Note: no `repository`/`bugs` fields yet —
-  flagged in `docs/stability/P5/release-checklist.md`.
+  flagged in [release-checklist](./stability/P5/release-checklist.md).
 - `src/doctor.js:82-225` — doctor checks cited as the diagnostic.
 - `armada/REQUIREMENTS.md:88-98` — final criteria (feature freeze, platform scope).
-- `docs/stability/P0/public-presentation.md` — P-12 (no repo URL), P-13 (no support section)
-  closed by this doc.
+  (P-12 no repo URL, P-13 no support section — closed by this doc; see
+  [CHANGELOG.md](../CHANGELOG.md)).
 - `.github/` — only `workflows/` (ci.yml, release.yml); no issue templates.
 
 Verdict: PASS — every support vector cited is real and current.

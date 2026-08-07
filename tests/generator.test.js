@@ -103,8 +103,16 @@ test("buildTeam headless scopes orchestrator bash to git and read", () => {
   const team = buildTeam(m)
   const orch = team.find((a) => a.role === "orchestrator")
   assert.strictEqual(orch.permissions.bash["*"], "deny")
-  assert.strictEqual(orch.permissions.bash["git status*"], "allow")
-  assert.strictEqual(orch.permissions.bash["cat*"], "allow")
+  // headless allowlist is EXACT (token-safe): a prefix allow like `git status*`
+  // would silently permit `git status . > leak`, so it is absent and the bare
+  // `git status` token is allowed instead.
+  assert.strictEqual(orch.permissions.bash["git status"], "allow")
+  assert.strictEqual(orch.permissions.bash["git status*"], undefined, "no prefix allow (redirect exfiltration)")
+  assert.strictEqual(orch.permissions.bash["ls*"], undefined, "no prefix allow (redirect exfiltration)")
+  assert.strictEqual(orch.permissions.bash["ls"], "allow")
+  // cat*/echo* removed: redirect/secret-exposure commands fall through to deny
+  assert.strictEqual(orch.permissions.bash["cat*"], undefined)
+  assert.strictEqual(orch.permissions.bash["echo*"], undefined)
   const qa = team.find((a) => a.role === "qa")
   assert.strictEqual(qa.permissions.edit["*"], "deny", "other role boundaries unchanged")
 })
@@ -409,6 +417,32 @@ test("renderArmadaVoyageCommand returns frontmatter with commodore agent and voy
   assert.match(md, /armada init --yes --yolo/)
   assert.match(md, /armada voyage sandbox\//)
   assert.match(md, /node src\/cli\.js/)
+  // steps 1-4 preserved (numbered list intact)
+  assert.match(md, /1\. `armada feature new <name> --worktree`/)
+  assert.match(md, /2\. `armada init --yes --yolo --target sandbox\/<name>`/)
+  assert.match(md, /3\. `armada voyage sandbox\/<name>`/)
+  assert.match(md, /4\. Report the lane path \(`sandbox\/<name>`\)/)
+  // PR-first preserved
+  assert.match(md, /gh pr create --base master/)
+  assert.doesNotMatch(md, /git merge/, "must not instruct local merge")
+})
+
+test("renderArmadaVoyageCommand cites the canonical triage authority and the broad-task split rule", () => {
+  const md = renderArmadaVoyageCommand()
+  // canonical triage one-liner + link to the sole authority
+  assert.match(md, /docs\/process\/triage\.md/, "must link the triage authority doc")
+  assert.match(md, /in-window first, voyage by[\s\S]*exception/, "must state the canonical triage default")
+  assert.match(md, /a voyage is never automatic/, "must state voyage is never automatic")
+  // broad-task split rule verbatim-scoped to the doc
+  assert.match(md, /separate voyages when its workstreams are independent/)
+  assert.match(md, /disjoint files, independent contracts, own PRs/)
+  assert.match(md, /one voyage when workstreams share[\s\S]*writers or form a single contract/)
+})
+
+test("renderArmadaVoyageCommand uses the CLI fleet command, not the phantom slash command", () => {
+  const md = renderArmadaVoyageCommand()
+  assert.match(md, /`armada fleet` to see them all/, "must reference the armada fleet CLI command")
+  assert.doesNotMatch(md, /\/armada-fleet/, "must NOT reference the phantom /armada-fleet slash command")
 })
 
 test("renderArmadaVoyageCommand is byte-identical after manifest round-trip", () => {
@@ -828,17 +862,21 @@ test("orchestrator prompt hard rule 2 forbids trivial framing and lists the 4 le
   assert.match(prompt, /Never write or edit files/, "cost discipline uses the new 'files' wording")
 })
 
-test("orchestrator.edit matrix has no *.md blanket and the 4 explicit allows", () => {
+test("orchestrator.edit matrix has no *.md blanket and the explicit ledger+state allows", () => {
   const team = buildTeam(baseManifest)
   const orch = team.find((a) => a.role === "orchestrator")
   const edit = orch.permissions.edit
   // the *.md blanket is gone
   assert.strictEqual(edit["*.md"], undefined, "no *.md blanket allow")
-  // the 4 explicit allows are present
+  // state + all three ledger kinds (DEFECTS, ADVERSARIAL, SECURITY) are allowed.
+  // SECURITY_FINDINGS.md is allowed because renderAgentsMd doctrine makes the
+  // orchestrator set disposition (ACCEPTED/REJECTED/MITIGATED) on it; the
+  // permission must match the doctrine.
   assert.strictEqual(edit["armada/state/active.json"], "allow")
   assert.strictEqual(edit["armada/state/features/*"], "allow")
   assert.strictEqual(edit["armada/ledgers/*/DEFECTS.md"], "allow")
   assert.strictEqual(edit["armada/ledgers/*/ADVERSARIAL_REVIEW.md"], "allow")
+  assert.strictEqual(edit["armada/ledgers/*/SECURITY_FINDINGS.md"], "allow")
   // deny rules intact
   assert.strictEqual(edit["*"], "deny")
   assert.strictEqual(edit["REQUIREMENTS.md"], "deny")
@@ -850,12 +888,17 @@ test("orchestrator.edit matrix has no *.md blanket and the 4 explicit allows", (
 test("resolvePermission resolves state+ledger writes to allow and everything else to deny", () => {
   const team = buildTeam(baseManifest)
   const edit = team.find((a) => a.role === "orchestrator").permissions.edit
-  // the 4 legitimate write paths resolve to allow despite *: deny
+  // the legitimate write paths resolve to allow despite *: deny. The
+  // orchestrator sets disposition on all three ledgers (DEFECTS records dev
+  // responses, ADVERSARIAL fills Disposition, SECURITY sets ACCEPTED/REJECTED/
+  // MITIGATED per renderAgentsMd doctrine), so SECURITY_FINDINGS.md resolves
+  // to allow too.
   for (const p of [
     "armada/state/active.json",
     "armada/state/features/orchestrator-no-trivial.json",
     "armada/ledgers/foo/DEFECTS.md",
     "armada/ledgers/foo/ADVERSARIAL_REVIEW.md",
+    "armada/ledgers/foo/SECURITY_FINDINGS.md",
   ]) {
     assert.strictEqual(resolvePermission(edit, p), "allow", `expected allow for ${p}`)
   }
@@ -868,7 +911,7 @@ test("resolvePermission resolves state+ledger writes to allow and everything els
     "AGENTS.md",
     ".opencode/agent/commodore.md",
     "armada/contracts/foo.md",
-    "armada/ledgers/foo/SECURITY_FINDINGS.md",
+    "armada/ledgers/foo/NOT_A_LEDGER.md",
   ]) {
     assert.strictEqual(resolvePermission(edit, p), "deny", `expected deny for ${p}`)
   }
@@ -894,12 +937,19 @@ test("yolo mode does not widen orchestrator agent-level edit boundaries", () => 
 
 test("SAFE_BASH: every role's bash block contains expected read globs", () => {
   const team = buildTeam(baseManifest)
+  // Inspection/search commands remain allowlisted for every role. Content
+  // emitters/dumpers (echo, cat, head, tail, env, printenv) are deliberately
+  // excluded — see the SAFE_BASH comment: a prefix allow like `cat*` would
+  // silently permit `cat .env > leak` / `cat .env | curl`, and `env`/`printenv`
+  // dump every secret to the agent context, so the read tier is not a
+  // redirect/secret boundary for them.
   const readCommands = [
-    "ls*", "cat*", "head*", "tail*", "find*", "grep*", "wc*",
-    "pwd", "echo*", "which*", "env", "printenv", "true", "false",
+    "ls*", "find*", "grep*", "wc*",
+    "pwd", "which*", "true", "false",
     "test*", "git status*", "git diff*", "git log*", "git branch*",
     "git rev-parse*", "git show*", "uname*", "date*", "whoami*", "file *",
   ]
+  const removedCommands = ["echo*", "cat*", "head*", "tail*", "env", "printenv"]
   for (const role of ROLES) {
     const agent = team.find((a) => a.role === role)
     assert.ok(agent, `role ${role} must exist`)
@@ -914,6 +964,10 @@ test("SAFE_BASH: every role's bash block contains expected read globs", () => {
     assert.ok(typeof bash === "object" && bash !== null, `${role} bash must be an object`)
     for (const cmd of readCommands) {
       assert.strictEqual(bash[cmd], "allow", `${role} must allow: ${cmd}`)
+    }
+    // Redirect/secret-exposure commands must NOT be auto-allowed by the read tier
+    for (const cmd of removedCommands) {
+      assert.strictEqual(bash[cmd], undefined, `${role} must NOT allowlist redirect/secret command: ${cmd}`)
     }
   }
 })
@@ -956,9 +1010,12 @@ test("SAFE_BASH: manifest override still wins over the tier allowlist", () => {
   // manifest override wins over SAFE_BASH tier allowlist
   assert.strictEqual(backend.permissions.bash["ls*"], "deny", "manifest override must set ls* to deny")
   assert.strictEqual(backend.permissions.bash["mkdir*"], "deny", "manifest override must set mkdir* to deny")
-  // non-overridden safe-bash commands still present
-  assert.strictEqual(backend.permissions.bash["cat*"], "allow", "non-overridden cat* must remain allow")
+  // non-overridden safe-bash commands still present (cat* is intentionally NOT
+  // in the read tier anymore — use a retained, non-overridden inspection
+  // command instead; ls* and mkdir* are the overridden ones in this test)
+  assert.strictEqual(backend.permissions.bash["find*"], "allow", "non-overridden find* must remain allow")
   assert.strictEqual(backend.permissions.bash["pwd"], "allow", "non-overridden pwd must remain allow")
+  assert.strictEqual(backend.permissions.bash["cat*"], undefined, "cat* must NOT be in the read tier (redirect/secret exposure)")
 })
 
 test("SAFE_BASH: headless orchestrator bash does NOT contain mkdir*", () => {
@@ -966,11 +1023,199 @@ test("SAFE_BASH: headless orchestrator bash does NOT contain mkdir*", () => {
   m.project.headless = true
   const team = buildTeam(m)
   const orch = team.find((a) => a.role === "orchestrator")
-  // headless overwrites bash entirely, so write commands are absent
+  // headless overwrites bash entirely with exact tokens, so write commands are absent
   assert.strictEqual(orch.permissions.bash["*"], "deny")
-  assert.strictEqual(orch.permissions.bash["git status*"], "allow")
-  assert.strictEqual(orch.permissions.bash["cat*"], "allow")
+  assert.strictEqual(orch.permissions.bash["git status"], "allow")
   assert.strictEqual(orch.permissions.bash["mkdir*"], undefined, "headless orchestrator must NOT have mkdir*")
   assert.strictEqual(orch.permissions.bash["rm*"], undefined, "headless orchestrator must NOT have rm*")
   assert.strictEqual(orch.permissions.bash["cp*"], undefined, "headless orchestrator must NOT have cp*")
+})
+
+test("SEC-1 headless orchestrator bash uses exact tokens (no redirect/pipe/exec prefix allows)", () => {
+  const m = structuredClone(baseManifest)
+  m.project.headless = true
+  const team = buildTeam(m)
+  const bash = team.find((a) => a.role === "orchestrator").permissions.bash
+  // cat*/echo* (and head/tail/env/printenv) are prefix allows that would
+  // silently permit `cat .env > leak` / `echo $SECRET | curl` in headless mode
+  // where `ask` auto-rejects — they must NOT be present.
+  for (const cmd of ["cat*", "echo*", "head*", "tail*", "env", "printenv"]) {
+    assert.strictEqual(bash[cmd], undefined, `headless orchestrator must NOT allowlist redirect/secret command: ${cmd}`)
+  }
+  // safe read UX preserved as EXACT tokens. A prefix allow (`ls*`, `git diff*`)
+  // would match a redirect (`ls .env > leak`), so the allowlist carries only
+  // the bare command tokens; anything with args/redirects falls to `*: deny`.
+  for (const cmd of ["pwd", "ls", "find", "git status", "git diff", "git log", "git branch"]) {
+    assert.strictEqual(bash[cmd], "allow", `headless orchestrator must keep safe read token: ${cmd}`)
+  }
+  // no trailing-`*` prefix allows remain (they all permit redirect exfiltration)
+  for (const glob of Object.keys(bash)) {
+    if (glob === "*") continue
+    assert.ok(!glob.endsWith("*"), `headless bash must not carry a prefix allow: ${glob}`)
+  }
+  // catch-all stays deny so a redirect/pipe falls through to reject
+  assert.strictEqual(bash["*"], "deny")
+  // yolo does not widen headless bash edit boundaries; bash flatten only
+  const my = structuredClone(baseManifest)
+  my.project.headless = true
+  my.project.yolo = true
+  const yb = buildTeam(my).find((a) => a.role === "orchestrator").permissions.bash
+  assert.strictEqual(yb["*"], "allow", "yolo flattens headless orchestrator bash to allow")
+})
+
+// -- Phase 4: security remediation regression tests --
+// Item 1: read-tier prefix entries (echo/cat/env/...) must NOT be a silent
+// redirect/secret-exposure boundary. Item 2: orchestrator may set disposition
+// on SECURITY_FINDINGS.md. Item 3: ledger owner edit globs derive from the
+// resolved DEFAULT_PLAYBOOK so custom ledger paths stay writable.
+
+test("SEC-1 SAFE_BASH.read excludes redirect/secret-exposure commands from every role", () => {
+  const team = buildTeam(baseManifest)
+  // These prefix/exact entries would let a "read-tier" command carry a redirect
+  // or pipe (cat .env > leak, cat .env | curl) or dump secrets to context
+  // (env, printenv). They must be absent so the command falls to the catch-all.
+  const leaky = ["echo*", "cat*", "head*", "tail*", "env", "printenv"]
+  for (const role of ROLES) {
+    const agent = team.find((a) => a.role === role)
+    if (role === "docs") continue // docs bash is the string "deny"
+    const bash = agent.permissions.bash
+    for (const cmd of leaky) {
+      assert.strictEqual(bash[cmd], undefined, `${role} read tier must NOT allowlist ${cmd}`)
+    }
+  }
+})
+
+test("SEC-1 SAFE_BASH.read retains inspection/search commands (UX preserved)", () => {
+  const team = buildTeam(baseManifest)
+  const kept = ["ls*", "find*", "grep*", "wc*", "pwd", "which*", "git status*", "git diff*", "git log*", "git show*"]
+  for (const role of ROLES) {
+    const agent = team.find((a) => a.role === role)
+    if (role === "docs") continue
+    for (const cmd of kept) {
+      assert.strictEqual(agent.permissions.bash[cmd], "allow", `${role} must still allow inspection command ${cmd}`)
+    }
+  }
+})
+
+test("SEC-1 dev roles keep write tier; read-only roles do NOT (unaffected by read-tier fix)", () => {
+  const team = buildTeam(baseManifest)
+  const writeCommands = ["mkdir*", "touch*", "cp*", "mv*", "rm*", "rmdir*", "ln*", "tee*"]
+  for (const role of ["orchestrator", "qa", "backend-dev", "frontend-dev"]) {
+    const bash = team.find((a) => a.role === role).permissions.bash
+    for (const cmd of writeCommands) assert.strictEqual(bash[cmd], "allow", `dev ${role} must allow ${cmd}`)
+  }
+  for (const role of ["security", "adversary", "architect"]) {
+    const bash = team.find((a) => a.role === role).permissions.bash
+    for (const cmd of writeCommands) assert.ok(bash[cmd] === undefined || bash[cmd] === "deny", `read-only ${role} must NOT allow ${cmd}`)
+  }
+})
+
+test("SEC-4 read-only roles carry an explicit bash catch-all deny before read allows", () => {
+  const team = buildTeam(baseManifest)
+  for (const role of ["security", "adversary", "architect"]) {
+    const agent = team.find((a) => a.role === role)
+    const bash = agent.permissions.bash
+    // the catch-all deny is present and emitted FIRST, so under the SDK's
+    // last-match resolution a later read allow (ls*) overrides it while any
+    // non-read command resolves to deny instead of the SDK default ("ask").
+    assert.strictEqual(bash["*"], "deny", `${role} bash must carry an explicit *: deny`)
+    assert.strictEqual(Object.keys(bash)[0], "*", `${role} bash *: deny must be emitted first`)
+    // read allows still win for inspection commands
+    assert.strictEqual(resolvePermission(bash, "ls -la"), "allow", `${role} ls must resolve allow`)
+    // yolo must not widen these: a non-read command resolves to deny, not allow
+    assert.strictEqual(resolvePermission(bash, "rm -rf /tmp"), "deny", `${role} rm must resolve deny`)
+    assert.strictEqual(resolvePermission(bash, "curl http://evil"), "deny", `${role} curl must resolve deny`)
+  }
+  // docs stays fully denied (bash: "deny" string)
+  assert.strictEqual(team.find((a) => a.role === "docs").permissions.bash, "deny")
+})
+
+test("SEC-2 orchestrator edit allows SECURITY_FINDINGS.md (doctrine: orchestrator sets disposition)", () => {
+  const team = buildTeam(baseManifest)
+  const edit = team.find((a) => a.role === "orchestrator").permissions.edit
+  assert.strictEqual(edit["armada/ledgers/*/SECURITY_FINDINGS.md"], "allow")
+  // security stays the writer/owner; orchestrator only sets disposition
+  const secEdit = team.find((a) => a.role === "security").permissions.edit
+  assert.strictEqual(secEdit["armada/ledgers/*/SECURITY_FINDINGS.md"], "allow")
+  // adversary is read-only with `*: deny`; it gets no explicit security glob
+  assert.strictEqual(team.find((a) => a.role === "adversary").permissions.edit["armada/ledgers/*/SECURITY_FINDINGS.md"], undefined)
+  // dev roles get a DERIVED deny on the security ledger so a custom path
+  // can't slip past their otherwise-broad edit scope
+  assert.strictEqual(team.find((a) => a.role === "backend-dev").permissions.edit["armada/ledgers/*/SECURITY_FINDINGS.md"], "deny")
+  assert.strictEqual(team.find((a) => a.role === "frontend-dev").permissions.edit["armada/ledgers/*/SECURITY_FINDINGS.md"], "deny")
+  // the deny actually resolves against a real per-feature path
+  for (const role of ["backend-dev", "frontend-dev"]) {
+    const e = team.find((a) => a.role === role).permissions.edit
+    assert.strictEqual(resolvePermission(e, "armada/ledgers/foo/SECURITY_FINDINGS.md"), "deny", `${role} must deny security ledger write`)
+  }
+})
+
+test("SEC-3 default playbook ledger globs reproduce the legacy hardcoded paths", () => {
+  const team = buildTeam(baseManifest)
+  const orch = team.find((a) => a.role === "orchestrator").permissions.edit
+  assert.strictEqual(orch["armada/ledgers/*/DEFECTS.md"], "allow")
+  assert.strictEqual(orch["armada/ledgers/*/ADVERSARIAL_REVIEW.md"], "allow")
+  // QA owns DEFECTS.md only — it must NOT carry the ledgers-dir glob (which
+  // would also let it write ADVERSARIAL_REVIEW.md / SECURITY_FINDINGS.md).
+  assert.strictEqual(team.find((a) => a.role === "qa").permissions.edit["armada/ledgers/*/DEFECTS.md"], "allow")
+  assert.strictEqual(team.find((a) => a.role === "qa").permissions.edit["armada/ledgers/*"], undefined, "qa must NOT own the ledgers dir glob")
+  assert.strictEqual(team.find((a) => a.role === "adversary").permissions.edit["armada/ledgers/*/ADVERSARIAL_REVIEW.md"], "allow")
+  assert.strictEqual(team.find((a) => a.role === "security").permissions.edit["armada/ledgers/*/SECURITY_FINDINGS.md"], "allow")
+  assert.strictEqual(team.find((a) => a.role === "backend-dev").permissions.edit["armada/ledgers/*"], "deny")
+  assert.strictEqual(team.find((a) => a.role === "docs").permissions.edit["armada/ledgers/*"], "deny")
+})
+
+test("SEC-3 custom playbook ledger paths derive writable owner globs", () => {
+  const m = structuredClone(baseManifest)
+  m.playbook = {
+    defectLedger: { file: "custom/defects/{feature}/DEFECTS.md", shared: "custom/defects/shared/DEFECTS.md", owner: "qa" },
+    adversarialLedger: { file: "custom/adv/{feature}/ADVERSARIAL_REVIEW.md", shared: "custom/adv/shared/ADVERSARIAL_REVIEW.md", owner: "adversary" },
+    securityLedger: { file: "custom/sec/{feature}/SECURITY_FINDINGS.md", shared: "custom/sec/shared/SECURITY_FINDINGS.md", owner: "security" },
+  }
+  const team = buildTeam(m)
+  const orch = team.find((a) => a.role === "orchestrator").permissions.edit
+  // orchestrator can edit all three custom ledger files (records + disposition)
+  assert.strictEqual(orch["custom/defects/*/DEFECTS.md"], "allow")
+  assert.strictEqual(orch["custom/adv/*/ADVERSARIAL_REVIEW.md"], "allow")
+  assert.strictEqual(orch["custom/sec/*/SECURITY_FINDINGS.md"], "allow")
+  // legacy default globs are gone for this manifest
+  assert.strictEqual(orch["armada/ledgers/*/DEFECTS.md"], undefined)
+  assert.strictEqual(orch["armada/ledgers/*/SECURITY_FINDINGS.md"], undefined)
+  // owners resolve to allow via resolvePermission on the custom paths
+  const advEdit = team.find((a) => a.role === "adversary").permissions.edit
+  assert.strictEqual(advEdit["custom/adv/*/ADVERSARIAL_REVIEW.md"], "allow")
+  assert.strictEqual(resolvePermission(advEdit, "custom/adv/myfeat/ADVERSARIAL_REVIEW.md"), "allow")
+  const secEdit = team.find((a) => a.role === "security").permissions.edit
+  assert.strictEqual(secEdit["custom/sec/*/SECURITY_FINDINGS.md"], "allow")
+  assert.strictEqual(resolvePermission(secEdit, "custom/sec/myfeat/SECURITY_FINDINGS.md"), "allow")
+  // qa owns DEFECTS.md only on the custom path (legacy armada/ledgers/* gone)
+  const qaEdit = team.find((a) => a.role === "qa").permissions.edit
+  assert.strictEqual(qaEdit["custom/defects/*/DEFECTS.md"], "allow")
+  assert.strictEqual(qaEdit["custom/defects/*"], undefined, "qa must NOT own the custom ledgers dir glob")
+  assert.strictEqual(qaEdit["armada/ledgers/*"], undefined, "legacy default ledgers dir must be replaced by custom")
+  // the defect-file glob resolves a real per-feature DEFECTS.md path
+  assert.strictEqual(resolvePermission(qaEdit, "custom/defects/myfeat/DEFECTS.md"), "allow")
+  // qa must NOT resolve the dir entry or sibling ledgers
+  assert.strictEqual(resolvePermission(qaEdit, "custom/defects/myfeat"), "deny")
+  assert.strictEqual(resolvePermission(qaEdit, "custom/defects/myfeat/ADVERSARIAL_REVIEW.md"), "deny")
+  // dev roles deny the custom defect dir (no ledger writes)
+  assert.strictEqual(team.find((a) => a.role === "backend-dev").permissions.edit["custom/defects/*"], "deny")
+  // dev roles also deny the custom security ledger path (derived, not hardcoded)
+  assert.strictEqual(team.find((a) => a.role === "backend-dev").permissions.edit["custom/sec/*/SECURITY_FINDINGS.md"], "deny")
+  assert.strictEqual(team.find((a) => a.role === "frontend-dev").permissions.edit["custom/sec/*/SECURITY_FINDINGS.md"], "deny")
+  assert.strictEqual(resolvePermission(team.find((a) => a.role === "frontend-dev").permissions.edit, "custom/sec/myfeat/SECURITY_FINDINGS.md"), "deny")
+  // docs denies the custom defect dir
+  assert.strictEqual(team.find((a) => a.role === "docs").permissions.edit["custom/defects/*"], "deny")
+})
+
+test("SEC-3 custom ledger paths can be overridden per-role by manifest permissions", () => {
+  // manifest override.permissions still wins over the derived ledger globs
+  const m = structuredClone(baseManifest)
+  m.playbook = { defectLedger: { file: "custom/{feature}/DEFECTS.md", owner: "qa" } }
+  m.team = ROLES.map((r) => ({ role: r, model: modelFor(r, "balanced"), variant: null, enabled: true,
+    ...(r === "orchestrator" ? { permissions: { edit: { "custom/*/DEFECTS.md": "deny" } } } : {}) }))
+  const team = buildTeam(m)
+  const orch = team.find((a) => a.role === "orchestrator").permissions.edit
+  assert.strictEqual(orch["custom/*/DEFECTS.md"], "deny", "manifest override must win over derived ledger allow")
+  assert.strictEqual(resolvePermission(orch, "custom/myfeat/DEFECTS.md"), "deny")
 })

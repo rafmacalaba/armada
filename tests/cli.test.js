@@ -116,6 +116,10 @@ test("init --yolo emits autonomous config (bash allow, keep boundaries)", async 
   const cfg = JSON.parse(readFileSync(join(dir, "opencode.json"), "utf8"))
   assert.strictEqual(cfg.permission["*"], "allow", "config catch-all allow")
   assert.strictEqual(cfg.permission.external_directory, "deny", "external dir stays denied")
+  // SEC-3: under the SDK's last-match resolution `*: allow` matches the
+  // "external_directory" permission name too, so external_directory: deny MUST
+  // be emitted AFTER `*` or yolo would open external dirs. Assert key order.
+  assert.deepStrictEqual(Object.keys(cfg.permission), ["*", "external_directory"], "external_directory must be the last permission key (last-match)")
   const orch = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
   assert.match(orch, /\bbash:\n\s+"\*": allow/, "orchestrator bash allowed in yolo")
   assert.match(orch, /edit:\n\s+"\*": deny/, "orchestrator edit still denies (delegates)")
@@ -272,9 +276,12 @@ test("init --headless sets manifest flag + scoped orchestrator bash allow", asyn
   const fm = orch.slice(orch.indexOf("---") + 3, orch.indexOf("---\n", 3))
   const cfg = parseFrontmatter(fm)
   assert.strictEqual(cfg.permission.bash["*"], "deny")
-  assert.strictEqual(cfg.permission.bash["git status*"], "allow")
-  assert.strictEqual(cfg.permission.bash["git diff*"], "allow")
-  assert.strictEqual(cfg.permission.bash["git log*"], "allow")
+  // headless allowlist is EXACT (token-safe): prefix allows like `git status*`
+  // would silently permit `git status . > leak`, so the bare token is allowed.
+  assert.strictEqual(cfg.permission.bash["git status"], "allow")
+  assert.strictEqual(cfg.permission.bash["git diff"], "allow")
+  assert.strictEqual(cfg.permission.bash["git log"], "allow")
+  assert.strictEqual(cfg.permission.bash["git status*"], undefined, "no prefix allow (redirect exfiltration)")
 })
 
 test("init --requirements writes a per-feature contract file", async () => {

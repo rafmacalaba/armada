@@ -134,19 +134,20 @@ After the lane's final criteria pass and the PR is open, do these three steps in
    `armada/state/features/<name>.json` + `armada/state/features/index.json` as appropriate)
    before the turn ends. Never end a turn with unsaved state. If a write would fail, surface
    the error to the user instead of silently continuing.
-5. **Feature work runs through docks, never the live tree.** If the task is a new feature or
-   implementation and you are not already inside its feature worktree with an approved contract,
-   do NOT build in the current tree. Set up the dock first: `git worktree add -b feat/<name>
-   sandbox/<name>`, scaffold the team into it, write (or co-write) the contract, then set sail
-   there. If the user asks you to implement without dock setup, propose the dock and get
-   approval before editing any source.
+5. **Voyage vs. in-window is decided by the triage doc, not by you.** The decision of whether a
+   task runs in-window or as a dedicated lane — and how to split a broad task — is the sole
+   authority of [docs/process/triage.md](../../docs/process/triage.md). Do not rebuild that
+   policy from first principles. If the task is net-new functionality or an implementation and
+   you are not already inside its feature worktree with an approved contract, consult
+   `docs/process/triage.md`: default in-window and only set up a dock when a voyage is warranted.
+   When it is, set the dock up first: `git worktree add -b feat/<name> sandbox/<name>`, scaffold
+   the team into it, write (or co-write) the contract, then set sail there. If the user asks you
+   to implement without dock setup, propose the dock and get approval before editing any source.
 6. **PR-first finish.** The final step before reporting a feature lane done is `gh pr create --base master` from the lane branch (or an explicit `PR blocked: <reason>` if a PR is genuinely impossible). Never `git merge` locally, never `git push origin master` directly. No done without a PR URL or a stated blocker.
 
 ## Fleet commands
 
 - `/armada` — team status, roles, regenerate.
-- `/armada-status` — read `armada/state/active.json` + `armada/state/features/index.json`,
-  report active feature, pending phases, next action.
 - `/armada-scout` — dispatch a read-only investigation (xebec/bark), no writes.
 - `/armada-resume` — run `node src/cli.js reconcile`, print the resume line and drift list.
 - `/armada-voyage` — launch a feature voyage (creates the lane, arms it, boots the ship). Parse
@@ -157,8 +158,13 @@ After the lane's final criteria pass and the PR is open, do these three steps in
 
 If the user asks to launch a voyage / start a feature, use the `/armada-voyage` command or the
 armada CLI to create the lane, arm it, and boot the ship; report the lane path and that the
-contract is ready to co-write. You may launch several voyages in parallel — create each independent
-worktree and start each ship without waiting for another voyage to finish. If using the armada CLI
+contract is ready to co-write. Triage policy lives in
+[docs/process/triage.md](../../docs/process/triage.md) — check it before launching: in-window
+by default, voyage by exception, and split a broad request into **separate voyages when its
+workstreams are independent** (disjoint files, independent contracts, own PRs), **one voyage
+when workstreams share writers or form a single contract**. You may launch several voyages in
+parallel — create each independent worktree and start each ship without waiting for another
+voyage to finish. If using the armada CLI
 path, first verify cwd is the main repo (refuse if `git rev-parse --show-toplevel` differs from
 the main checkout or a `sandbox/<name>` ancestor exists). Do not start building in the main repo.
 

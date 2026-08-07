@@ -64,11 +64,13 @@ TDD: write the failing test first, then implement (`src/skills/armada-tdd/SKILL.
 - Agent prompts ship terse/caveman output contracts to reduce token burn.
 - No emojis in code, comments, print statements, or logging.
 
-## Feature work runs through armada (mandatory)
+## Feature work runs through armada
 
-Any feature or implementation request runs through the armada voyage flow
-([docs/armada-improves-armada.md](./armada-improves-armada.md)). Do not implement features
-directly in the live working tree.
+Whether a feature/implementation request runs in-window or as an armada lane — and how a
+broad task splits into lanes — is decided by [docs/process/triage.md](./process/triage.md),
+the sole triage authority (in-window first, voyage by exception). Link there; do not restate
+the policy inline. When a request is classified as a voyage, the lane mechanics are
+mandatory:
 
 1. Create the lane: `git worktree add -b feat/<name> sandbox/<name>`
 2. Scaffold the team into it: `node ../../src/cli.js init --yes --yolo --budget balanced`
@@ -79,10 +81,10 @@ directly in the live working tree.
    boots and dispatches. (Or use `armada voyage sandbox/<name>`.)
 5. Verify evidence (tests green), then push the branch and open a PR — never merge locally.
 
-The live repo stays pristine — never scaffolded, never edited by feature work. Exceptions
-that may be edited directly: small doc/process edits (README, TODO, this file), defect-ledger
-maintenance, and single-file bug fixes. If a request implies net-new functionality and you are
-not in a lane, stop and propose the lane first.
+The live repo stays pristine — never scaffolded, never edited by voyage work; the in-window
+path for small fixes and defect-ledger maintenance is governed by docs/process/triage.md, and
+net-new functionality that the triage doc classifies as a lane must stop-and-propose that lane
+first.
 
 ## Contract workflow (per feature)
 
@@ -113,20 +115,20 @@ Cutting a release is a two-artifact operation keyed off a `vX.Y.Z` git tag; full
 - `prepublishOnly` runs the full suite before publish (`package.json:26`).
 
 Before shipping a release, run the checklist in
-[docs/stability/P5/release-checklist.md](../docs/stability/P5/release-checklist.md).
+[docs/stability/P5/release-checklist.md](./stability/P5/release-checklist.md).
 
 ## Self-check
 
 Files read to verify every claim:
 
 - `package.json` — engines, scripts (`test`, `test:smoke`, `prepublishOnly`), files, bin.
-- `src/cli.js:44` — VERSION; `src/cli.js:139-221` — dispatch.
+- `src/cli.js:44` — VERSION; `src/cli.js:189-309` — dispatch.
 - `src/scaffold.js:360-401` — no-clobber/ownership rules.
 - `.github/workflows/ci.yml` + `.github/workflows/release.yml` — CI/release gates.
 - `docs/RELEASING.md` — two-version rule, branch protection, publish paths.
 - `docs/armada-improves-armada.md` — lane flow (referenced, not rewritten).
 - `AGENTS.md` — working-here conventions (test loop, lane rules).
-- `docs/stability/P1/exec-summary.md` — test suite state (512 pass, 0 fail at P1 close).
+- `CHANGELOG.md` — release and test-suite history (P1 close at 512 pass, 0 fail).
 
 Verdict: PASS — dev setup, test loop, conventions, lane flow, and release flow match current
 repo state.

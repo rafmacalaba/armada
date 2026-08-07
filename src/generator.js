@@ -28,11 +28,20 @@ export function deepMerge(base, override) {
 // permission prompt. Read commands apply to every role; write commands apply
 // to dev roles (orchestrator, qa, backend-dev, frontend-dev).
 // Path safety delegated to opencode.json permission.external_directory: "deny".
+//
+// This allowlist is NOT a security boundary against redirect/secret exposure.
+// opencode matches bash permission globs against the full command string, so a
+// prefix entry like `cat*` would silently allow `cat .env > leak.txt` or
+// `cat .env | curl`, and `env`/`printenv` dump every secret to the agent
+// context. Content-emitting/dumping commands (echo, cat, head, tail, env,
+// printenv) are therefore deliberately excluded from the read tier; they fall
+// through to the role's catch-all (`*` = ask) so a redirect/pipe/chain prompts
+// instead of executing silently. Inspection/search commands (ls, find, grep,
+// wc, git read, ...) remain allowlisted.
 export const SAFE_BASH = Object.freeze({
   read: Object.freeze({
-    "ls*": "allow", "cat*": "allow", "head*": "allow", "tail*": "allow",
-    "find*": "allow", "grep*": "allow", "wc*": "allow", "pwd": "allow",
-    "echo*": "allow", "which*": "allow", "env": "allow", "printenv": "allow",
+    "ls*": "allow", "find*": "allow", "grep*": "allow", "wc*": "allow",
+    "pwd": "allow", "which*": "allow",
     "true": "allow", "false": "allow", "test*": "allow",
     "git status*": "allow", "git diff*": "allow", "git log*": "allow",
     "git branch*": "allow", "git rev-parse*": "allow", "git show*": "allow",
@@ -71,17 +80,12 @@ const BASE_PERMISSIONS = {
       "armada/*": "deny",
       "armada/state/active.json": "allow",
       "armada/state/features/*": "allow",
-      "armada/ledgers/*/DEFECTS.md": "allow",
-      "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "allow",
     },
     bash: { "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow" },
     skill: "allow",
   },
   "backend-dev": {
     edit: {
-      "armada/ledgers/*/DEFECTS.md": "deny",
-      "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "deny",
-      "armada/ledgers/*": "deny",
       "armada/e2e/*": "deny",
       "armada/screenshots/*": "deny",
       "armada/state/*": "deny",
@@ -97,9 +101,6 @@ const BASE_PERMISSIONS = {
   },
   "frontend-dev": {
     edit: {
-      "armada/ledgers/*/DEFECTS.md": "deny",
-      "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "deny",
-      "armada/ledgers/*": "deny",
       "armada/e2e/*": "deny",
       "armada/screenshots/*": "deny",
       "armada/state/*": "deny",
@@ -117,7 +118,6 @@ const BASE_PERMISSIONS = {
     edit: {
       "*": "deny",
       "armada/e2e/*": "allow",
-      "armada/ledgers/*": "allow",
       "armada/screenshots/*": "allow",
     },
     bash: { "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow" },
@@ -126,20 +126,18 @@ const BASE_PERMISSIONS = {
   adversary: {
     edit: {
       "*": "deny",
-      "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "allow",
       "armada/screenshots/*": "allow",
     },
   },
   security: {
     edit: {
       "*": "deny",
-      "armada/ledgers/*/SECURITY_FINDINGS.md": "allow",
       "armada/screenshots/*": "allow",
     },
     webfetch: "allow",
   },
   docs: {
-    edit: { "*": "allow", ".opencode/*": "deny", "armada/ledgers/*": "deny", "armada/e2e/*": "deny" },
+    edit: { "*": "allow", ".opencode/*": "deny", "armada/e2e/*": "deny" },
     bash: "deny",
   },
   architect: {
@@ -166,39 +164,120 @@ function routingPrompt(role) {
   return `@${role}\n- Role: ${reasoning}.\n- **Delegate when:** ${reasoning} work, related tasks, and defects.\n- **Don't delegate when:** work outside this scope.`
 }
 
+// Resolve a playbook ledger kind's file path into a permission glob by
+// substituting {feature} with * (matches any feature segment). Falls back to
+// DEFAULT_PLAYBOOK when the manifest omits the kind, so the default
+// armada/ledgers/{feature}/... paths still work unchanged.
+function ledgerFileGlob(pb, kind) {
+  const def = DEFAULT_PLAYBOOK[kind + "Ledger"]
+  const entry = pb[kind + "Ledger"] || def
+  const file = (entry && entry.file) || def.file
+  return file.replace(/\{feature\}/g, "*")
+}
+
+// Derive the per-feature ledgers-directory glob from the defect ledger file
+// path (the canonical ledgers location): the prefix up to {feature}, with
+// {feature} -> *. e.g. armada/ledgers/{feature}/DEFECTS.md -> armada/ledgers/*.
+// Used for qa's broad ledgers allow and the docs/backend/frontend deny.
+function ledgerDirGlob(pb) {
+  const file = (pb.defectLedger && pb.defectLedger.file) || DEFAULT_PLAYBOOK.defectLedger.file
+  const idx = file.indexOf("{feature}")
+  if (idx === -1) return file.replace(/\/[^/]*$/, "/*") || "/*"
+  return file.slice(0, idx).replace(/\/$/, "") + "/*"
+}
+
+// Derive each role's ledger edit globs from the resolved DEFAULT_PLAYBOOK so
+// custom ledger paths (playbook.defectLedger.file etc.) stay writable by
+// their owners. The default playbook reproduces the legacy hardcoded globs
+// exactly (armada/ledgers/*/DEFECTS.md etc.). The orchestrator also gets the
+// security ledger allow: renderAgentsMd doctrine says "Orchestrator sets
+// Disposition" for SECURITY_FINDINGS.md, so the permission must match. Dev
+// roles get an explicit deny on every ledger kind including SECURITY so a
+// custom path can't slip past their otherwise-broad edit scope; the security
+// owner (security role) and orchestrator keep their allow. Yolo only
+// flattens bash, never edit, so these boundaries hold in autonomous mode.
+//
+// QA owns DEFECTS.md only (create/close/reopen + orchestrator status notes);
+// it must NOT be able to write ADVERSARIAL_REVIEW.md or SECURITY_FINDINGS.md,
+// so QA gets the per-feature defect-file glob, never the ledgers-directory
+// glob. e2e/ and screenshots/ allows come from BASE_PERMISSIONS.qa.
+function ledgerPermissions(pb) {
+  const defect = ledgerFileGlob(pb, "defect")
+  const adversarial = ledgerFileGlob(pb, "adversarial")
+  const security = ledgerFileGlob(pb, "security")
+  const dir = ledgerDirGlob(pb)
+  return {
+    orchestrator: { edit: { [defect]: "allow", [adversarial]: "allow", [security]: "allow" } },
+    "backend-dev": { edit: { [defect]: "deny", [adversarial]: "deny", [security]: "deny", [dir]: "deny" } },
+    "frontend-dev": { edit: { [defect]: "deny", [adversarial]: "deny", [security]: "deny", [dir]: "deny" } },
+    qa: { edit: { [defect]: "allow" } },
+    adversary: { edit: { [adversarial]: "allow" } },
+    security: { edit: { [security]: "allow" } },
+    docs: { edit: { [dir]: "deny" } },
+    architect: { edit: {} },
+  }
+}
+
 export function buildTeam(manifest) {
   const { budget, browserTesting } = manifest.project ?? {}
   const headless = manifest.project?.headless ?? false
   const yolo = manifest.project?.yolo ?? false
   const teamByRole = Object.fromEntries((manifest.team || []).map((t) => [t.role, t]))
+  const pb = { ...DEFAULT_PLAYBOOK, ...(manifest.playbook || {}) }
+  const ledgerPerms = ledgerPermissions(pb)
   return ROLES.map((role) => {
     const override = teamByRole[role]
     const enabled = override ? override.enabled !== false : false
     const roleTier = ROLE_BASH_TIER[role] || "read"
+    // Read-only roles (security/adversary/architect) get an explicit bash
+    // catch-all deny BEFORE the safe read allows. Under the installed SDK's
+    // last-match resolution a later read allow (ls*) overrides the earlier
+    // `*` deny, while any command that does NOT match a read allow falls back
+    // to `*` deny instead of the SDK default ("ask"). This means yolo's
+    // project-level `*: allow` cannot grant arbitrary bash to a read-only
+    // role: a non-read command resolves to the agent's own `*` deny. The deny
+    // is emitted first so the read allows (appended after) keep winning for
+    // inspection commands.
     const safeBashPerms = { bash: structuredClone(SAFE_BASH.read) }
     if (roleTier === "read+write") Object.assign(safeBashPerms.bash, structuredClone(SAFE_BASH.write))
+    if (roleTier === "read") safeBashPerms.bash = { "*": "deny", ...structuredClone(SAFE_BASH.read) }
     const permissions = deepMerge(
-      deepMerge(safeBashPerms, structuredClone(BASE_PERMISSIONS[role] || {})),
+      deepMerge(
+        safeBashPerms,
+        deepMerge(structuredClone(BASE_PERMISSIONS[role] || {}), structuredClone(ledgerPerms[role] || {})),
+      ),
       override?.permissions
     )
     if (headless && role === "orchestrator") {
       // Non-interactive runs (opencode run / CI) auto-reject `ask` permissions,
       // which stalls the orchestrator's git-status/diff/log + inspection calls.
-      // Headless mode scopes orchestrator bash to git and read-only commands
-      // so it can plan, delegate and reconcile without a human approving.
+      // Headless mode scopes orchestrator bash to safe EXACT commands so it can
+      // plan, delegate and reconcile without a human approving. opencode matches
+      // bash permission globs against the full command string and `*` expands to
+      // `.*` (matches across `/`, `>`, `|`, `;` ...), so a PREFIX allow like
+      // `git status*` would silently permit `git status . > leak.txt`,
+      // `git diff | curl`, or `ls .env > out`. To eliminate redirect/pipe/exec
+      // exfiltration the allowlist uses EXACT command tokens (no trailing `*`):
+      // a bare `git status` / `ls` / `git diff` matches, but any argument OR a
+      // redirect/pipe/chain does NOT — it falls through to `*: deny` (here,
+      // auto-reject) instead of executing silently. Safe read UX is kept via
+      // the bare forms; file content is read through the read tool, not shell
+      // cat. Content emitters/dumpbers (cat, echo, head, tail, env, printenv)
+      // stay absent for the same redirect/secret reason.
       permissions.bash = {
         "*": "deny",
-        "git status*": "allow",
-        "git diff*": "allow",
-        "git log*": "allow",
-        "git branch*": "allow",
-        "git rev-parse*": "allow",
-        "cat*": "allow",
-        "ls*": "allow",
-        "read*": "allow",
-        "find*": "allow",
         "pwd": "allow",
-        "echo*": "allow",
+        "true": "allow",
+        "false": "allow",
+        "uname": "allow",
+        "date": "allow",
+        "whoami": "allow",
+        "ls": "allow",
+        "find": "allow",
+        "git status": "allow",
+        "git diff": "allow",
+        "git log": "allow",
+        "git branch": "allow",
       }
     }
     if (yolo && ["orchestrator", "qa"].includes(role)) {
@@ -260,13 +339,15 @@ export function renderOpenCodeJson(manifest, team) {
     }
   }
   const yolo = manifest.project?.yolo ?? false
-  const permission = { external_directory: "deny" }
-  if (yolo) {
-    // Autonomous mode: auto-approve everything not explicitly denied. Agent-level
-    // edit boundaries (orchestrator denies code writes, security/architect are
-    // read-only) still hold — the SDK checks the most specific rule first.
-    permission["*"] = "allow"
-  }
+  // Permission key order is load-bearing under the installed SDK's last-match
+  // resolution: a `*: allow` rule matches EVERY permission name (including
+  // "external_directory"), so if `*` followed `external_directory` it would
+  // override the deny and yolo would open external directories. Emitting
+  // `*` first and `external_directory` LAST makes the deny the final matching
+  // rule, so yolo's catch-all allow never defeats the external-directory deny.
+  const permission = yolo
+    ? { "*": "allow", external_directory: "deny" }
+    : { external_directory: "deny" }
   return {
     model: modelFor("orchestrator", manifest.project?.budget ?? "balanced"),
     permission,
@@ -289,8 +370,9 @@ export function renderOpenCodeJson(manifest, team) {
  * Rules:
  * - Non-owned keys (e.g. $schema, theme, mcp, agent, share, keybinds,
  *   plugin) survive byte-for-byte.
- * - permission: always sets external_directory: "deny". When yolo,
- *   sets ["*"]: "allow". When yolo is off, a pre-existing user ["*"] is
+ * - permission: always sets external_directory: "deny" as the LAST key so it
+ *   wins under the SDK's last-match resolution. When yolo, sets ["*"]:
+ *   "allow" before it. When yolo is off, a pre-existing user ["*"] is
  *   left alone — armada never removes user permission entries.
  * - provider: armada owns only openrouter.models. Other provider entries
  *   (anthropic, groq, etc.) survive untouched.
@@ -318,15 +400,19 @@ export function mergeOpenCodeJson(existing, manifest, team) {
   // default_agent — direct overwrite
   result.default_agent = defaults.default_agent
 
-  // permission — merge: start from user values, overlay armada entries
-  const existingPerm =
+  // permission — merge: start from user values (minus the armada-owned
+  // external_directory), overlay armada entries. external_directory is
+  // re-inserted LAST so it stays the final matching rule under the SDK's
+  // last-match resolution and yolo's `*: allow` cannot defeat it.
+  const { external_directory: _omit, ...userPerm } =
     existing.permission && typeof existing.permission === "object" && !Array.isArray(existing.permission)
-      ? { ...existing.permission }
+      ? existing.permission
       : {}
-  existingPerm.external_directory = defaults.permission.external_directory
+  const existingPerm = { ...userPerm }
   if (defaults.permission["*"] !== undefined) {
     existingPerm["*"] = defaults.permission["*"]
   }
+  existingPerm.external_directory = defaults.permission.external_directory
   result.permission = existingPerm
 
   // provider — merge: armada owns only openrouter.models
@@ -623,6 +709,13 @@ name from the request (kebab-case, no spaces). Refuse if cwd is already inside a
 (\`git rev-parse --show-toplevel\` differs from the main checkout, or a \`sandbox/<name>\`
 ancestor exists) — tell the user to run the command from the main repo.
 
+Triage is decided by docs/process/triage.md (sole authority): in-window first, voyage by
+exception — a voyage is never automatic; it is a deliberate, proportionate choice
+confirmable by the user. Before launching, confirm a voyage is warranted. If the request is
+a broad task, split it into **separate voyages when its workstreams are independent**
+(disjoint files, independent contracts, own PRs), **one voyage when workstreams share
+writers or form a single contract** — then run this command per lane.
+
 Resolve the armada binary: prefer \`armada\` on PATH; if missing and \`src/cli.js\` exists in
 the current checkout, fall back to \`node src/cli.js\`. If neither, report the missing binary
 and stop.
@@ -639,7 +732,7 @@ All paths are relative to the main repo. The steps can be run in any order or in
 bash invocations — there is no \`cd\` mid-sequence.
 
 The user may ask for several voyages in parallel — repeat the steps per name, then
-\`/armada-fleet\` to see them all. Do not modify the main repo. Do not merge anything
+\`armada fleet\` to see them all. Do not modify the main repo. Do not merge anything
 locally — final delivery is \`gh pr create --base master\` from the lane branch. Keep it
 terse.
 `

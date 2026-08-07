@@ -4,6 +4,32 @@ All notable changes to armada are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **feat(triage): canonical voyage-vs-in-window + voyage-splitting doctrine** (`docs/process/triage.md`, new). In-window first, voyage by exception; risk-classified single-file fixes (no blanket in-window over trust boundaries); three-part independence test for splitting a broad request into separate voyages; loop-free decision tree. Every triage statement in `AGENTS.md`, the orchestrator prompt, `.opencode/commands/`, and docs now cites the canon — no restated policy.
+- **feat(audit): holistic six-surface consistency audit** (`docs/process/consistency-audit.md`, new). Source instructions, generated artifacts vs manifest, docs, command docs, permissions, tests — 21 findings (F01-F21), zero "not checked" rows, all dispositioned. Restored 5 formerly-missing docs + `docs/stability/` (14+ dead refs re-pointed).
+- **feat(regression): `tests/regression-triage.test.js`** — automated guards for triage canon, doc-link integrity, artifact consistency (yaml ↔ rendered `opencode.json` ↔ agent frontmatter ↔ `BASE_PERMISSIONS` ↔ `DEFAULT_PLAYBOOK`), PR-first/no-clobber/round-trip invariants, stale-term and phantom slash-command greps.
+- **feat(permissions): hardened ledger + state boundaries in `buildTeam()`** — ledger edit globs derived from `DEFAULT_PLAYBOOK` (custom ledger paths stay writable by their owners); dev roles explicitly deny every ledger kind + the ledgers dir; orchestrator's `armada/state/active.json` reads reconciled (no phantom `fleet-status.md`); `default_agent` semantic equality (`commodore` → orchestrator); phantom `/armada-status`/`/armada-fleet` refs removed.
+
+### Changed
+
+- Orchestrator prompt hard rule 5 + "Voyage launch" defer to `docs/process/triage.md` as the sole triage authority and carry the split-broad-task rule.
+- `AGENTS.md`, `CONTRIBUTING.md`, `docs/contributor-guide.md` link the triage canon instead of restating policy.
+- CLI entry one-liner in `AGENTS.md` drops removed `ping`; README command table aligned to the 14 active commands + `--version`.
+
+### Fixed
+
+- Four contract-named docs missing (restored), `docs/stability/` directory missing (restored), `docs/self-improvement.md` missing (restored) — repo-wide dead-link grep now returns zero.
+- Stale `src/cli.js` file:line refs in operator-guide/contributor-guide; undocumented `resume`/`reconcile` exit 2; stale README/operator-guide command counts; TODO `/armada-status` claim.
+
+### Security
+
+- Docs-align safe-bash overlay: the `SAFE_BASH` **read tier excludes content-emitters/write dumps** (`cat`, `echo`, `head`, `tail`, `env`, `printenv` had been listed as safe-read in prose) so shell-redirect/pipe exfiltration (`cat .env > leak` / `cat .env | curl`) prompts rather than executing.
+- Permission docs corrected to the real resolution model: bash/rule lookup is **order / last-match**, not most-specific-first — `SAFE_BASH` merges first in `buildTeam()` so the agent's appended rules override on top.
+- `--yolo` grants `bash: "*" allow` to **orchestrator + qa only**; read-only roles (security, adversary, architect, docs) stay bash-restricted under yolo. `--headless` is **scoped**: it narrows only the orchestrator's bash to git + read-only inspection, never a blanket allow. `external_directory: "deny"` remains in both modes.
+
 ## [1.0.4] - 2026-08-07
 
 ### Added
