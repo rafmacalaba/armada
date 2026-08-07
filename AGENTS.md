@@ -73,9 +73,15 @@ Module map + data flow in [ARCHITECTURE.md](./ARCHITECTURE.md). One-liners:
   must be shared it serializes writers on a reused subagent session and says so.
 - **Autonomous mode:** `armada init --yolo` (or `armada.yaml` `project.yolo: true`) emits
   `permission: { "*": "allow" }` in `opencode.json` + `bash: allow` for orchestrator/qa — no
-  permission prompts. Role `edit` boundaries are kept (SDK resolves the most specific rule
-  first), so the orchestrator still delegates writes and security/architect stay read-only.
-- Opt-in supervision: `armada init --supervision-plugin` (or `armada.yaml`
+  permission prompts for any command. Role `edit` boundaries are kept (SDK resolves the most
+  specific rule first), so the orchestrator still delegates writes and security/architect stay
+  read-only.
+- **Safe-bash defaults (always on).** Tiered `SAFE_BASH` allowlist merged first in `buildTeam()`:
+  read-only commands (`ls`, `cat`, `grep`, `git status`, ...) allowed for every role; write
+  commands (`mkdir`, `cp`, `rm`, ...) only for dev roles (orchestrator, qa, backend, frontend).
+  Path safety is `opencode.json`'s `external_directory: "deny"` — safe-bash only governs WHICH
+  commands run, not WHERE. Yolo still flattens to `*`.
+- Opt-in input `armada init --supervision-plugin` (or `armada.yaml`
   `supervision.plugin: true`) emits one `.opencode/plugins/armada-supervision.js` file
   (session.created resume nudge, session.idle no-blind-stop, tool.execute.before shell-redirect
   guard). Default init stays plugin-free. Also `--fleet-tracker` for `armada-fleet.js`, and
