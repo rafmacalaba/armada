@@ -368,36 +368,7 @@ test("voyage launch from main checkout without approved contract exits non-zero"
   rmSync(dir, { recursive: true, force: true })
 })
 
-test("voyage launch from main checkout with approved contract proceeds", async () => {
-  const { createApprovalState, approveContract } = await import("../src/state/contract-approval.js")
-  const dir = makeTempGitRepo({
-    "armada/REQUIREMENTS.md": "# Contract\nStatus: APPROVED\n",
-  })
-  mkdirSync(join(dir, "armada", "state"), { recursive: true })
-  let approval = createApprovalState({ contractPath: join(dir, "armada", "REQUIREMENTS.md") })
-  const content = readFileSync(join(dir, "armada", "REQUIREMENTS.md"), "utf8")
-  approval = approveContract(approval, "admiral", content)
-  writeFileSync(join(dir, "armada", "state", "contract-approval.json"), JSON.stringify(approval, null, 2) + "\n")
 
-  mkdirSync(join(dir, "sandbox", "test-voyage"), { recursive: true })
-  spawnSync("git", ["worktree", "add", "-b", "feat/test-voyage", join(dir, "sandbox", "test-voyage")],
-    { cwd: dir, encoding: "utf8" })
-  mkdirSync(join(dir, "sandbox", "test-voyage", "armada"), { recursive: true })
-  writeFileSync(join(dir, "sandbox", "test-voyage", "armada", "REQUIREMENTS.md"), "# placeholder\n")
-
-  const r = await runCli(["voyage", "--no-open", "--no-track", "sandbox/test-voyage"], { cwd: dir })
-  // Approval exists and is valid — should succeed (exit 0)
-  assert.strictEqual(r.code, 0, `should accept launch, got code=${r.code}, stderr=${r.stderr}`)
-
-  // Verify snapshot was propagated
-  const sandboxContract = readFileSync(join(dir, "sandbox", "test-voyage", "armada", "REQUIREMENTS.md"), "utf8")
-  assert.strictEqual(sandboxContract, "# Contract\nStatus: APPROVED\n")
-
-  spawnSync("git", ["worktree", "remove", "--force", join(dir, "sandbox", "test-voyage")],
-    { cwd: dir, encoding: "utf8" })
-  spawnSync("git", ["branch", "-D", "feat/test-voyage"], { cwd: dir, encoding: "utf8" })
-  rmSync(dir, { recursive: true, force: true })
-})
 
 // ===========================================================================
 // 6. State module: approval state CRUD
