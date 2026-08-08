@@ -147,6 +147,16 @@ Reverts the v1.0.6 permission hardening (#134) back to the v1.0.3 baseline. User
 
 [1.0.7]: https://github.com/rafmacalaba/armada/releases/tag/v1.0.7
 
+## v1.1.0
+
+Release date: 2026-08-08
+
+- **feat(new): auto git init + clear non-git errors** (#139). `armada new` runs `git init` + initial commit unless `--no-git`; warns and continues if git missing/init fails. `resolveMainCheckout`, `resolveMainRepo`, `createWorktreeFeature` throw a single human error with `git init` / `armada new` remediation in non-git dirs.
+- **chore(ci): drop armada-evidence; bump to Node 24; engines >=22** (#140). Deletes `armada-evidence.yml`; `ci.yml` + `release.yml` on Node 24, `actions/checkout` v5.1.0, `actions/setup-node` v5.0.0. `engines.node` `>=20` → `>=22`; README badge, starter `node_version` default propagated.
+- **test(lean): drop drive tests, kill invasive terminals, parallelize** (#141). Deletes `tests/drive.test.js` (deprecated) + 7 drive blocks in `tests/cli.test.js`. Simplifies terminal fakes to wezterm + tmux only. Adds HOME override on no-terminal-path tests to bypass iTerm detection on macOS. Adds `tests/no-invasive-terminals.test.js` regression guard. `ci.yml` uses `--test-concurrency=4`.
+- **feat: consolidate voyage as single entry point** (#142). `armada voyage <name>` now does everything (was: `feature new` + `voyage <path>`). Adds `voyage list` and `voyage close`. Deprecates `feature new/list/close/status` (one-version, removed in 2.0). Hidden `--from-path` flag for back-compat.
+- **chore: drop reconcile, drop feature status, consolidate models help** (#143). Removes `armada reconcile` (was alias for `resume`). Removes `armada feature status` outright. Clarifies `armada models` help text.
+
 ## [1.0.8] - 2026-08-08
 
 ### Fixed
