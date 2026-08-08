@@ -11,7 +11,7 @@
 //   armada voyage <name>        create worktree + boot lane + send voyage prompt
 //   armada voyage list           list features
 //   armada voyage close <name>   evidence-gated close
-//   armada feature new|list|close|status  deprecated; use voyage equivalents (removed in v2.0)
+//   armada feature new|list|close  deprecated; use voyage equivalents (removed in v2.0)
 //   armada models [--refresh]   curated model catalog
 //   armada help                 this help
 //   armada uninstall [--all]    remove armada-generated artifacts
@@ -105,7 +105,7 @@ Deprecated (one-version aliases removed in v2.0):
   armada drive <lane-path>                   alias for voyage; prints deprecation hint, calls voyage
   armada update                              deprecated; use 'armada init --from-armada --restart'
   armada preset <name>                       deprecated; use 'armada init --budget <name>'
-  armada feature new/list/close/status       deprecated; use 'armada voyage' equivalents
+  armada feature new/list/close               deprecated; use 'armada voyage' equivalents
 
 Removed:
   armada scout                               removed; use '/armada-scout' inside the opencode TUI
@@ -1296,23 +1296,9 @@ async function featureCmd(args) {
       console.error("armada feature close: deprecated; use 'armada voyage close <name>' (removed in v2.0)")
       return voyageCloseCmd(args.filter((a) => a !== "close"))
     }
-    case "status": {
-      const name = rest[0]
-      console.error("armada feature status: removed in v2.0; use 'armada status --feature <name>'")
-      // Call status --feature <name> if a name was given
-      const statusArgs = name ? ["--feature", name] : []
-      const { code, output } = statusMain(statusArgs, { cwd: resolve(target) })
-      if (code === 0) {
-        process.stdout.write(output)
-      } else {
-        process.stderr.write(output)
-      }
-      process.exitCode = 1  // force non-zero: deprecation alias
-      return 1
-    }
     default:
       console.error(`Unknown feature subcommand: ${sub}`)
-      console.error("Usage: armada feature new|list|close|status [name]")
+      console.error("Usage: armada feature new|list|close <name>")
       process.exitCode = 1
       return 1
   }
