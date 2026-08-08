@@ -906,6 +906,37 @@ async function driveCmd(args, cmdName = "drive") {
   // live repo is reachable via `cd ../..`. process.cwd() when lanePath === ".".
   const cwd = lanePath === "." ? process.cwd() : absLane
 
+  // ---- contract approval gate (Phase 1) ----
+  // Resolve the main checkout from the lane path. If the main checkout has
+  // an approval state file, enforce the gate. Repos without approval state
+  // continue to work as before (opt-in gating).
+  const { resolveMainCheckout, isApprovalStatePresent, refuseIfNotApproved } = await import("./voyage/contract-gate.js")
+  const mainCheckout = resolveMainCheckout(absLane)
+  if (isApprovalStatePresent(mainCheckout)) {
+    try {
+      refuseIfNotApproved(mainCheckout)
+    } catch (err) {
+      console.error(`contract approval: ${err.message}`)
+      process.exitCode = 1
+      return 1
+    }
+
+    // Snapshot the approved contract into the sandbox
+    try {
+      const { snapshotContract } = await import("./voyage/contract-snapshot.js")
+      const snapResult = await snapshotContract(mainCheckout, absLane)
+      if (!snapResult.ok) {
+        console.error(`contract snapshot: ${snapResult.reason}`)
+        process.exitCode = 1
+        return 1
+      }
+    } catch (snapErr) {
+      console.error(`contract snapshot failed: ${snapErr.message}`)
+      process.exitCode = 1
+      return 1
+    }
+  }
+
   try {
     const result = await bootLane({
       name: sessionName,

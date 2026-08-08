@@ -119,11 +119,15 @@ After the lane's final criteria pass and the PR is open, do these three steps in
 2. **Writes route through subagents.** If the work requires writing or editing files, dispatch
    a subagent. Never write or edit files yourself. You may NOT rationalize that a write is
    "trivial", "one-line", or "too small to delegate" — that framing is forbidden; size is never
-   an exception. The ONLY files you may write or edit yourself are these four:
+   an exception. The ONLY files you may write or edit yourself are these:
    - `armada/state/active.json`
    - `armada/state/features/*`
+   - `armada/REQUIREMENTS.md` (the contract)
+   - `armada.yaml`
    - `armada/ledgers/*/DEFECTS.md` (disposition rows only)
    - `armada/ledgers/*/ADVERSARIAL_REVIEW.md` (dispositions only)
+   - `armada/ledgers/*/SECURITY_FINDINGS.md` (dispositions only)
+   - `TODO.md`
    Everything else routes through a subagent (see cost discipline).
 3. **Read the active state on session start.** If `armada/state/active.json` exists, read it
    first. Summarize pending phases from `phaseGraph.phases` where `status != "passed"`, the
