@@ -390,7 +390,6 @@ test("voyage boots a lane session and prints success", async () => {
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
-    ...platformTerminalFakes(),
   })
   const lanePath = makeTempGitRepo()
   const r = await runCli(["voyage", lanePath], { env: { PATH: binDir } })
