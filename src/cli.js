@@ -795,6 +795,73 @@ async function getAutoOpenSuffix(name) {
   }
 }
 
+async function voyageListCmd(args) {
+  const targetIdx = args.indexOf("--target")
+  const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--")
+    ? args[targetIdx + 1]
+    : "."
+  try {
+    const features = listFeatures(resolve(target))
+    if (features.length === 0) {
+      console.log("No features registered.")
+      return 0
+    }
+    features.sort((a, b) => a.name.localeCompare(b.name))
+
+    const nameWidth = Math.max(8, ...features.map((f) => f.name.length))
+    const statusWidth = Math.max(6, ...features.map((f) => f.status.length))
+    const contractWidth = Math.max(8, ...features.map((f) => f.contract.length))
+    const worktreeWidth = Math.max(8, ...features.map((f) => (f.worktree || "-").length))
+    const branchWidth = Math.max(6, ...features.map((f) => (f.branch || "-").length))
+
+    const padName = "NAME".padEnd(nameWidth)
+    const padStatus = "STATUS".padEnd(statusWidth)
+    const padContract = "CONTRACT".padEnd(contractWidth)
+    const padWorktree = "WORKTREE".padEnd(worktreeWidth)
+    const padBranch = "BRANCH".padEnd(branchWidth)
+    console.log(`${padName}  ${padStatus}  ${padContract}  ${padWorktree}  ${padBranch}`)
+    console.log(`${"-".repeat(nameWidth)}  ${"-".repeat(statusWidth)}  ${"-".repeat(contractWidth)}  ${"-".repeat(worktreeWidth)}  ${"-".repeat(branchWidth)}`)
+    for (const f of features) {
+      const wt = f.worktree || "-"
+      const br = f.branch || "-"
+      console.log(`${f.name.padEnd(nameWidth)}  ${f.status.padEnd(statusWidth)}  ${f.contract.padEnd(contractWidth)}  ${wt.padEnd(worktreeWidth)}  ${br.padEnd(branchWidth)}`)
+    }
+  } catch (err) {
+    logError(err)
+    process.exitCode = 1
+    return 1
+  }
+  return 0
+}
+
+async function voyageCloseCmd(args) {
+  const targetIdx = args.indexOf("--target")
+  const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--")
+    ? args[targetIdx + 1]
+    : "."
+  // Find the name (first non-flag that isn't the --target value)
+  const name = args.find((a, i) => !a.startsWith("--") && a !== target && i !== targetIdx + 1)
+  if (!name) {
+    console.error("voyage close: name is required")
+    process.exitCode = 1
+    return 1
+  }
+  const removeWorktree = args.includes("--remove")
+  try {
+    const result = closeFeature(resolve(target), name, { removeWorktree })
+    console.log(`shipped: "${name}"`)
+    if (result.removedWorktree) {
+      console.log(`  worktree removed: sandbox/${name}`)
+    }
+    console.log(`  shippedAt: ${result.entry.shippedAt}`)
+  } catch (err) {
+    logError(err)
+    process.exitCode = 1
+    return 1
+  }
+  return 0
+}
+
 async function driveCmd(args, cmdName = "drive") {
   // Intercept --help / -h / help before any arg parsing.
   // Deprecation hint is printed by the top-level dispatch (main switch),
@@ -826,6 +893,16 @@ async function driveCmd(args, cmdName = "drive") {
       console.log(result.command)
     }
     return 0
+  }
+
+  // Subcommand: armada voyage list
+  if (args[0] === "list") {
+    return voyageListCmd(args.slice(1))
+  }
+
+  // Subcommand: armada voyage close <name>
+  if (args[0] === "close") {
+    return voyageCloseCmd(args.slice(1))
   }
 
   // ---- resolve voyage name ----
