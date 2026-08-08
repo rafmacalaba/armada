@@ -11,7 +11,7 @@
       "id": "web-app",
       "name": "Web application",
       "description": "TypeScript + Vite + React frontend.",
-      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "node_version": "20" },
+      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "node_version": "22" },
       "dir": "starter/web-app"
     },
     {
@@ -32,14 +32,14 @@
       "id": "api-service",
       "name": "API service",
       "description": "TypeScript + Express backend API.",
-      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "node_version": "20" },
+      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "node_version": "22" },
       "dir": "starter/api-service"
     },
     {
       "id": "cli-tool",
       "name": "CLI tool",
       "description": "TypeScript + commander command-line tool.",
-      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "node_version": "20" },
+      "defaultVars": { "project_name": "", "author_name": "", "author_email": "", "description": "", "node_version": "22" },
       "dir": "starter/cli-tool"
     }
   ]

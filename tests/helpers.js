@@ -45,7 +45,17 @@ export function makeBin(files = {}) {
 
 export function runCli(args, opts = {}) {
   return new Promise((resolve) => {
-    const env = { ...process.env, ...(opts.env || {}) }
+    const env = { ...process.env }
+    if (opts.env) {
+      for (const [k, v] of Object.entries(opts.env)) {
+        if (k === "PATH" && typeof v === "string") {
+          // Prepend to system PATH so git (and other system tools) remain available
+          env[k] = `${v}:${process.env.PATH || ""}`
+        } else {
+          env[k] = v
+        }
+      }
+    }
     execFile(process.execPath, [CLI, ...args], { cwd: opts.cwd || process.cwd(), env },
       (err, stdout, stderr) => resolve({ code: err?.code ?? 0, stdout, stderr }))
   })

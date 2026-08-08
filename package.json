@@ -47,7 +47,7 @@
     "prepublishOnly": "node --test 'tests/*.test.js'"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "keywords": [
     "opencode",
