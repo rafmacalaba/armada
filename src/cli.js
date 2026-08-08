@@ -94,8 +94,8 @@ Usage:
   armada release <version> [--dry-run]       automated PR-first release (step 1)
   armada release --continue [--dry-run]      tag + GitHub release after PR merge (step 2)
   armada models [budget]                     show curated model catalog
-  armada models --refresh                    merge live provider models
-  armada models --list-openrouter            live OpenRouter model list
+  armada models --refresh                    merge live provider models into cache
+  armada models --list-openrouter            list all live OpenRouter models
   armada help                                this help
   armada uninstall [--all] [--force] [--dry-run] [--target <dir>]  remove armada-generated artifacts
   armada resume [--json] [--state-dir <p>] [--repo <p>]
