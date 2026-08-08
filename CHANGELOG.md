@@ -46,6 +46,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- CI: drop armada-evidence workflow; require Node >= 22 (was >= 20).
+
 ### Added
 
 - **feat(triage): canonical voyage-vs-in-window + voyage-splitting doctrine** (`docs/process/triage.md`, new). In-window first, voyage by exception; risk-classified single-file fixes (no blanket in-window over trust boundaries); three-part independence test for splitting a broad request into separate voyages; loop-free decision tree. Every triage statement in `AGENTS.md`, the orchestrator prompt, `.opencode/commands/`, and docs now cites the canon — no restated policy.
