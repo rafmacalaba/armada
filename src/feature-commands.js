@@ -43,7 +43,12 @@ export function validateName(name) {
  */
 export function resolveMainRepo(repoDir) {
   const r = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: repoDir, encoding: "utf8" })
-  if (r.status !== 0) return repoDir
+  if (r.status !== 0) {
+    console.error("armada feature: current directory is not inside a git repository.")
+    console.error("Run `git init` to initialize one, or `armada new <name>` to create a new project.")
+    process.exitCode = 1
+    throw new Error("not a git repository")
+  }
   const commonDir = r.stdout.trim()
   // commonDir ends in "/.git" — main repo is its parent
   if (commonDir.endsWith("/.git")) return commonDir.slice(0, -5)
@@ -309,7 +314,10 @@ export async function createWorktreeFeature(repoDir, name, options = {}) {
   // Verify we're inside a git working tree
   const revParse = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: repoDir, encoding: "utf8" })
   if (revParse.status !== 0 || revParse.stdout.trim() !== "true") {
-    throw new Error("not inside a git working tree (armada worktree features require a git repo)")
+    console.error("armada feature: current directory is not inside a git working tree.")
+    console.error("Run `git init` to initialize one, or `armada new <name>` to create a new project.")
+    process.exitCode = 1
+    throw new Error("not inside a git working tree")
   }
 
   const branch = `feat/${name}`

@@ -449,6 +449,22 @@ export async function runNew(opts = {}) {
   manifest.targetDir = targetDir
   const { written: files } = scaffold(manifest, stack)
 
+  // Auto git init + initial commit unless --no-git
+  if (!opts.noGit) {
+    const gitCheck = spawnSync("git", ["--version"], { encoding: "utf8", stdio: "pipe" })
+    if (gitCheck.status !== 0) {
+      console.error("warning: git not found on PATH — project created without git initialization")
+    } else {
+      const initResult = spawnSync("git", ["init"], { cwd: targetDir, encoding: "utf8", stdio: "pipe" })
+      if (initResult.status !== 0) {
+        console.error(`warning: git init failed: ${initResult.stderr?.trim() || "unknown error"}`)
+      } else {
+        spawnSync("git", ["add", "-A"], { cwd: targetDir, encoding: "utf8", stdio: "pipe" })
+        spawnSync("git", ["commit", "-m", "initial commit"], { cwd: targetDir, encoding: "utf8", stdio: "pipe" })
+      }
+    }
+  }
+
   console.log(`\nCreated ${name}/`)
   if (discovered.length > 0) {
     console.log(`Template variables (${discovered.length}): ${discovered.join(", ")}`)
@@ -457,6 +473,11 @@ export async function runNew(opts = {}) {
   if (files.length > 12) console.log(`  ... and ${files.length - 12} more armada files`)
   console.log("\nNext:")
   console.log(`  cd ${name}`)
+
+  // Show the right next commands based on whether git was initialized
+  if (opts.noGit) {
+    console.log("  git init && git add -A && git commit -m 'initial commit'")
+  }
   console.log("  opencode")
   console.log("  armada status")
 
