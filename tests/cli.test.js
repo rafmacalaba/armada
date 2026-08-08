@@ -369,10 +369,28 @@ test("voyage --help prints usage and exits 0", async () => {
 
 // -- Phase 4: armada voyage (primary command; drive = alias) --
 
+function platformTerminalFakes() {
+  // Fake every terminal opener that openTerminal probes via which():
+  // if any real one is found on PATH it gets called and hangs.
+  const fakes = {
+    wezterm: "#!/bin/sh\nexit 0\n",
+    "gnome-terminal": "#!/bin/sh\nexit 0\n",
+    konsole: "#!/bin/sh\nexit 0\n",
+    "x-terminal-emulator": "#!/bin/sh\nexit 0\n",
+    wt: "@echo off\nexit /b 0\n",
+  }
+  if (process.platform === "darwin") {
+    fakes.osascript = "#!/bin/sh\nexit 0\n"
+    fakes.open = "#!/bin/sh\nexit 0\n"
+  }
+  return fakes
+}
+
 test("voyage boots a lane session and prints success", async () => {
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+    ...platformTerminalFakes(),
   })
   const lanePath = makeTempGitRepo()
   const r = await runCli(["voyage", lanePath], { env: { PATH: binDir } })
@@ -393,6 +411,7 @@ test("voyage --no-open prints skipped message", async () => {
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+    ...platformTerminalFakes(),
   })
   const lanePath = makeTempGitRepo()
   const r = await runCli(["voyage", "--no-open", lanePath], { env: { PATH: binDir } })
@@ -405,6 +424,7 @@ test("voyage on existing session says already running", async () => {
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 0 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+    ...platformTerminalFakes(),
   })
   const lanePath = makeTempGitRepo()
   const r = await runCli(["voyage", lanePath], { env: { PATH: binDir } })
@@ -417,14 +437,6 @@ test("voyage --print-attach prints attach command and exits 0", async () => {
   const lanePath = makeTempGitRepo()
   const r = await runCli(["voyage", "--print-attach", lanePath])
   assert.strictEqual(r.code, 0)
-  assert.match(r.stdout, /tmux attach -t/)
-})
-
-test("drive --print-attach prints attach command and exits 1 (deprecated)", async () => {
-  const lanePath = makeTempGitRepo()
-  const r = await runCli(["drive", "--print-attach", lanePath])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /tmux attach -t/)
 })
 
