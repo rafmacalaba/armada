@@ -1322,98 +1322,20 @@ async function featureCmd(args) {
         process.exitCode = 1
         return 1
       }
-      const useWorktree = rest.includes("--worktree")
-      const force = rest.includes("--force")
-      try {
-        if (useWorktree) {
-          const paths = await createWorktreeFeature(resolve(target), name, { force })
-          console.log(`feature "${name}" created (worktree)`)
-          console.log(`  worktree: ${paths.worktreePath}`)
-          console.log(`  branch:   ${paths.branch}`)
-          console.log(`  contract: ${paths.contractPath}`)
-          console.log(`  entry:    ${paths.entryPath}`)
-          console.log(`  index:    ${paths.indexPath}`)
-          console.log(`  active:   ${paths.activePath}`)
-        } else {
-          const paths = createFeature(resolve(target), name, { force })
-          console.log(`feature "${name}" created`)
-          console.log(`  contract: ${paths.contractPath}`)
-          console.log(`  entry:    ${paths.entryPath}`)
-          console.log(`  index:    ${paths.indexPath}`)
-          console.log(`  active:   ${paths.activePath}`)
-        }
-      } catch (err) {
-        logError(err)
-        process.exitCode = 1
-        return 1
-      }
-      return 0
+      console.error("armada feature new: deprecated; use 'armada voyage <name>' (removed in v2.0)")
+      return driveCmd([name], "voyage")
     }
     case "list": {
-      try {
-        const features = listFeatures(resolve(target))
-        if (features.length === 0) {
-          console.log("No features registered.")
-          return 0
-        }
-        // Sort by name for deterministic output
-        features.sort((a, b) => a.name.localeCompare(b.name))
-
-        // Print aligned table — 5 columns: NAME STATUS CONTRACT WORKTREE BRANCH
-        const nameWidth = Math.max(8, ...features.map((f) => f.name.length))
-        const statusWidth = Math.max(6, ...features.map((f) => f.status.length))
-        const contractWidth = Math.max(8, ...features.map((f) => f.contract.length))
-        const worktreeWidth = Math.max(8, ...features.map((f) => (f.worktree || "-").length))
-        const branchWidth = Math.max(6, ...features.map((f) => (f.branch || "-").length))
-
-        const padName = "NAME".padEnd(nameWidth)
-        const padStatus = "STATUS".padEnd(statusWidth)
-        const padContract = "CONTRACT".padEnd(contractWidth)
-        const padWorktree = "WORKTREE".padEnd(worktreeWidth)
-        const padBranch = "BRANCH".padEnd(branchWidth)
-        console.log(`${padName}  ${padStatus}  ${padContract}  ${padWorktree}  ${padBranch}`)
-        console.log(`${"-".repeat(nameWidth)}  ${"-".repeat(statusWidth)}  ${"-".repeat(contractWidth)}  ${"-".repeat(worktreeWidth)}  ${"-".repeat(branchWidth)}`)
-        for (const f of features) {
-          const wt = f.worktree || "-"
-          const br = f.branch || "-"
-          console.log(`${f.name.padEnd(nameWidth)}  ${f.status.padEnd(statusWidth)}  ${f.contract.padEnd(contractWidth)}  ${wt.padEnd(worktreeWidth)}  ${br.padEnd(branchWidth)}`)
-        }
-      } catch (err) {
-        logError(err)
-        process.exitCode = 1
-        return 1
-      }
-      return 0
+      console.error("armada feature list: deprecated; use 'armada voyage list' (removed in v2.0)")
+      return voyageListCmd(args.filter((a) => a !== "list"))
     }
     case "close": {
-      const name = rest.find((a) => !a.startsWith("--"))
-      if (!name) {
-        console.error("feature close: name is required")
-        process.exitCode = 1
-        return 1
-      }
-      const removeWorktree = rest.includes("--remove")
-      try {
-        const result = closeFeature(resolve(target), name, { removeWorktree })
-        console.log(`shipped: "${name}"`)
-        if (result.removedWorktree) {
-          console.log(`  worktree removed: sandbox/${name}`)
-        }
-        console.log(`  shippedAt: ${result.entry.shippedAt}`)
-      } catch (err) {
-        logError(err)
-        process.exitCode = 1
-        return 1
-      }
-      return 0
+      console.error("armada feature close: deprecated; use 'armada voyage close <name>' (removed in v2.0)")
+      return voyageCloseCmd(args.filter((a) => a !== "close"))
     }
     case "status": {
       const name = rest[0]
-      if (name) {
-        console.error(`armada feature status: deprecated; use 'armada status --feature ${name}'`)
-      } else {
-        console.error("armada feature status: deprecated; use 'armada status --feature <name>'")
-      }
+      console.error("armada feature status: removed in v2.0; use 'armada status --feature <name>'")
       // Call status --feature <name> if a name was given
       const statusArgs = name ? ["--feature", name] : []
       const { code, output } = statusMain(statusArgs, { cwd: resolve(target) })
