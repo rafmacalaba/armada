@@ -17,4 +17,4 @@ jobs:
         with:
           node-version: 24
       - run: npm ci
-      - run: npm test
+      - run: node --test --test-concurrency=4 tests/*.test.js

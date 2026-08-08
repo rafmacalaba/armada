@@ -40,7 +40,7 @@
   "scripts": {
     "start": "node src/cli.js",
     "dev": "node src/cli.js",
-    "test": "node --test 'tests/*.test.js'",
+    "test": "node --test --test-concurrency=4 tests/*.test.js",
     "test:smoke": "node --test 'tests/smoke/*.test.js'",
     "test:node": "node --test 'tests/*.test.js'",
     "test:packed": "node tests/run-packed-test.js",

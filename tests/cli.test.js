@@ -7,7 +7,7 @@ import { execSync } from "node:child_process"
 import { ROLES, modelFor } from "../src/model-catalog.js"
 import { buildTeam, renderManifestYaml } from "../src/generator.js"
 import { GITIGNORE_START } from "../src/scaffold.js"
-import { runCli, makeTempRepo, makeTempGitRepo, makeBin, parseFrontmatter } from "./helpers.js"
+import { runCli, spawnCli, makeTempRepo, makeTempGitRepo, makeBin, parseFrontmatter } from "./helpers.js"
 import { main } from "../src/cli.js"
 
 const EXPECTED_VERSION = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")).version
@@ -307,12 +307,14 @@ test("doctor exits 1 via script mode when a check fails", async () => {
 })
 
 test("drive boots a lane session and prints success, exits 1 (deprecated)", async () => {
+  const homeDir = mkdtempSync(join(tmpdir(), "armada-no-term-home-"))
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
   const lanePath = makeTempGitRepo()
-  const r = await runCli(["drive", lanePath], { env: { PATH: binDir } })
+  const r = await spawnCli(["drive", lanePath], { env: { PATH: `${binDir}:/bin`, HOME: homeDir } })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /session/)
@@ -367,8 +369,9 @@ case "$1" in
 esac
 `,
   })
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
   const lanePath = makeTempGitRepo()
-  const r = await runCli(["drive", lanePath], { env: { PATH: binDir, HOME: home } })
+  const r = await spawnCli(["drive", lanePath], { env: { PATH: `${binDir}:/bin`, HOME: home } })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /modal detected, dismissing with Escape/)
@@ -403,8 +406,9 @@ test("drive --timeout=abc falls back to default 30000", async () => {
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
   const lanePath = makeTempGitRepo()
-  const r = await runCli(["drive", "--timeout=abc", lanePath], { env: { PATH: binDir } })
+  const r = await spawnCli(["drive", "--timeout=abc", lanePath], { env: { PATH: `${binDir}:/bin` } })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
 })
@@ -422,8 +426,9 @@ test("drive on existing session says already running", async () => {
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 0 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
   const lanePath = makeTempGitRepo()
-  const r = await runCli(["drive", lanePath], { env: { PATH: binDir } })
+  const r = await spawnCli(["drive", lanePath], { env: { PATH: `${binDir}:/bin` } })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /already running|reattach/)
@@ -439,13 +444,15 @@ test("drive --prompt starting with -- exits 1", async () => {
 
 // Phase 2: auto-open enabled, no terminal available -> fallback hint
 test("drive auto-open falls back with hint when no terminal available", async () => {
+  const homeDir = mkdtempSync(join(tmpdir(), "armada-no-term-home-"))
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
   const lanePath = makeTempGitRepo()
-  const r = await runCli(["drive", lanePath], {
-    env: { PATH: binDir, DISPLAY: "" },
+  const r = await spawnCli(["drive", lanePath], {
+    env: { PATH: `${binDir}:/bin`, HOME: homeDir },
   })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
@@ -454,30 +461,16 @@ test("drive auto-open falls back with hint when no terminal available", async ()
   assert.doesNotMatch(r.stdout, /tmux attach -t/)
   assert.doesNotMatch(r.stdout, /attach manually/)
 })
-// Phase 2: auto-open with fake terminal succeeds (platform-adaptive)
+// Phase 2: auto-open with wezterm succeeds
 test("drive auto-open succeeds when terminal is available", async () => {
-  const plat = process.platform
-  // macOS: fake osascript + open; Linux: fake wezterm with DISPLAY; Windows: fake wt
-  const fakeBin = {}
-  const envExtra = {}
-  if (plat === "darwin") {
-    fakeBin.osascript = "#!/bin/sh\nexit 0\n"
-    fakeBin.open = "#!/bin/sh\nexit 0\n"
-  } else if (plat === "win32") {
-    fakeBin.wt = "@echo off\nexit /b 0\n"
-    envExtra.DISPLAY = ":0"
-  } else {
-    // Linux
-    fakeBin.wezterm = "#!/bin/sh\nexit 0\n"
-    envExtra.DISPLAY = ":0"
-  }
-  fakeBin.opencode = "#!/bin/sh\nexit 0\n"
-  fakeBin.tmux = "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n"
-
-  const binDir = makeBin(fakeBin)
+  const binDir = makeBin({
+    wezterm: "#!/bin/sh\nexit 0\n",
+    opencode: "#!/bin/sh\nexit 0\n",
+    tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
+  })
   const lanePath = makeTempGitRepo()
   const r = await runCli(["drive", lanePath], {
-    env: { PATH: binDir, ...envExtra, TERM_PROGRAM: "", VSCODE_IPC_HOOK_CLI: "" },
+    env: { PATH: binDir, TERM_PROGRAM: "WezTerm" },
   })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
@@ -550,12 +543,14 @@ test("voyage --help prints usage and exits 0", async () => {
 // -- Phase 4: armada voyage (primary command; drive = alias) --
 
 test("voyage boots a lane session and prints success", async () => {
+  const homeDir = mkdtempSync(join(tmpdir(), "armada-no-term-home-"))
   const binDir = makeBin({
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
   const lanePath = makeTempGitRepo()
-  const r = await runCli(["voyage", lanePath], { env: { PATH: binDir } })
+  const r = await spawnCli(["voyage", lanePath], { env: { PATH: `${binDir}:/bin`, HOME: homeDir } })
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /session/)
   assert.match(r.stdout, /auto-attach skipped/)
@@ -586,8 +581,9 @@ test("voyage on existing session says already running", async () => {
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 0 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
   const lanePath = makeTempGitRepo()
-  const r = await runCli(["voyage", lanePath], { env: { PATH: binDir } })
+  const r = await spawnCli(["voyage", lanePath], { env: { PATH: `${binDir}:/bin` } })
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /already running|reattach/)
   assert.doesNotMatch(r.stdout, /prompt registered/)
