@@ -106,34 +106,6 @@ test("armada resume with paused P3 state continues from in-flight action", async
   rmSync(dir, { recursive: true, force: true })
 })
 
-// ---- reconcile with P3 state -----------------------------------------------
-
-test("armada reconcile with P3 state file reports it in output", async () => {
-  const dir = makeTempGitRepo({})
-  const name = "test-reconcile-state"
-  writeVoyageState(dir, name, {
-    status: "in_progress",
-    completedActions: ["phase-0"],
-    inFlightAction: "phase-1",
-  })
-
-  const r = await runCli(["reconcile", "--repo", dir], { cwd: dir })
-  // Reconcile should recognize P3 state and mention it
-  assert.ok(r.stdout.includes("resume:"),
-    "reconcile output should mention P3 state")
-  assert.ok(r.code === 0 || r.code === 2, "exit code should be 0 or 2")
-  rmSync(dir, { recursive: true, force: true })
-})
-
-test("armada reconcile with no P3 state file does not mention voyage state", async () => {
-  const dir = makeTempGitRepo({})
-  // No state — plain reconcile
-  const r = await runCli(["reconcile", "--repo", dir], { cwd: dir })
-  // Should not mention voyage-specific state language
-  assert.strictEqual(r.code, 0)
-  rmSync(dir, { recursive: true, force: true })
-})
-
 // ---- feature new --worktree creates P3 state -------------------------------
 
 test("armada feature new --worktree produces a P3 state file", async () => {

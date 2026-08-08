@@ -284,7 +284,6 @@ See [Why armada?](./docs/WHY.md) for the full rationale and evidence.
 | `armada feature <new\|list\|close>` | Deprecated; use `armada voyage` equivalents (removed in v2.0) |
 | `armada models [budget]` | Show curated model catalog |
 | `armada resume` | Resume after an interrupted session |
-| `armada reconcile` | Alias for `armada resume` (check evidence drifts) |
 | `armada uninstall` | Remove armada-generated artifacts |
 | `armada help` | Show usage and version |
 
