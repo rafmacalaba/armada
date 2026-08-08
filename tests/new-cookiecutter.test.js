@@ -26,7 +26,6 @@ test("runNew --template <local-path> copies, substitutes, and excludes .git", as
     config: join(tmp, "vars.json"),
     yes: true,
     cwd: tmp,
-    noGit: true,
   })
 
   assert.strictEqual(code, 0)
