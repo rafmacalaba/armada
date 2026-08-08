@@ -136,3 +136,38 @@ Reverts the v1.0.6 permission hardening (#134) back to the v1.0.3 baseline. User
 - `src/generator.js` permission block reverted to v1.0.3 byte-for-byte.
 - `package.json` version bumped to `1.0.7`.
 
+[1.0.7]: https://github.com/rafmacalaba/armada/releases/tag/v1.0.7
+
+## [1.0.8] - 2026-08-08
+
+### Fixed
+
+Restores 6 path-specific edit allows on the orchestrator that v1.0.7 removed by
+reversion. v1.0.7 inherited the v1.0.3 `BASE_PERMISSIONS.orchestrator.edit`
+block, which denied all writes under `armada/*` and left the orchestrator
+unable to satisfy its own hard rules (read state, write state, co-write
+contract, append TODO) or call any of the v1.0.6 state modules preserved
+(`src/state/atomic.js`, `src/state/contract-approval.js`,
+`src/voyage/contract-gate.js`, `src/voyage/contract-snapshot.js`,
+`src/reconcile.js`).
+
+The 6 allows added to `BASE_PERMISSIONS.orchestrator.edit` (after the
+`armada/*: deny` line so they win under last-match-wins):
+
+- `armada/REQUIREMENTS.md` — contract co-writing
+- `armada/state/active.json` — session state
+- `armada/state/features/*` — voyage + clarification state
+- `armada/state/contract-approval.json` — approval gate
+- `armada.yaml` — manifest edits
+- `TODO.md` — session log
+
+7 v1.0.3 holes re-opened in v1.0.7 remain intentionally open: docs `*:allow`,
+bash prefix globs, yolo key order, dev `*:deny` missing, orchestrator
+`*.md:allow`, no `WRITE_BASH_DENIES`, no `SAFE_BASH` tier. See `## [1.0.7]`.
+
+### Changed
+
+- `src/generator.js` `BASE_PERMISSIONS.orchestrator.edit`: 6 line additions.
+- `package.json` version bumped to `1.0.8`.
+- `src/cli.js:63` `VERSION` bumped to `1.0.8`.
+
