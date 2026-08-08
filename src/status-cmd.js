@@ -97,8 +97,9 @@ export function renderStatus(stateDir, opts = {}) {
     }
   })
 
-  // If active.json exists but feature is not in index, add it
-  if (active && !features.find((f) => f.name === active.feature)) {
+  // If active.json has a non-null feature not in index, add it.
+  // Skip when feature is null or empty — parallel-voyages mode has no active feature.
+  if (active && active.feature && typeof active.feature === "string" && active.feature.length > 0 && !features.find((f) => f.name === active.feature)) {
     rows.push({
       feature: active.feature,
       status: "in_progress",
@@ -166,11 +167,11 @@ export function _renderTable(rows) {
   const header = ["FEATURE", "STATUS", "RISK", "ACTIVE AGENTS", "CONTRACT", "NEXT ACTION", "PR"]
 
   const displayRows = rows.map((r) => ({
-    feature: r.feature,
-    status: r.status,
+    feature: r.feature ?? "-",
+    status: r.status ?? "-",
     risk: r.workflow?.risk ?? "-",
     activeAgents: r.workflow?.activeAgents?.join(",") ?? "-",
-    contract: r.contract,
+    contract: r.contract ?? "-",
     nextAction: r.nextAction ?? "-",
     pr: r.pr ?? "-",
   }))

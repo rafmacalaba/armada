@@ -147,6 +147,10 @@ Reverts the v1.0.6 permission hardening (#134) back to the v1.0.3 baseline. User
 
 [1.0.7]: https://github.com/rafmacalaba/armada/releases/tag/v1.0.7
 
+## v1.1.1
+
+- **fix(status): null-feature crash in `armada status`** (#145). `armada state/active.json` parallel-voyages mode has `"feature": null`; `renderStatus()` previously pushed a null-feature row, and `_renderTable` called `.length` on it. Now guards the active-row push and adds `?? "-"` fallbacks in `_renderTable`. 4 new tests in `tests/status-cmd.test.js`. 569/569 tests pass.
+
 ## v1.1.0
 
 Release date: 2026-08-08
