@@ -80,16 +80,35 @@ function globMatches(glob, value) {
  * wins when it is the last matching rule, so rule order in the matrix is
  * decisive — specific allows/denies must follow a `*` catch-all to override
  * it.
+ *
+ * Path values are normalized: `..` segments are collapsed so traversal
+ * attacks (armada/state/features/../../REQUIREMENTS.md) are resolved to
+ * the real path before glob matching (DEF-004).
+ *
  * @param {Record<string, string>} matrix  role permission map { glob -> action }
  * @param {string} value                    absolute or relative path / command
  * @returns {"allow"|"deny"|"ask"}
  */
 export function resolvePermission(matrix, value) {
   let result = "ask"
+  const normalized = normalizePath(value)
   for (const [glob, action] of Object.entries(matrix)) {
-    if (globMatches(glob, value)) result = action
+    if (globMatches(glob, normalized)) result = action
   }
   return result
+}
+
+function normalizePath(path) {
+  const parts = String(path).replaceAll("\\", "/").split("/")
+  const out = []
+  for (const p of parts) {
+    if (p === "..") {
+      out.pop()
+    } else if (p !== "." && p !== "") {
+      out.push(p)
+    }
+  }
+  return out.join("/")
 }
 
 export function parseFrontmatter(frontmatterYaml) {
