@@ -86,11 +86,11 @@ providers, openrouter auth, background dispatch, node, and the global armada bin
   correct the state, then re-run `armada resume` until clean. Resume is read-only; it never
   auto-fails a phase (`src/cli.js:75-77`, `src/resume-cli.js`).
 
-## "lane path not found: <path>"
+## "lane path not found: <path>" (v1.x)
 
-- **Cause:** `armada voyage <lane>` points at a directory that does not exist.
-- **Fix:** create the lane first (`armada feature new <name> --worktree` creates
-  `sandbox/<name>`), or pass an existing path (`src/cli.js:698-704`).
+- **Cause:** `armada voyage <lane>` in v1.x pointed at a directory that did not exist.
+- **Fix (v2.0):** use `armada voyage <name>` which creates the worktree automatically. Old
+  `<lane-path>` form prints a migration hint.
 
 ## "error: session name cannot start with '-'"
 

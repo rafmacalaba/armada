@@ -159,21 +159,24 @@ armada status                         # where the fleet is right now
 Each feature is its own contract + state file. For true parallel isolation, use git worktrees:
 
 ```bash
-armada feature new settings --worktree    # creates sandbox/settings + feat/settings branch
-armada voyage sandbox/settings            # boots the lane in a tmux session
+armada voyage settings                    # creates worktree + boots lane (single entry point)
 armada fleet                              # dashboard: one row per active lane
 ```
 
 Features in separate worktrees cannot collide. Features in the same checkout rely on the
 disjoint-files rule (each phase writes its own files).
 
+### Migration from v1.x
+
+The old two-command flow (`armada feature new <name> --worktree` + `armada voyage sandbox/<name>`) is now a single command: `armada voyage <name>`. The `feature new`, `feature list`, and `feature close` commands print deprecation warnings and delegate to their `voyage` equivalents. They will be removed in v2.0.
+
 ### Steering live voyages with Tmux
 
 Background voyages run inside dedicated `tmux` sessions ("ships"). As the Admiral, you are never locked out of an active run:
 
 ```bash
-armada voyage sandbox/settings            # boots and auto-attaches terminal
-tmux attach -t settings                   # attach to any session manually from any shell
+armada voyage settings                    # boots and auto-attaches terminal
+tmux attach -t voyage-settings            # attach to any session manually from any shell
 ```
 
 While attached:

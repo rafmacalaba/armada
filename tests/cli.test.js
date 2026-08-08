@@ -313,8 +313,8 @@ test("drive boots a lane session and prints success, exits 1 (deprecated)", asyn
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
   symlinkSync("/usr/bin/git", join(binDir, "git"))
-  const lanePath = makeTempGitRepo()
-  const r = await spawnCli(["drive", lanePath], { env: { PATH: `${binDir}:/bin`, HOME: homeDir } })
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await spawnCli(["drive", "--from-path", repoDir + "/sandbox/drvlane"], { env: { PATH: `${binDir}:/usr/bin`, HOME: homeDir }, cwd: repoDir })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /session/)
@@ -322,12 +322,11 @@ test("drive boots a lane session and prints success, exits 1 (deprecated)", asyn
   assert.doesNotMatch(r.stdout, /tmux attach -t/)
 })
 
-test("drive with nonexistent path exits 1", async () => {
+test("drive with path-like arg prints migration hint and exits 1", async () => {
   const r = await runCli(["drive", "/nonexistent/path/12345"])
   assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /lane path not found/)
-  // Deprecation hint also on stderr
   assert.match(r.stderr, /deprecated/)
+  assert.match(r.stderr, /armada voyage: expected <name>, got <lane-path>/)
 })
 
 test("drive --help prints usage with deprecation, voyage alias, exactly once, exits 1", async () => {
@@ -370,8 +369,8 @@ esac
 `,
   })
   symlinkSync("/usr/bin/git", join(binDir, "git"))
-  const lanePath = makeTempGitRepo()
-  const r = await spawnCli(["drive", lanePath], { env: { PATH: `${binDir}:/bin`, HOME: home } })
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await spawnCli(["drive", "--from-path", repoDir + "/sandbox/modalane"], { env: { PATH: `${binDir}:/usr/bin`, HOME: home }, cwd: repoDir })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /modal detected, dismissing with Escape/)
@@ -383,8 +382,9 @@ test("drive --no-open skips auto-open, prints skip message, no manual attach hin
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
-  const lanePath = makeTempGitRepo()
-  const r = await runCli(["drive", "--no-open", lanePath], { env: { PATH: binDir } })
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await spawnCli(["drive", "--no-open", "--from-path", repoDir + "/sandbox/dnopen"], { env: { PATH: `${binDir}:/usr/bin` }, cwd: repoDir })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /--no-open: skipped auto-attach/)
@@ -395,8 +395,9 @@ test("drive --no-open skips auto-open, prints skip message, no manual attach hin
 
 // DEF-011: --name with single-dash value
 test("drive --name=-foo exits 1 with clear error", async () => {
-  const r = await runCli(["drive", "--name=-foo", "/tmp"])
+  const r = await runCli(["drive", "--name=-foo", "--from-path", "/tmp/somename"])
   assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stderr, /session name cannot start with/)
 })
 
@@ -407,16 +408,17 @@ test("drive --timeout=abc falls back to default 30000", async () => {
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
   symlinkSync("/usr/bin/git", join(binDir, "git"))
-  const lanePath = makeTempGitRepo()
-  const r = await spawnCli(["drive", "--timeout=abc", lanePath], { env: { PATH: `${binDir}:/bin` } })
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await spawnCli(["drive", "--timeout=abc", "--from-path", repoDir + "/sandbox/dtmo"], { env: { PATH: `${binDir}:/usr/bin` }, cwd: repoDir })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
 })
 
 // DEF-012: --timeout=0 exits 1
 test("drive --timeout=0 exits 1 with error", async () => {
-  const r = await runCli(["drive", "--timeout=0", "/tmp"])
+  const r = await runCli(["drive", "--timeout=0", "--from-path", "/tmp/tname"])
   assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stderr, /timeout must be a positive integer/)
 })
 
@@ -427,8 +429,8 @@ test("drive on existing session says already running", async () => {
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 0 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
   symlinkSync("/usr/bin/git", join(binDir, "git"))
-  const lanePath = makeTempGitRepo()
-  const r = await spawnCli(["drive", lanePath], { env: { PATH: `${binDir}:/bin` } })
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await spawnCli(["drive", "--from-path", repoDir + "/sandbox/dreuse"], { env: { PATH: `${binDir}:/usr/bin` }, cwd: repoDir })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /already running|reattach/)
@@ -437,8 +439,9 @@ test("drive on existing session says already running", async () => {
 
 // DEF-015: --prompt starting with -- exits 1
 test("drive --prompt starting with -- exits 1", async () => {
-  const r = await runCli(["drive", "--prompt", "--custom", "/tmp"])
+  const r = await runCli(["drive", "--prompt", "--custom", "--from-path", "/tmp/pname"])
   assert.strictEqual(r.code, 1)
+  assert.match(r.stderr, /deprecated/)
   assert.match(r.stderr, /--prompt value cannot start with/)
 })
 
@@ -450,9 +453,10 @@ test("drive auto-open falls back with hint when no terminal available", async ()
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
   symlinkSync("/usr/bin/git", join(binDir, "git"))
-  const lanePath = makeTempGitRepo()
-  const r = await spawnCli(["drive", lanePath], {
-    env: { PATH: `${binDir}:/bin`, HOME: homeDir },
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await spawnCli(["drive", "--from-path", repoDir + "/sandbox/dautofb"], {
+    env: { PATH: `${binDir}:/usr/bin`, HOME: homeDir },
+    cwd: repoDir,
   })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
@@ -468,9 +472,11 @@ test("drive auto-open succeeds when terminal is available", async () => {
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
-  const lanePath = makeTempGitRepo()
-  const r = await runCli(["drive", lanePath], {
-    env: { PATH: binDir, TERM_PROGRAM: "WezTerm" },
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await spawnCli(["drive", "--from-path", repoDir + "/sandbox/dauto"], {
+    env: { PATH: `${binDir}:/usr/bin`, TERM_PROGRAM: "WezTerm" },
+    cwd: repoDir,
   })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
@@ -549,8 +555,8 @@ test("voyage boots a lane session and prints success", async () => {
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
   symlinkSync("/usr/bin/git", join(binDir, "git"))
-  const lanePath = makeTempGitRepo()
-  const r = await spawnCli(["voyage", lanePath], { env: { PATH: `${binDir}:/bin`, HOME: homeDir } })
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await spawnCli(["voyage", "testlane"], { env: { PATH: `${binDir}:/usr/bin`, HOME: homeDir }, cwd: repoDir })
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /session/)
   assert.match(r.stdout, /auto-attach skipped/)
@@ -558,10 +564,10 @@ test("voyage boots a lane session and prints success", async () => {
   assert.match(r.stdout, /armada voyage:/)
 })
 
-test("voyage with nonexistent path exits 1", async () => {
+test("voyage with path-like arg prints migration hint and exits 1", async () => {
   const r = await runCli(["voyage", "/nonexistent/path/12345"])
   assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /lane path not found/)
+  assert.match(r.stderr, /armada voyage: expected <name>, got <lane-path>/)
 })
 
 test("voyage --no-open prints skipped message", async () => {
@@ -569,8 +575,10 @@ test("voyage --no-open prints skipped message", async () => {
     opencode: "#!/bin/sh\nexit 0\n",
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 1 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\nthinking\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
-  const lanePath = makeTempGitRepo()
-  const r = await runCli(["voyage", "--no-open", lanePath], { env: { PATH: binDir } })
+  symlinkSync("/usr/bin/git", join(binDir, "git"))
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const homeDir = mkdtempSync(join(tmpdir(), "armada-no-open-home-"))
+  const r = await spawnCli(["voyage", "--no-open", "nlane"], { env: { PATH: `${binDir}:/usr/bin`, HOME: homeDir }, cwd: repoDir })
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /--no-open: skipped auto-attach/)
   assert.match(r.stdout, /session/)
@@ -582,23 +590,23 @@ test("voyage on existing session says already running", async () => {
     tmux: "#!/bin/sh\ncase \"$1\" in\n  has-session) exit 0 ;;\n  new-session) exit 0 ;;\n  capture-pane) printf \"tab agents\\nctrl+p\\n\" ; exit 0 ;;\n  send-keys) exit 0 ;;\n  *) exit 1 ;;\nesac\n",
   })
   symlinkSync("/usr/bin/git", join(binDir, "git"))
-  const lanePath = makeTempGitRepo()
-  const r = await spawnCli(["voyage", lanePath], { env: { PATH: `${binDir}:/bin` } })
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await spawnCli(["voyage", "existlane"], { env: { PATH: `${binDir}:/usr/bin` }, cwd: repoDir })
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /already running|reattach/)
   assert.doesNotMatch(r.stdout, /prompt registered/)
 })
 
 test("voyage --print-attach prints attach command and exits 0", async () => {
-  const lanePath = makeTempGitRepo()
-  const r = await runCli(["voyage", "--print-attach", lanePath])
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await runCli(["voyage", "--print-attach", "vprint"], { cwd: repoDir })
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /tmux attach -t/)
 })
 
 test("drive --print-attach prints attach command and exits 1 (deprecated)", async () => {
-  const lanePath = makeTempGitRepo()
-  const r = await runCli(["drive", "--print-attach", lanePath])
+  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await runCli(["drive", "--print-attach", "dprint"], { cwd: repoDir })
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /deprecated/)
   assert.match(r.stdout, /tmux attach -t/)

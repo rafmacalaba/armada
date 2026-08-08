@@ -8,8 +8,10 @@
 //   armada status [--json] [--feature <name>]  feature status from armada/state
 //   armada fleet [session]      per-lane progress dashboard
 //   armada fleet discover [--json] [--register] [--repo <path>]  list/register untracked voyage worktrees
-//   armada voyage <path>        boot a lane + send voyage prompt
-//   armada feature new|list|close  per-feature contract management
+//   armada voyage <name>        create worktree + boot lane + send voyage prompt
+//   armada voyage list           list features
+//   armada voyage close <name>   evidence-gated close
+//   armada feature new|list|close|status  deprecated; use voyage equivalents (removed in v2.0)
 //   armada models [--refresh]   curated model catalog
 //   armada reconcile [--json] [--state-dir <p>] [--repo <p>]
 //                           check for evidence drift; alias for resume
@@ -34,7 +36,7 @@ if (runtimeError) {
 }
 
 import { existsSync, readFileSync, realpathSync } from "node:fs"
-import { basename, resolve } from "node:path"
+import { basename, resolve, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import { runQuestionnaire, guessName, confirm } from "./questionnaire.js"
@@ -44,7 +46,7 @@ import { renderCatalog, BUDGETS, ROLES, modelFor, refreshModels, loadModelsCache
 import { parseManifestYaml, validateRequirementsFile } from "./manifest.js"
 import { runDoctor } from "./doctor.js"
 import { runNew } from "./new-command.js"
-import { createFeature, createWorktreeFeature, listFeatures, closeFeature, setActiveContract, readActive, readFeatureEntry } from "./feature-commands.js"
+import { createFeature, createWorktreeFeature, listFeatures, closeFeature, setActiveContract, readActive, readFeatureEntry, validateName, resolveMainRepo } from "./feature-commands.js"
 import { main as resumeMain } from "./resume-cli.js"
 import { renderInitSummary } from "./init-summary.js"
 import { bootLane, DriveError } from "./drive.js"
@@ -84,11 +86,13 @@ Usage:
   armada status [--json] [--feature <name>]  feature status from armada/state (table by default)
   armada fleet [session] [--json] [--open]   per-lane progress dashboard (table by default)
   armada fleet discover [--json] [--register] [--repo <path>]   list/register untracked voyage worktrees
-  armada voyage <lane-path> [--heartbeat]    boot a lane session and send the voyage prompt (TUI-ready handshake)
+  armada voyage <name> [--heartbeat]          create worktree + boot lane + send voyage prompt
+  armada voyage list [--target <dir>]         list features (table)
+  armada voyage close <name> [--remove] [--target <dir>]  evidence-gated close
   armada voyage-handoff <name> [<name>...]  print handoff block for dispatched voyages
-  armada feature new <name>                  create per-feature contract + register
-  armada feature list                        list open/in-progress/shipped features
-  armada feature close <name>                verify evidence + mark shipped
+  armada feature new <name>                  deprecated; use 'armada voyage <name>' (removed in v2.0)
+  armada feature list                        deprecated; use 'armada voyage list' (removed in v2.0)
+  armada feature close <name>                deprecated; use 'armada voyage close <name>' (removed in v2.0)
   armada release <version> [--dry-run]       automated PR-first release (step 1)
   armada release --continue [--dry-run]      tag + GitHub release after PR merge (step 2)
   armada models [budget]                     show curated model catalog
@@ -105,7 +109,7 @@ Deprecated (one-version aliases removed in v2.0):
   armada drive <lane-path>                   alias for voyage; prints deprecation hint, calls voyage
   armada update                              deprecated; use 'armada init --from-armada --restart'
   armada preset <name>                       deprecated; use 'armada init --budget <name>'
-  armada feature status [name]               deprecated; use 'armada status --feature <name>'
+  armada feature new/list/close/status       deprecated; use 'armada voyage' equivalents
 
 Removed:
   armada scout                               removed; use '/armada-scout' inside the opencode TUI
@@ -795,6 +799,73 @@ async function getAutoOpenSuffix(name) {
   }
 }
 
+async function voyageListCmd(args) {
+  const targetIdx = args.indexOf("--target")
+  const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--")
+    ? args[targetIdx + 1]
+    : "."
+  try {
+    const features = listFeatures(resolve(target))
+    if (features.length === 0) {
+      console.log("No features registered.")
+      return 0
+    }
+    features.sort((a, b) => a.name.localeCompare(b.name))
+
+    const nameWidth = Math.max(8, ...features.map((f) => f.name.length))
+    const statusWidth = Math.max(6, ...features.map((f) => f.status.length))
+    const contractWidth = Math.max(8, ...features.map((f) => f.contract.length))
+    const worktreeWidth = Math.max(8, ...features.map((f) => (f.worktree || "-").length))
+    const branchWidth = Math.max(6, ...features.map((f) => (f.branch || "-").length))
+
+    const padName = "NAME".padEnd(nameWidth)
+    const padStatus = "STATUS".padEnd(statusWidth)
+    const padContract = "CONTRACT".padEnd(contractWidth)
+    const padWorktree = "WORKTREE".padEnd(worktreeWidth)
+    const padBranch = "BRANCH".padEnd(branchWidth)
+    console.log(`${padName}  ${padStatus}  ${padContract}  ${padWorktree}  ${padBranch}`)
+    console.log(`${"-".repeat(nameWidth)}  ${"-".repeat(statusWidth)}  ${"-".repeat(contractWidth)}  ${"-".repeat(worktreeWidth)}  ${"-".repeat(branchWidth)}`)
+    for (const f of features) {
+      const wt = f.worktree || "-"
+      const br = f.branch || "-"
+      console.log(`${f.name.padEnd(nameWidth)}  ${f.status.padEnd(statusWidth)}  ${f.contract.padEnd(contractWidth)}  ${wt.padEnd(worktreeWidth)}  ${br.padEnd(branchWidth)}`)
+    }
+  } catch (err) {
+    logError(err)
+    process.exitCode = 1
+    return 1
+  }
+  return 0
+}
+
+async function voyageCloseCmd(args) {
+  const targetIdx = args.indexOf("--target")
+  const target = targetIdx !== -1 && args[targetIdx + 1] && !args[targetIdx + 1].startsWith("--")
+    ? args[targetIdx + 1]
+    : "."
+  // Find the name (first non-flag that isn't the --target value)
+  const name = args.find((a, i) => !a.startsWith("--") && a !== target && i !== targetIdx + 1)
+  if (!name) {
+    console.error("voyage close: name is required")
+    process.exitCode = 1
+    return 1
+  }
+  const removeWorktree = args.includes("--remove")
+  try {
+    const result = closeFeature(resolve(target), name, { removeWorktree })
+    console.log(`shipped: "${name}"`)
+    if (result.removedWorktree) {
+      console.log(`  worktree removed: sandbox/${name}`)
+    }
+    console.log(`  shippedAt: ${result.entry.shippedAt}`)
+  } catch (err) {
+    logError(err)
+    process.exitCode = 1
+    return 1
+  }
+  return 0
+}
+
 async function driveCmd(args, cmdName = "drive") {
   // Intercept --help / -h / help before any arg parsing.
   // Deprecation hint is printed by the top-level dispatch (main switch),
@@ -828,14 +899,65 @@ async function driveCmd(args, cmdName = "drive") {
     return 0
   }
 
-  // Positional arg: <lane-path>, default "."
-  const lanePath = args.find((a) => !a.startsWith("--")) || "."
+  // Subcommand: armada voyage list
+  if (args[0] === "list") {
+    return voyageListCmd(args.slice(1))
+  }
 
-  // --name <session>: tmux session name, default `voyage-<basename>` so
+  // Subcommand: armada voyage close <name>
+  if (args[0] === "close") {
+    return voyageCloseCmd(args.slice(1))
+  }
+
+  // ---- resolve voyage name ----
+  // Build set of indices that are flag-values (consumed by known flags)
+  const knownFlags = ["--name", "--prompt", "--timeout", "--from-path"]
+  const flagValueIndices = new Set()
+  for (const flag of knownFlags) {
+    const idx = args.indexOf(flag)
+    if (idx !== -1 && args[idx + 1] !== undefined && !args[idx + 1].startsWith("--")) {
+      flagValueIndices.add(idx + 1)
+    }
+  }
+
+  // --from-path <lane-path>: hidden back-compat flag, extracts basename
+  const fromPathVal = flagValue(args, "--from-path")
+  let voyageName
+
+  if (fromPathVal !== undefined) {
+    voyageName = basename(resolve(fromPathVal))
+  } else {
+    const firstPos = args.find((a, i) => !a.startsWith("--") && !flagValueIndices.has(i))
+    if (!firstPos) {
+      console.error("armada voyage: name is required")
+      process.exitCode = 1
+      return 1
+    }
+
+    // Detect old <lane-path> form — print migration hint
+    if (firstPos.includes("/") || firstPos.includes("..") || firstPos.startsWith("-") || firstPos.includes("\0")) {
+      console.error(`armada voyage: expected <name>, got <lane-path>; in v1.x the name was the lane path. Use the feature name (e.g. "myfeature" not "sandbox/myfeature")`)
+      process.exitCode = 1
+      return 1
+    }
+
+    voyageName = firstPos
+  }
+
+  // Validate voyage name
+  try {
+    validateName(voyageName)
+  } catch (err) {
+    console.error(err.message)
+    process.exitCode = 1
+    return 1
+  }
+
+  // --name <session>: tmux session name, default `voyage-<name>` so
   // armada-launched sessions are easy to spot in `tmux ls`. An explicit
   // --name bypasses the prefix (full control for the user).
   const rawName = flagValue(args, "--name")
-  const sessionName = rawName ?? `voyage-${basename(resolve(lanePath))}`
+  const sessionName = rawName ?? `voyage-${voyageName}`
 
   if (sessionName.startsWith("-")) {
     console.error(`error: session name cannot start with "-" (got: ${sessionName})`)
@@ -846,7 +968,7 @@ async function driveCmd(args, cmdName = "drive") {
   // --no-track: skip fleet tracker recording
   const noTrack = args.includes("--no-track")
 
-  // --prompt <text>: drive prompt (default resolved after absLane below)
+  // --prompt <text>: drive prompt (default resolved after worktree is ready)
   const rawPrompt = flagValue(args, "--prompt")
 
   // Detect --prompt with a value that starts with -- (was filtered out by flagValue)
@@ -888,30 +1010,39 @@ async function driveCmd(args, cmdName = "drive") {
     return 0
   }
 
-  // Resolve lane path to absolute and verify it exists
-  const absLane = resolve(lanePath)
-  if (!existsSync(absLane)) {
-    console.error(`lane path not found: ${absLane}`)
-    process.exitCode = 1
-    return 1
+  // ---- resolve main repo and worktree path ----
+  const mainRepo = resolveMainRepo(process.cwd())
+  const worktreePath = join(mainRepo, "sandbox", voyageName)
+
+  // Create worktree if it doesn't exist; otherwise register as active
+  if (!existsSync(worktreePath)) {
+    try {
+      await createWorktreeFeature(process.cwd(), voyageName, {})
+    } catch (err) {
+      console.error(err.message)
+      process.exitCode = 1
+      return 1
+    }
+  } else {
+    // Worktree exists — register as active feature
+    setActiveContract(worktreePath, `armada/contracts/${voyageName}.md`)
   }
 
-  // Default prompt names the absolute path to the lane's contract so the
+  // Default prompt names the absolute path to the worktree contract so the
   // commodore never has to guess which REQUIREMENTS.md to voyage.
-  const contractPath = lanePath === "." ? `${process.cwd()}/armada/REQUIREMENTS.md` : `${absLane}/armada/REQUIREMENTS.md`
+  const contractPath = `${worktreePath}/armada/REQUIREMENTS.md`
   const DEFAULT_PROMPT = `Voyage the contract in ${contractPath}. Phase-gate on evidence. Run independent phases in parallel. Don't advance a phase without passing its criteria.`
   const prompt = rawPrompt ?? DEFAULT_PROMPT
 
-  // cwd: the lane itself (the worktree root). Team works in the worktree;
-  // live repo is reachable via `cd ../..`. process.cwd() when lanePath === ".".
-  const cwd = lanePath === "." ? process.cwd() : absLane
+  // cwd: the worktree root
+  const cwd = worktreePath
 
   // ---- contract approval gate (Phase 1) ----
-  // Resolve the main checkout from the lane path. If the main checkout has
+  // Resolve the main checkout from the worktree path. If the main checkout has
   // an approval state file, enforce the gate. Repos without approval state
   // continue to work as before (opt-in gating).
   const { resolveMainCheckout, isApprovalStatePresent, refuseIfNotApproved } = await import("./voyage/contract-gate.js")
-  const mainCheckout = resolveMainCheckout(absLane)
+  const mainCheckout = resolveMainCheckout(worktreePath)
   if (isApprovalStatePresent(mainCheckout)) {
     try {
       refuseIfNotApproved(mainCheckout)
@@ -924,7 +1055,7 @@ async function driveCmd(args, cmdName = "drive") {
     // Snapshot the approved contract into the sandbox
     try {
       const { snapshotContract } = await import("./voyage/contract-snapshot.js")
-      const snapResult = await snapshotContract(mainCheckout, absLane)
+      const snapResult = await snapshotContract(mainCheckout, worktreePath)
       if (!snapResult.ok) {
         console.error(`contract snapshot: ${snapResult.reason}`)
         process.exitCode = 1
@@ -1195,11 +1326,15 @@ async function featureCmd(args) {
         process.exitCode = 1
         return 1
       }
-      const useWorktree = rest.includes("--worktree")
-      const force = rest.includes("--force")
-      try {
-        if (useWorktree) {
-          const paths = await createWorktreeFeature(resolve(target), name, { force })
+      console.error("armada feature new: deprecated; use 'armada voyage <name>' (removed in v2.0)")
+      // If --target was given, change to that directory so the worktree is created there
+      process.chdir(resolve(target))
+      // Create the worktree like voyage does, but skip booting the lane
+      const mainRepo = resolveMainRepo(process.cwd())
+      const worktreePath = join(mainRepo, "sandbox", name)
+      if (!existsSync(worktreePath)) {
+        try {
+          const paths = await createWorktreeFeature(process.cwd(), name, {})
           console.log(`feature "${name}" created (worktree)`)
           console.log(`  worktree: ${paths.worktreePath}`)
           console.log(`  branch:   ${paths.branch}`)
@@ -1207,86 +1342,28 @@ async function featureCmd(args) {
           console.log(`  entry:    ${paths.entryPath}`)
           console.log(`  index:    ${paths.indexPath}`)
           console.log(`  active:   ${paths.activePath}`)
-        } else {
-          const paths = createFeature(resolve(target), name, { force })
-          console.log(`feature "${name}" created`)
-          console.log(`  contract: ${paths.contractPath}`)
-          console.log(`  entry:    ${paths.entryPath}`)
-          console.log(`  index:    ${paths.indexPath}`)
-          console.log(`  active:   ${paths.activePath}`)
+        } catch (err) {
+          logError(err)
+          process.exitCode = 1
+          return 1
         }
-      } catch (err) {
-        logError(err)
-        process.exitCode = 1
-        return 1
+      } else {
+        setActiveContract(worktreePath, `armada/contracts/${name}.md`)
+        console.log(`feature "${name}" already exists`)
       }
       return 0
     }
     case "list": {
-      try {
-        const features = listFeatures(resolve(target))
-        if (features.length === 0) {
-          console.log("No features registered.")
-          return 0
-        }
-        // Sort by name for deterministic output
-        features.sort((a, b) => a.name.localeCompare(b.name))
-
-        // Print aligned table — 5 columns: NAME STATUS CONTRACT WORKTREE BRANCH
-        const nameWidth = Math.max(8, ...features.map((f) => f.name.length))
-        const statusWidth = Math.max(6, ...features.map((f) => f.status.length))
-        const contractWidth = Math.max(8, ...features.map((f) => f.contract.length))
-        const worktreeWidth = Math.max(8, ...features.map((f) => (f.worktree || "-").length))
-        const branchWidth = Math.max(6, ...features.map((f) => (f.branch || "-").length))
-
-        const padName = "NAME".padEnd(nameWidth)
-        const padStatus = "STATUS".padEnd(statusWidth)
-        const padContract = "CONTRACT".padEnd(contractWidth)
-        const padWorktree = "WORKTREE".padEnd(worktreeWidth)
-        const padBranch = "BRANCH".padEnd(branchWidth)
-        console.log(`${padName}  ${padStatus}  ${padContract}  ${padWorktree}  ${padBranch}`)
-        console.log(`${"-".repeat(nameWidth)}  ${"-".repeat(statusWidth)}  ${"-".repeat(contractWidth)}  ${"-".repeat(worktreeWidth)}  ${"-".repeat(branchWidth)}`)
-        for (const f of features) {
-          const wt = f.worktree || "-"
-          const br = f.branch || "-"
-          console.log(`${f.name.padEnd(nameWidth)}  ${f.status.padEnd(statusWidth)}  ${f.contract.padEnd(contractWidth)}  ${wt.padEnd(worktreeWidth)}  ${br.padEnd(branchWidth)}`)
-        }
-      } catch (err) {
-        logError(err)
-        process.exitCode = 1
-        return 1
-      }
-      return 0
+      console.error("armada feature list: deprecated; use 'armada voyage list' (removed in v2.0)")
+      return voyageListCmd(args.filter((a) => a !== "list"))
     }
     case "close": {
-      const name = rest.find((a) => !a.startsWith("--"))
-      if (!name) {
-        console.error("feature close: name is required")
-        process.exitCode = 1
-        return 1
-      }
-      const removeWorktree = rest.includes("--remove")
-      try {
-        const result = closeFeature(resolve(target), name, { removeWorktree })
-        console.log(`shipped: "${name}"`)
-        if (result.removedWorktree) {
-          console.log(`  worktree removed: sandbox/${name}`)
-        }
-        console.log(`  shippedAt: ${result.entry.shippedAt}`)
-      } catch (err) {
-        logError(err)
-        process.exitCode = 1
-        return 1
-      }
-      return 0
+      console.error("armada feature close: deprecated; use 'armada voyage close <name>' (removed in v2.0)")
+      return voyageCloseCmd(args.filter((a) => a !== "close"))
     }
     case "status": {
       const name = rest[0]
-      if (name) {
-        console.error(`armada feature status: deprecated; use 'armada status --feature ${name}'`)
-      } else {
-        console.error("armada feature status: deprecated; use 'armada status --feature <name>'")
-      }
+      console.error("armada feature status: removed in v2.0; use 'armada status --feature <name>'")
       // Call status --feature <name> if a name was given
       const statusArgs = name ? ["--feature", name] : []
       const { code, output } = statusMain(statusArgs, { cwd: resolve(target) })

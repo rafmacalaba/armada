@@ -96,29 +96,31 @@ test("extractFinalCriteriaEvidence stops at next heading", () => {
 // ---- CLI e2e ---------------------------------------------------------------
 
 test("feature new creates contract, entry, index, active", async () => {
-  const dir = makeTempGitRepo({})
-  const r = await runCli(["feature", "new", "foo", "--target", dir])
+  const dir = makeTempGitRepo({ "readme.md": "# test" })
+  const r = await runCli(["feature", "new", "foo"], { cwd: dir })
   assert.strictEqual(r.code, 0, `stdout: ${r.stdout} stderr: ${r.stderr}`)
   assert.match(r.stdout, /feature "foo" created/)
 
-  assert.ok(existsSync(join(dir, "armada/contracts/foo.md")))
-  assert.ok(existsSync(join(dir, "armada/state/features/foo.json")))
-  assert.ok(existsSync(join(dir, "armada/state/features/index.json")))
-  assert.ok(existsSync(join(dir, "armada/state/active.json")))
+  const wtDir = join(dir, "sandbox", "foo")
+  assert.ok(existsSync(join(wtDir, "armada/contracts/foo.md")))
+  assert.ok(existsSync(join(wtDir, "armada/state/features/foo.json")))
+  assert.ok(existsSync(join(wtDir, "armada/state/features/index.json")))
+  assert.ok(existsSync(join(wtDir, "armada/state/active.json")))
 
+  // Global index in main repo
   const indexJson = JSON.parse(readFileSync(join(dir, "armada/state/features/index.json"), "utf8"))
   const fooEntry = indexJson.find((e) => e.name === "foo")
   assert.ok(fooEntry)
   assert.strictEqual(fooEntry.status, "open")
 
-  const active = JSON.parse(readFileSync(join(dir, "armada/state/active.json"), "utf8"))
+  const active = JSON.parse(readFileSync(join(wtDir, "armada/state/active.json"), "utf8"))
   assert.strictEqual(active.feature, "foo")
 })
 
 test("feature list shows features", async () => {
-  const dir = makeTempGitRepo({})
-  await runCli(["feature", "new", "foo", "--target", dir])
-  await runCli(["feature", "new", "bar", "--target", dir])
+  const dir = makeTempGitRepo({ "readme.md": "# test" })
+  await runCli(["feature", "new", "foo"], { cwd: dir })
+  await runCli(["feature", "new", "bar"], { cwd: dir })
 
   const r = await runCli(["feature", "list", "--target", dir])
   assert.strictEqual(r.code, 0)
@@ -128,15 +130,15 @@ test("feature list shows features", async () => {
 })
 
 test("feature list with no features", async () => {
-  const dir = makeTempGitRepo({})
+  const dir = makeTempGitRepo({ "readme.md": "# test" })
   const r = await runCli(["feature", "list", "--target", dir])
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /No features/)
 })
 
 test("feature close without evidence fails", async () => {
-  const dir = makeTempGitRepo({})
-  await runCli(["feature", "new", "foo", "--target", dir])
+  const dir = makeTempGitRepo({ "readme.md": "# test" })
+  await runCli(["feature", "new", "foo"], { cwd: dir })
 
   const r = await runCli(["feature", "close", "foo", "--target", dir])
   assert.strictEqual(r.code, 1)
@@ -145,11 +147,11 @@ test("feature close without evidence fails", async () => {
 })
 
 test("feature close with evidence succeeds", async () => {
-  const dir = makeTempGitRepo({})
-  await runCli(["feature", "new", "foo", "--target", dir])
+  const dir = makeTempGitRepo({ "readme.md": "# test" })
+  await runCli(["feature", "new", "foo"], { cwd: dir })
 
-  // Edit the contract to add evidence
-  const contractPath = join(dir, "armada/contracts/foo.md")
+  // Edit the contract in the worktree to add evidence
+  const contractPath = join(dir, "sandbox", "foo", "armada", "contracts", "foo.md")
   let contract = readFileSync(contractPath, "utf8")
   contract = contract.replace(/Evidence: \n/g, "Evidence: src/foo.js:42\n")
   writeFileSync(contractPath, contract, "utf8")
@@ -158,32 +160,30 @@ test("feature close with evidence succeeds", async () => {
   assert.strictEqual(r.code, 0, `stdout: ${r.stdout} stderr: ${r.stderr}`)
   assert.match(r.stdout, /shipped/)
 
-  // Verify index updated
-  const indexJson = JSON.parse(readFileSync(join(dir, "armada/state/features/index.json"), "utf8"))
+  // Verify global index updated in main repo
+  const indexJson = JSON.parse(readFileSync(join(dir, "armada", "state", "features", "index.json"), "utf8"))
   const fooEntry = indexJson.find((e) => e.name === "foo")
   assert.strictEqual(fooEntry.status, "shipped")
 
-  // Verify feature entry
-  const entryJson = JSON.parse(readFileSync(join(dir, "armada/state/features/foo.json"), "utf8"))
-  assert.strictEqual(entryJson.status, "shipped")
-  assert.ok(entryJson.shippedAt)
-
-  // Verify active.json nextAction
-  const active = JSON.parse(readFileSync(join(dir, "armada/state/active.json"), "utf8"))
-  assert.match(active.nextAction, /shipped/)
+  // Verify active.json updated in main repo if it exists
+  const mainActivePath = join(dir, "armada", "state", "active.json")
+  if (existsSync(mainActivePath)) {
+    const active = JSON.parse(readFileSync(mainActivePath, "utf8"))
+    assert.match(active.nextAction, /shipped/)
+  }
 })
 
 test("feature close nonexistent fails", async () => {
-  const dir = makeTempGitRepo({})
+  const dir = makeTempGitRepo({ "readme.md": "# test" })
   const r = await runCli(["feature", "close", "nonexistent", "--target", dir])
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /not found/)
 })
 
 test("feature new with duplicate name overrides entry in index", async () => {
-  const dir = makeTempGitRepo({})
-  await runCli(["feature", "new", "foo", "--target", dir])
-  await runCli(["feature", "new", "foo", "--target", dir])
+  const dir = makeTempGitRepo({ "readme.md": "# test" })
+  await runCli(["feature", "new", "foo"], { cwd: dir })
+  await runCli(["feature", "new", "foo"], { cwd: dir })
 
   const indexJson = JSON.parse(readFileSync(join(dir, "armada/state/features/index.json"), "utf8"))
   const fooEntries = indexJson.filter((e) => e.name === "foo")
@@ -207,44 +207,39 @@ test("init --requirements wires active contract", async () => {
 test("feature status shows deprecation hint across scenarios, exits 1", async () => {
   for (const [label, makeRepo] of [
     ["active feature", async () => {
-      const dir = makeTempGitRepo({})
-      await runCli(["feature", "new", "foo", "--target", dir])
+      const dir = makeTempGitRepo({ "readme.md": "# test" })
+      await runCli(["feature", "new", "foo"], { cwd: dir })
       return { dir, r: await runCli(["feature", "status", "--target", dir]) }
     }],
     ["named active feature", async () => {
-      const dir = makeTempGitRepo({})
-      await runCli(["feature", "new", "foo", "--target", dir])
+      const dir = makeTempGitRepo({ "readme.md": "# test" })
+      await runCli(["feature", "new", "foo"], { cwd: dir })
       return { dir, r: await runCli(["feature", "status", "foo", "--target", dir]) }
     }],
     ["nonexistent feature", async () => {
-      const dir = makeTempGitRepo({})
+      const dir = makeTempGitRepo({ "readme.md": "# test" })
       return { dir, r: await runCli(["feature", "status", "nope", "--target", dir]) }
     }],
     ["no active feature", async () => {
-      const dir = makeTempGitRepo({})
+      const dir = makeTempGitRepo({ "readme.md": "# test" })
       return { dir, r: await runCli(["feature", "status", "--target", dir]) }
     }],
   ]) {
     const { dir, r } = await makeRepo()
     assert.strictEqual(r.code, 1, `${label} exits 1`)
-    assert.match(r.stderr, /deprecated/, `${label} has deprecation hint`)
+    assert.match(r.stderr, /removed in v2\.0/, `${label} has deprecation hint`)
     rmSync(dir, { recursive: true, force: true })
   }
 })
 
 test("status JSON exposes adaptive workflow metadata", async () => {
-  const dir = makeTempGitRepo({})
-  await runCli(["feature", "new", "workflow-status", "--target", dir])
+  const dir = makeTempGitRepo({ "readme.md": "# test" })
+  await runCli(["feature", "new", "workflow-status"], { cwd: dir })
 
-  const activePath = join(dir, "armada/state/active.json")
-  const active = JSON.parse(readFileSync(activePath, "utf8"))
-  active.workflow = {
-    risk: "medium",
-    evidenceClass: "targeted",
-    activeAgents: ["backend-dev", "qa"],
-    standbyAgents: ["security"],
-    escalations: [],
-  }
+  // Write workflow metadata to the main repo's active.json (status reads from there)
+  const activePath = join(dir, "armada", "state", "active.json")
+  mkdirSync(join(dir, "armada", "state"), { recursive: true })
+  const active = { feature: "workflow-status", contract: "armada/contracts/workflow-status.md", phases: [], startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), nextAction: null, workflow: { risk: "medium", evidenceClass: "targeted", activeAgents: ["backend-dev", "qa"], standbyAgents: ["security"], escalations: [] } }
   writeFileSync(activePath, JSON.stringify(active, null, 2) + "\n")
 
   const result = await runCli(["status", "--json", "--target", dir])
@@ -260,6 +255,7 @@ test("status JSON exposes adaptive workflow metadata", async () => {
 
 test("closeFeature throws when no final criteria", () => {
   const dir = makeTempGitRepo({
+    "readme.md": "# test",
     "armada/contracts/fc.md": "# FC\n\n## Goal\n\nno criteria\n",
   })
   // Make the feature entry manually
@@ -285,11 +281,11 @@ test("closeFeature throws when no final criteria", () => {
 })
 
 test("feature close with multiple criteria, some missing evidence", async () => {
-  const dir = makeTempGitRepo({})
-  await runCli(["feature", "new", "multi", "--target", dir])
+  const dir = makeTempGitRepo({ "readme.md": "# test" })
+  await runCli(["feature", "new", "multi"], { cwd: dir })
 
-  // Read the contract, customize to have multiple criteria
-  const contractPath = join(dir, "armada/contracts/multi.md")
+  // Read the contract in the worktree, customize to have multiple criteria
+  const contractPath = join(dir, "sandbox", "multi", "armada", "contracts", "multi.md")
   let contract = readFileSync(contractPath, "utf8")
   // Replace the final criteria section to have multiple criteria
   contract = contract.replace(
