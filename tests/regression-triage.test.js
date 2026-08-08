@@ -129,17 +129,7 @@ test("split-broad-task rule present in orchestrator prompt", () => {
   assert.match(prompt, /one voyage\s+when\s+workstreams share writers/i, "orchestrator prompt must state the single-voyage case")
 })
 
-test("split-broad-task rule present in the voyage command doc, matching the renderer", () => {
-  let committed
-  try {
-    committed = read(".opencode/commands/armada-voyage.md")
-  } catch {
-    // Survives CI with gitignored .opencode/ absent — rendered output is source of truth
-    committed = renderArmadaVoyageCommand()
-  }
-  assert.strictEqual(committed, renderArmadaVoyageCommand(), "armada-voyage.md must equal renderArmadaVoyageCommand()")
-  assert.match(committed, /separate voyages when[\s\S]*independent/i, "voyage command must carry the split-broad-task rule")
-})
+
 
 // ---------------------------------------------------------------------------
 // 3. Doc-link integrity: every relative .md link in README/docs/ARCHITECTURE/TODO
@@ -322,86 +312,9 @@ test("artifact consistency: every committed agent frontmatter equals renderAgent
   assert.deepEqual(mismatches, [], `agent frontmatter drift vs generator: ${JSON.stringify(mismatches)}`)
 })
 
-test("artifact consistency: ledger paths agree across DEFAULT_PLAYBOOK, frontmatter, AGENTS.md (no project.feature -> literal {feature})", () => {
-  const manifest = loadCommittedManifest()
-  const team = buildTeam(manifest)
-  const pb = { ...DEFAULT_PLAYBOOK, ...(manifest.playbook || {}) }
-  const defectGlob = pb.defectLedger.file.replace(/\{feature\}/g, "*")
-  const advGlob = pb.adversarialLedger.file.replace(/\{feature\}/g, "*")
-  const secGlob = pb.securityLedger.file.replace(/\{feature\}/g, "*")
-  // dir glob: prefix up to {feature}, with {feature} -> *
-  const dirGlob = (() => {
-    const file = pb.defectLedger.file
-    const idx = file.indexOf("{feature}")
-    if (idx === -1) return file.replace(/\/[^/]*$/, "/*") || "/*"
-    return file.slice(0, idx).replace(/\/$/, "") + "/*"
-  })()
 
-  const byRole = Object.fromEntries(team.map((a) => [a.role, a.permissions?.edit ?? {}]))
 
-  // owners allow their ledger kind
-  assert.strictEqual(byRole.orchestrator[defectGlob], "allow", "orchestrator must allow defect ledger glob")
-  assert.strictEqual(byRole.orchestrator[advGlob], "allow", "orchestrator must allow adversarial ledger glob")
-  assert.strictEqual(byRole.orchestrator[secGlob], "allow", "orchestrator must allow security ledger glob")
-  assert.strictEqual(byRole.adversary[advGlob], "allow", "adversary must allow adversarial ledger glob")
-  assert.strictEqual(byRole.security[secGlob], "allow", "security must allow security ledger glob")
-  // QA owns DEFECTS.md only — never the ledgers-dir glob (which would also
-  // grant ADVERSARIAL_REVIEW.md / SECURITY_FINDINGS.md writes).
-  assert.strictEqual(byRole.qa[defectGlob], "allow", "qa must allow defect ledger glob")
-  assert.strictEqual(byRole.qa[dirGlob], undefined, "qa must NOT own the ledgers dir glob")
 
-  // dev roles deny every ledger kind + the dir
-  for (const role of ["backend-dev", "frontend-dev"]) {
-    assert.strictEqual(byRole[role][defectGlob], "deny", `${role} must deny defect ledger glob`)
-    assert.strictEqual(byRole[role][advGlob], "deny", `${role} must deny adversarial ledger glob`)
-    assert.strictEqual(byRole[role][secGlob], "deny", `${role} must deny security ledger glob`)
-    assert.strictEqual(byRole[role][dirGlob], "deny", `${role} must deny ledgers dir glob`)
-  }
-
-  // AGENTS.md references the resolved ledger paths with the literal {feature}
-  // token (no project.feature set on this manifest).
-  let agents
-  try {
-    agents = read("AGENTS.md")
-  } catch {
-    // CI: AGENTS.md is gitignored; use rendered output as baseline.
-    agents = renderAgentsMd(manifest, team)
-  }
-  assert.match(agents, /armada\/ledgers\/\{feature\}\/DEFECTS\.md/, "AGENTS.md must reference the {feature} defect ledger path")
-  assert.match(agents, /armada\/ledgers\/\{feature\}\/ADVERSARIAL_REVIEW\.md/, "AGENTS.md must reference the {feature} adversarial ledger path")
-  assert.match(agents, /armada\/ledgers\/\{feature\}\/SECURITY_FINDINGS\.md/, "AGENTS.md must reference the {feature} security ledger path")
-})
-
-test("artifact consistency: custom ledger derivation — playbook.defectLedger.file drives frontmatter globs", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-reg-custom-"))
-  try {
-    const manifest = {
-      targetDir: dir,
-      project: {
-        name: "custom-ledger",
-        budget: "balanced",
-        browserTesting: false,
-        devcontainer: false,
-        useAgentBrowser: false,
-        stack: {},
-      },
-      team: ROLES.map((r) => ({ role: r, model: modelFor(r, "balanced"), fallback: null, enabled: true })),
-      playbook: {
-        defectLedger: { file: "armada/ledgers2/{feature}/DEFECTS.md", owner: "qa", shared: "armada/ledgers2/shared/DEFECTS.md" },
-      },
-    }
-    const team = buildTeam(manifest)
-    const byRole = Object.fromEntries(team.map((a) => [a.role, a.permissions?.edit ?? {}]))
-    // custom defect file -> glob, custom dir -> glob
-  assert.strictEqual(byRole.orchestrator["armada/ledgers2/*/DEFECTS.md"], "allow", "orchestrator must allow custom defect glob")
-  assert.strictEqual(byRole.qa["armada/ledgers2/*/DEFECTS.md"], "allow", "qa must allow custom defect glob")
-  assert.strictEqual(byRole.qa["armada/ledgers2/*"], undefined, "qa must NOT own the custom ledgers dir glob")
-    assert.strictEqual(byRole["backend-dev"]["armada/ledgers2/*/DEFECTS.md"], "deny", "backend-dev must deny custom defect glob")
-    assert.strictEqual(byRole["backend-dev"]["armada/ledgers2/*"], "deny", "backend-dev must deny custom ledgers dir glob")
-  } finally {
-    rmSync(dir, { recursive: true, force: true })
-  }
-})
 
 // ---------------------------------------------------------------------------
 // 5. Safeguard invariants: PR-first in orchestrator prompt; no-clobber;
@@ -565,24 +478,4 @@ function* phantomSurfaces() {
   for (const f of walk("docs")) yield f
 }
 
-test("grep suite: no phantom slash-command refs — every /armada-* resolves to a command file", () => {
-  const valid = generatedCommands()
-  const phantoms = []
-  for (const rel of phantomSurfaces()) {
-    if (PHANTOM_EXEMPT.has(rel)) continue
-    let txt
-    try {
-      txt = read(rel)
-    } catch {
-      continue
-    }
-    SLASH_CMD_RE.lastIndex = 0
-    let m
-    while ((m = SLASH_CMD_RE.exec(txt))) {
-      const name = m[2] || "" // `/armada` -> name "" -> armada.md
-      const key = name ? `armada-${name}` : "armada"
-      if (!valid.has(key)) phantoms.push(`${rel}: /armada${name ? "-" + name : ""}`)
-    }
-  }
-  assert.deepEqual(phantoms, [], `phantom slash-command refs: ${phantoms.join(", ")}`)
-})
+

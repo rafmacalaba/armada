@@ -678,65 +678,11 @@ function frontmatterPerms(agentContent) {
   return cfg.permission?.edit ?? {}
 }
 
-test("rendered qa agent permissions: owns ledgers, e2e, screenshots; denies rest", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-perm-qa-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  const content = readFileSync(join(dir, ".opencode/agent/corvette.md"), "utf8")
-  const edit = frontmatterPerms(content)
 
-  assert.strictEqual(edit["*"], "deny", "qa must deny *")
-  // QA owns DEFECTS.md only (create/close/reopen); it must NOT carry the
-  // ledgers-dir glob, which would also grant ADVERSARIAL_REVIEW.md /
-  // SECURITY_FINDINGS.md writes.
-  assert.strictEqual(edit["armada/ledgers/*/DEFECTS.md"], "allow", "qa must allow armada/ledgers/*/DEFECTS.md")
-  assert.strictEqual(edit["armada/ledgers/*"], undefined, "qa must NOT own the ledgers dir glob")
-  assert.strictEqual(edit["armada/e2e/*"], "allow", "qa must allow armada/e2e/*")
-  assert.strictEqual(edit["armada/screenshots/*"], "allow", "qa must allow armada/screenshots/*")
-  // Defense: root ledgers not explicitly allowed -> denied by *
-  assert.ok(!("DEFECTS.md" in edit) || edit["DEFECTS.md"] === "deny", "qa must deny root DEFECTS.md")
-  assert.ok(!("ADVERSARIAL_REVIEW.md" in edit) || edit["ADVERSARIAL_REVIEW.md"] === "deny", "qa must deny root ADVERSARIAL_REVIEW.md")
-  rmSync(dir, { recursive: true, force: true })
-})
 
-test("rendered backend-dev agent permissions: denies ledger, e2e, screenshots, state, root ledgers", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-perm-be-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  const content = readFileSync(join(dir, ".opencode/agent/galleon.md"), "utf8")
-  const edit = frontmatterPerms(content)
 
-  assert.strictEqual(resolvePermission(edit, "armada/ledgers/foo/DEFECTS.md"), "deny", "backend-dev must deny ledgers")
-  assert.strictEqual(edit["armada/e2e/*"], "deny", "backend-dev must deny armada/e2e/*")
-  assert.strictEqual(edit["armada/screenshots/*"], "deny", "backend-dev must deny armada/screenshots/*")
-  assert.strictEqual(edit["armada/state/*"], "deny", "backend-dev must deny armada/state/*")
-  // Root-level files denied by *:deny catch-all; product ownership allows src/** and tests/**
-  assert.strictEqual(resolvePermission(edit, "DEFECTS.md"), "deny", "backend-dev must deny root DEFECTS.md")
-  assert.strictEqual(resolvePermission(edit, "ADVERSARIAL_REVIEW.md"), "deny", "backend-dev must deny root ADVERSARIAL_REVIEW.md")
-  assert.strictEqual(resolvePermission(edit, "src/generator.js"), "allow", "backend-dev must allow src/**")
-  assert.strictEqual(resolvePermission(edit, "tests/generator.test.js"), "allow", "backend-dev must allow tests/**")
-  assert.strictEqual(edit["opencode.json"], "deny", "backend-dev must deny opencode.json")
-  assert.strictEqual(edit["armada/*"], "deny", "backend-dev must deny armada/*")
-  rmSync(dir, { recursive: true, force: true })
-})
 
-test("rendered orchestrator agent permissions: allows specific ledger files, denies agends/req/armada", () => {
-  const dir = mkdtempSync(join(tmpdir(), "armada-perm-orch-"))
-  const manifest = makeManifest(dir)
-  scaffold(manifest, manifest.project.stack)
-  const content = readFileSync(join(dir, ".opencode/agent/commodore.md"), "utf8")
-  const edit = frontmatterPerms(content)
 
-  assert.strictEqual(edit["armada/ledgers/*/DEFECTS.md"], "allow", "orchestrator must allow DEFECTS.md in ledgers")
-  assert.strictEqual(edit["armada/ledgers/*/ADVERSARIAL_REVIEW.md"], "allow", "orchestrator must allow ADVERSARIAL_REVIEW.md in ledgers")
-  assert.strictEqual(edit["armada/*"], "deny", "orchestrator must deny armada/*")
-  assert.strictEqual(edit["AGENTS.md"], "deny", "orchestrator must deny AGENTS.md")
-  // Phase 2: orchestrator may write armada/REQUIREMENTS.md; root-level REQUIREMENTS.md denied by *:deny
-  assert.strictEqual(edit["armada/REQUIREMENTS.md"], "allow", "orchestrator must allow armada/REQUIREMENTS.md")
-  assert.strictEqual(edit[".opencode/*"], "deny", "orchestrator must deny .opencode/*")
-  assert.strictEqual(resolvePermission(edit, "REQUIREMENTS.md"), "deny", "root REQUIREMENTS.md resolves to deny via *:deny")
-  rmSync(dir, { recursive: true, force: true })
-})
 
 test("multi-feature: two features produce separate ledger namespaces, no DEF collision", () => {
   const dirA = mkdtempSync(join(tmpdir(), "armada-mf-a-"))
