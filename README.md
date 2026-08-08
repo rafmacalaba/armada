@@ -81,8 +81,9 @@ npx @rafamacalaba/armada@latest init
 ### Isolate feature work
 
 ```bash
-armada feature new my-feature --worktree
-armada voyage sandbox/my-feature
+armada voyage my-feature                  # creates worktree + boots lane (single entry point)
+armada voyage list                        # list all features
+armada voyage close my-feature            # evidence-gated close
 ```
 
 ---
@@ -276,9 +277,11 @@ See [Why armada?](./docs/WHY.md) for the full rationale and evidence.
 | `armada status` | Show active feature, phase, and next action |
 | `armada fleet` | Cross-repo per-lane progress dashboard |
 | `armada fleet discover [--json] [--register] [--repo <path>]` | List or register untracked voyage worktrees |
-| `armada voyage <lane>` | Boot a lane session for feature work |
+| `armada voyage <name>` | Create worktree + boot a lane session for feature work |
+| `armada voyage list` | List all features (table) |
+| `armada voyage close <name>` | Evidence-gated feature close |
 | `armada voyage-handoff <name> [<name>...]` | Print handoff blocks for dispatched voyages |
-| `armada feature <new\|list\|close>` | Manage feature contracts |
+| `armada feature <new\|list\|close>` | Deprecated; use `armada voyage` equivalents (removed in v2.0) |
 | `armada models [budget]` | Show curated model catalog |
 | `armada resume` | Resume after an interrupted session |
 | `armada reconcile` | Alias for `armada resume` (check evidence drifts) |

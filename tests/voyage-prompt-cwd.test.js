@@ -117,9 +117,10 @@ function cleanup(stateDir, binDir, laneDir) {
 // relative "armada/REQUIREMENTS.md" string.
 test("voyage default prompt names absolute lane contract path, not relative armada/REQUIREMENTS.md", async () => {
   const { stateDir, binDir } = freshState()
-  const laneDir = makeTempGitRepo()
+  const laneDir = makeTempGitRepo({ "README.md": "" })
   try {
-    const r = await runCli(["voyage", "--no-open", "--no-track", laneDir], {
+    const r = await runCli(["voyage", "--no-open", "--no-track", "--from-path", laneDir], {
+      cwd: laneDir,
       env: { PATH: `${binDir}:${process.env.PATH}`, FAKE_TMUX_STATE: stateDir },
     })
     assert.strictEqual(r.code, 0, `voyage exited ${r.code}: ${r.stderr}`)
@@ -128,7 +129,8 @@ test("voyage default prompt names absolute lane contract path, not relative arma
     const prompt = extractPrompt(logs.sendKeys)
     assert.ok(prompt, "a prompt must have been sent via send-keys -l")
 
-    const expectedAbs = `${laneDir}/armada/REQUIREMENTS.md`
+    const worktreePath = join(laneDir, "sandbox", basename(laneDir))
+    const expectedAbs = `${worktreePath}/armada/REQUIREMENTS.md`
     assert.ok(
       prompt.includes(expectedAbs),
       `prompt should include the absolute contract path "${expectedAbs}", got: ${prompt}`,
@@ -148,9 +150,10 @@ test("voyage default prompt names absolute lane contract path, not relative arma
 // for a non-"." lanePath.
 test("voyage new-session cwd (-c) is the absolute lane path itself, not its parent", async () => {
   const { stateDir, binDir } = freshState()
-  const laneDir = makeTempGitRepo()
+  const laneDir = makeTempGitRepo({ "README.md": "" })
   try {
-    const r = await runCli(["voyage", "--no-open", "--no-track", laneDir], {
+    const r = await runCli(["voyage", "--no-open", "--no-track", "--from-path", laneDir], {
+      cwd: laneDir,
       env: { PATH: `${binDir}:${process.env.PATH}`, FAKE_TMUX_STATE: stateDir },
     })
     assert.strictEqual(r.code, 0, `voyage exited ${r.code}: ${r.stderr}`)
@@ -160,8 +163,8 @@ test("voyage new-session cwd (-c) is the absolute lane path itself, not its pare
     const cwd = extractCwd(logs.newSession)
     assert.ok(cwd, "new-session must be called with -c <cwd>")
     assert.strictEqual(
-      cwd, laneDir,
-      `new-session -c must equal the lane itself (not its parent); got ${cwd}`,
+      realpathSync(cwd), realpathSync(join(laneDir, "sandbox", basename(laneDir))),
+      `new-session -c must equal the worktree path (not the lane parent); got ${cwd}`,
     )
   } finally {
     cleanup(stateDir, binDir, laneDir)
@@ -173,11 +176,11 @@ test("voyage new-session cwd (-c) is the absolute lane path itself, not its pare
 test("voyage with no lane arg (lanePath '.') uses process.cwd() as cwd and absolute contract path", async () => {
   const { stateDir, binDir } = freshState()
   // Temp working dir that has its own armada/REQUIREMENTS.md (realistic lane root).
-  const workDir = makeTempGitRepo()
+  const workDir = makeTempGitRepo({ "README.md": "" })
   mkdirSync(join(workDir, "armada"), { recursive: true })
   writeFileSync(join(workDir, "armada", "REQUIREMENTS.md"), "# contract\n")
   try {
-    const r = await runCli(["voyage", "--no-open", "--no-track"], {
+    const r = await runCli(["voyage", "--no-open", "--no-track", "--from-path", realpathSync(workDir)], {
       cwd: workDir,
       env: { PATH: `${binDir}:${process.env.PATH}`, FAKE_TMUX_STATE: stateDir },
     })
@@ -186,16 +189,15 @@ test("voyage with no lane arg (lanePath '.') uses process.cwd() as cwd and absol
     const logs = readLogs(stateDir)
     const cwd = extractCwd(logs.newSession)
     assert.ok(cwd, "new-session must be called with -c <cwd>")
-    // On macOS /tmp is a symlink to /private/var/...; the child resolves
-    // process.cwd() through the symlink, so compare real paths.
+    const worktreePath = join(realpathSync(workDir), "sandbox", basename(workDir))
     assert.strictEqual(
-      cwd, realpathSync(workDir),
-      `new-session -c must equal process.cwd() for lanePath="."; got ${cwd}`,
+      cwd, worktreePath,
+      `new-session -c must equal the worktree path; got ${cwd}`,
     )
 
     const prompt = extractPrompt(logs.sendKeys)
     assert.ok(prompt, "a prompt must have been sent via send-keys -l")
-    const expectedAbs = `${realpathSync(workDir)}/armada/REQUIREMENTS.md`
+    const expectedAbs = `${worktreePath}/armada/REQUIREMENTS.md`
     assert.ok(
       prompt.includes(expectedAbs),
       `prompt should include the absolute contract path "${expectedAbs}", got: ${prompt}`,
@@ -212,9 +214,10 @@ test("voyage with no lane arg (lanePath '.') uses process.cwd() as cwd and absol
 // Test 4: default session name is `voyage-<basename(lanePath)>`.
 test("voyage default session name is prefixed with voyage-", async () => {
   const { stateDir, binDir } = freshState()
-  const laneDir = makeTempGitRepo()
+  const laneDir = makeTempGitRepo({ "README.md": "" })
   try {
-    const r = await runCli(["voyage", "--no-open", "--no-track", laneDir], {
+    const r = await runCli(["voyage", "--no-open", "--no-track", "--from-path", laneDir], {
+      cwd: laneDir,
       env: { PATH: `${binDir}:${process.env.PATH}`, FAKE_TMUX_STATE: stateDir },
     })
     assert.strictEqual(r.code, 0, `voyage exited ${r.code}: ${r.stderr}`)
@@ -236,9 +239,10 @@ test("voyage default session name is prefixed with voyage-", async () => {
 // Test 5: explicit --name bypasses the prefix (no double prefix).
 test("voyage --name <text> overrides the voyage- prefix with no double prefix", async () => {
   const { stateDir, binDir } = freshState()
-  const laneDir = makeTempGitRepo()
+  const laneDir = makeTempGitRepo({ "README.md": "" })
   try {
-    const r = await runCli(["voyage", "--no-open", "--no-track", laneDir, "--name", "myname"], {
+    const r = await runCli(["voyage", "--no-open", "--no-track", "--from-path", laneDir, "--name", "myname"], {
+      cwd: laneDir,
       env: { PATH: `${binDir}:${process.env.PATH}`, FAKE_TMUX_STATE: stateDir },
     })
     assert.strictEqual(r.code, 0, `voyage exited ${r.code}: ${r.stderr}`)
@@ -259,10 +263,11 @@ test("voyage --name <text> overrides the voyage- prefix with no double prefix", 
 // Test 6: reattach path uses the prefixed session name (has-session -t).
 test("voyage reattach (has-session) targets the prefixed session name", async () => {
   const { stateDir, binDir } = freshState()
-  const laneDir = makeTempGitRepo()
+  const laneDir = makeTempGitRepo({ "README.md": "" })
   try {
     // has-session exits 0 -> bootLane takes the reattach branch.
-    const r = await runCli(["voyage", "--no-open", "--no-track", laneDir], {
+    const r = await runCli(["voyage", "--no-open", "--no-track", "--from-path", laneDir], {
+      cwd: laneDir,
       env: { PATH: `${binDir}:${process.env.PATH}`, FAKE_TMUX_STATE: stateDir, FAKE_TMUX_HAS_SESSION: "0" },
     })
     assert.strictEqual(r.code, 0, `voyage exited ${r.code}: ${r.stderr}`)
