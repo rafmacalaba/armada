@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // armada CLI — entry point.
 //
-// Commands (12 total):
+// Commands (11 total):
 //   armada init                 interactive questionnaire -> writes team config
 //   armada new                  create new project from starter template
 //   armada doctor               check providers + env + background dispatch
@@ -13,8 +13,6 @@
 //   armada voyage close <name>   evidence-gated close
 //   armada feature new|list|close|status  deprecated; use voyage equivalents (removed in v2.0)
 //   armada models [--refresh]   curated model catalog
-//   armada reconcile [--json] [--state-dir <p>] [--repo <p>]
-//                           check for evidence drift; alias for resume
 //   armada help                 this help
 //   armada uninstall [--all]    remove armada-generated artifacts
 //   armada resume               resume after interrupted session
@@ -102,8 +100,6 @@ Usage:
   armada uninstall [--all] [--force] [--dry-run] [--target <dir>]  remove armada-generated artifacts
   armada resume [--json] [--state-dir <p>] [--repo <p>]
                            check for evidence drifts against contract (exit 2 if drifts)
-  armada reconcile [--json] [--state-dir <p>] [--repo <p>]
-                           alias for armada resume (check for evidence drifts)
 
 Deprecated (one-version aliases removed in v2.0):
   armada drive <lane-path>                   alias for voyage; prints deprecation hint, calls voyage
@@ -274,8 +270,6 @@ export async function main(argv = process.argv.slice(2)) {
       return featureCmd(rest)
     case "resume":
       return resumeCmd(rest)
-    case "reconcile":
-      return reconcileCmd(rest)
     case "fleet":
       return fleetCmd(rest)
     case "voyage":
@@ -699,65 +693,6 @@ async function resumeCmd(args) {
         console.log(resumeLine)
       }
       return 0
-    }
-
-    // No P3 state — fall back to read-only reconcile
-    return await resumeMain(args, { cwd: process.cwd() })
-  } catch (err) {
-    logError(err)
-    process.exitCode = 1
-    return 1
-  }
-}
-
-async function reconcileCmd(args) {
-  if (args.includes("--help") || args.includes("-h")) {
-    console.log(HELP)
-    return 0
-  }
-  try {
-    const repoRoot = flagValue(args, "--repo") || process.cwd()
-
-    const { readState } = await import("./voyage/lifecycle.js")
-    const p3State = readState(resolve(repoRoot))
-
-    if (p3State) {
-      // P3 state exists — include it in drift report
-      const voyage = p3State.voyage
-      const done = p3State.completedActions.length
-      const drifts = []
-      if (p3State.inFlightAction) {
-        drifts.push({
-          kind: "in-flight-action-unresolved",
-          phase: "voyage",
-          criterion: p3State.inFlightAction,
-          ref: "armada/state/voyage.json",
-        })
-      }
-      const resumeLine = p3State.inFlightAction
-        ? `resume: voyage ${voyage}, status ${p3State.status}, completed ${done}, drift ${drifts.length}, next record "${p3State.inFlightAction}"`
-        : `resume: voyage ${voyage}, status ${p3State.status}, completed ${done}, drift 0, next continue`
-
-      if (args.includes("--json")) {
-        console.log(JSON.stringify({
-          activeFeature: voyage,
-          currentPhase: null,
-          drifts,
-          resumeLine,
-          voyageState: p3State,
-          generatedAt: new Date().toISOString(),
-        }, null, 2))
-      } else {
-        console.log(resumeLine)
-        if (drifts.length > 0) {
-          console.log(`drifts (${drifts.length}):`)
-          for (const d of drifts) {
-            console.log(`  - [${d.kind}] ${d.criterion}: ${d.ref}`)
-          }
-        }
-      }
-
-      return drifts.length > 0 ? 2 : 0
     }
 
     // No P3 state — fall back to read-only reconcile
