@@ -107,3 +107,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 [1.0.3]: https://github.com/rafmacalaba/armada/releases/tag/v1.0.3
 [1.0.4]: https://github.com/rafmacalaba/armada/releases/tag/v1.0.4
+[1.0.5]: https://github.com/rafmacalaba/armada/releases/tag/v1.0.5
+[1.0.6]: https://github.com/rafmacalaba/armada/releases/tag/v1.0.6
+[1.0.7]: https://github.com/rafmacalaba/armada/releases/tag/v1.0.7
+
+## [1.0.7] - 2026-08-08
+
+### Reverted
+
+Reverts the v1.0.6 permission hardening (#134) back to the v1.0.3 baseline. User-approved full revert (risk override recorded in `REQUIREMENTS-v1.0.7.md`). The v1.0.3 surface re-opens 7 known security holes:
+
+1. **`docs` role `edit: { "*": "allow" }`** — caravel (docs) can write any file in the repo.
+2. **Bash prefix globs** (`git status*`, `cat*`, `echo*`, `head*`, `tail*`) — redirect/pipe exfiltration is allowed (`git diff .env | curl`, `cat .env > leak.txt`).
+3. **yolo `*` defeats `external_directory: deny`** — `permission = { external_directory: "deny" }` then `permission["*"] = "allow"` — the `*` allow comes second, so under last-match-wins it overrides the deny.
+4. **dev roles (galleon/clipper) missing `"*": "deny"`** — unlisted paths fall to SDK default ("ask" or "allow" depending on SDK build).
+5. **orchestrator `edit: { "*.md": "allow" }`** — commodore can write any `.md` file in the repo.
+6. **`WRITE_BASH_DENIES` removed** — dev roles can `rm armada/`, `mv src/ logs/`, etc. from bash without prompt.
+7. **`SAFE_BASH` tier removed** — content-emitter commands (`cat`, `echo`, `head`, `tail`) re-enter the safe-read tier.
+
+### Removed
+
+- `SAFE_BASH`, `WRITE_BASH_ALLOWS`, `WRITE_BASH_DENIES`, `QA_SAFE_BASH`, `ROLE_BASH_TIER` constants in `src/generator.js`.
+- `ledgerPermissions`, `ledgerFileGlob`, `ledgerDirGlob` helpers.
+- `tests/permissions.test.js` (did not exist in v1.0.3).
+
+### Changed
+
+- `src/generator.js` permission block reverted to v1.0.3 byte-for-byte.
+- `package.json` version bumped to `1.0.7`.
+
