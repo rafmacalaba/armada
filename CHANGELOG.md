@@ -6,6 +6,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Features
 
+- live contract snapshot, approval gate, hardened permissions (#134)
+
+## Chores
+
+- log contract-snapshot-permissions voyage #134 (#135)
+- compact completed entries + log v1.0.5 + queue DEF-003 fix (#133)
+
+## Features
+
 - single triage authority + consistency audit + regression suite (#131)
 - single triage authority + consistency audit + regression suite
 - armada-voyage-finish skill + armada release <version> command (#130)
