@@ -157,7 +157,7 @@ table.
 | | `--feature <name>` | one feature's row |
 | `armada fleet [session]` | `--json` | machine output |
 | | `--open` | open the dashboard in a terminal window |
-| `armada voyage <lane>` | `--name <session>` | tmux session name (default: lane basename) |
+| `armada voyage <name>` | `--name <session>` | tmux session name (default: voyage-<name>) |
 | | `--prompt <text>` | drive prompt (default: the standard voyage prompt) |
 | | `--timeout <ms>` | TUI-ready timeout (default 30000) |
 | | `--no-open` | skip auto-attach |
@@ -165,13 +165,17 @@ table.
 | | `--print-attach` | print the attach command instead of booting |
 | | `--heartbeat` | keep the fleet entry fresh (30s heartbeat) |
 | | `attach <name>` | subcommand: print the attach command for a session |
+| `armada voyage list` | — | list all features (table) |
+| | `--target <dir>` | operate on a different repo root |
+| `armada voyage close <name>` | — | evidence-gated close |
+| | `--remove` | also remove the worktree |
+| | `--target <dir>` | operate on a different repo root |
 | `armada voyage-handoff <name> [<name>...]` | — | print handoff block for roles |
-| `armada feature` | `new <name>` | create contract + state, set active |
-| | `new <name> --worktree` | isolate in a git worktree |
-| | `list` | all features (table) |
-| | `close <name>` | evidence-gated close |
-| | `close <name> --remove` | also remove the worktree |
-| | `--target <dir>` | operate on a different repo root (new/list/close) |
+| `armada feature` | (deprecated) | removed in v2.0 |
+| | `new <name>` | use `armada voyage <name>` |
+| | `list` | use `armada voyage list` |
+| | `close <name>` | use `armada voyage close <name>` |
+| | `status [name]` | use `armada status --feature <name>` |
 | `armada models` | `[budget]` | catalog for `free`/`balanced`/`power` (default balanced) |
 | | `--refresh` | merge live provider availability into the cache |
 | | `--cache <path>` | custom cache path for `--refresh` |
@@ -190,10 +194,13 @@ table.
 
 | Alias | Canonical |
 |---|---|
-| `armada drive <lane>` | `armada voyage <lane>` |
+| `armada drive <lane>` | `armada voyage --from-path <lane>` |
 | `armada update` | `armada init --from-armada --restart` |
 | `armada preset <name>` | `armada init --budget <name>` |
 | `armada feature status [name]` | `armada status --feature <name>` |
+| `armada feature new <name>` | `armada voyage <name>` |
+| `armada feature list` | `armada voyage list` |
+| `armada feature close <name>` | `armada voyage close <name>` |
 
 Each prints a deprecation hint on stderr, runs the underlying action, and exits non-zero
 (`src/cli.js:189-309`; behavior verified in P1 — see [CHANGELOG.md](../CHANGELOG.md)).
@@ -215,7 +222,7 @@ help text for discoverability (`src/cli.js:87-89`).
 | `armada doctor` | all checks pass | any check failed (`src/cli.js:504`) | — |
 | `armada status` | ok | no state files / error | — |
 | `armada fleet` | ok | session not found | — |
-| `armada voyage` | ok | lane not found, timeout, invalid session name | — |
+| `armada voyage` | ok | name required, invalid name, timeout, invalid session name | — |
 | `armada voyage-handoff` | ok | no names given | — |
 | `armada feature` | ok | name required, error | — |
 | `armada models` | ok | refresh/cache failure | — |

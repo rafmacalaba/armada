@@ -8,8 +8,10 @@
 //   armada status [--json] [--feature <name>]  feature status from armada/state
 //   armada fleet [session]      per-lane progress dashboard
 //   armada fleet discover [--json] [--register] [--repo <path>]  list/register untracked voyage worktrees
-//   armada voyage <path>        boot a lane + send voyage prompt
-//   armada feature new|list|close  per-feature contract management
+//   armada voyage <name>        create worktree + boot lane + send voyage prompt
+//   armada voyage list           list features
+//   armada voyage close <name>   evidence-gated close
+//   armada feature new|list|close|status  deprecated; use voyage equivalents (removed in v2.0)
 //   armada models [--refresh]   curated model catalog
 //   armada reconcile [--json] [--state-dir <p>] [--repo <p>]
 //                           check for evidence drift; alias for resume
@@ -84,11 +86,13 @@ Usage:
   armada status [--json] [--feature <name>]  feature status from armada/state (table by default)
   armada fleet [session] [--json] [--open]   per-lane progress dashboard (table by default)
   armada fleet discover [--json] [--register] [--repo <path>]   list/register untracked voyage worktrees
-  armada voyage <lane-path> [--heartbeat]    boot a lane session and send the voyage prompt (TUI-ready handshake)
+  armada voyage <name> [--heartbeat]          create worktree + boot lane + send voyage prompt
+  armada voyage list [--target <dir>]         list features (table)
+  armada voyage close <name> [--remove] [--target <dir>]  evidence-gated close
   armada voyage-handoff <name> [<name>...]  print handoff block for dispatched voyages
-  armada feature new <name>                  create per-feature contract + register
-  armada feature list                        list open/in-progress/shipped features
-  armada feature close <name>                verify evidence + mark shipped
+  armada feature new <name>                  deprecated; use 'armada voyage <name>' (removed in v2.0)
+  armada feature list                        deprecated; use 'armada voyage list' (removed in v2.0)
+  armada feature close <name>                deprecated; use 'armada voyage close <name>' (removed in v2.0)
   armada release <version> [--dry-run]       automated PR-first release (step 1)
   armada release --continue [--dry-run]      tag + GitHub release after PR merge (step 2)
   armada models [budget]                     show curated model catalog
@@ -105,7 +109,7 @@ Deprecated (one-version aliases removed in v2.0):
   armada drive <lane-path>                   alias for voyage; prints deprecation hint, calls voyage
   armada update                              deprecated; use 'armada init --from-armada --restart'
   armada preset <name>                       deprecated; use 'armada init --budget <name>'
-  armada feature status [name]               deprecated; use 'armada status --feature <name>'
+  armada feature new/list/close/status       deprecated; use 'armada voyage' equivalents
 
 Removed:
   armada scout                               removed; use '/armada-scout' inside the opencode TUI
@@ -1323,7 +1327,31 @@ async function featureCmd(args) {
         return 1
       }
       console.error("armada feature new: deprecated; use 'armada voyage <name>' (removed in v2.0)")
-      return driveCmd([name], "voyage")
+      // If --target was given, change to that directory so the worktree is created there
+      process.chdir(resolve(target))
+      // Create the worktree like voyage does, but skip booting the lane
+      const mainRepo = resolveMainRepo(process.cwd())
+      const worktreePath = join(mainRepo, "sandbox", name)
+      if (!existsSync(worktreePath)) {
+        try {
+          const paths = await createWorktreeFeature(process.cwd(), name, {})
+          console.log(`feature "${name}" created (worktree)`)
+          console.log(`  worktree: ${paths.worktreePath}`)
+          console.log(`  branch:   ${paths.branch}`)
+          console.log(`  contract: ${paths.contractPath}`)
+          console.log(`  entry:    ${paths.entryPath}`)
+          console.log(`  index:    ${paths.indexPath}`)
+          console.log(`  active:   ${paths.activePath}`)
+        } catch (err) {
+          logError(err)
+          process.exitCode = 1
+          return 1
+        }
+      } else {
+        setActiveContract(worktreePath, `armada/contracts/${name}.md`)
+        console.log(`feature "${name}" already exists`)
+      }
+      return 0
     }
     case "list": {
       console.error("armada feature list: deprecated; use 'armada voyage list' (removed in v2.0)")

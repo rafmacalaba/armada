@@ -6,6 +6,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Features
 
+- Deprecated feature new/list/close/status; use voyage <name>, voyage list, voyage close (removed in 2.0)
 - live contract snapshot, approval gate, hardened permissions (#134)
 
 ## Chores
