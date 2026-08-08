@@ -201,9 +201,3 @@ test("feature close prints deprecation warning and delegates", async () => {
   assert.match(r.stdout, /shipped/)
 })
 
-test("feature status prints stronger deprecation warning", async () => {
-  const dir = makeTempRepo({})
-  const r = await runCli(["feature", "status", "--target", dir])
-  assert.strictEqual(r.code, 1)
-  assert.match(r.stderr, /removed in v2\.0/)
-})

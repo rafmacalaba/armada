@@ -204,34 +204,6 @@ test("init --requirements wires active contract", async () => {
   assert.strictEqual(active.contract, "reqs.md")
 })
 
-test("feature status shows deprecation hint across scenarios, exits 1", async () => {
-  for (const [label, makeRepo] of [
-    ["active feature", async () => {
-      const dir = makeTempGitRepo({ "readme.md": "# test" })
-      await runCli(["feature", "new", "foo"], { cwd: dir })
-      return { dir, r: await runCli(["feature", "status", "--target", dir]) }
-    }],
-    ["named active feature", async () => {
-      const dir = makeTempGitRepo({ "readme.md": "# test" })
-      await runCli(["feature", "new", "foo"], { cwd: dir })
-      return { dir, r: await runCli(["feature", "status", "foo", "--target", dir]) }
-    }],
-    ["nonexistent feature", async () => {
-      const dir = makeTempGitRepo({ "readme.md": "# test" })
-      return { dir, r: await runCli(["feature", "status", "nope", "--target", dir]) }
-    }],
-    ["no active feature", async () => {
-      const dir = makeTempGitRepo({ "readme.md": "# test" })
-      return { dir, r: await runCli(["feature", "status", "--target", dir]) }
-    }],
-  ]) {
-    const { dir, r } = await makeRepo()
-    assert.strictEqual(r.code, 1, `${label} exits 1`)
-    assert.match(r.stderr, /removed in v2\.0/, `${label} has deprecation hint`)
-    rmSync(dir, { recursive: true, force: true })
-  }
-})
-
 test("status JSON exposes adaptive workflow metadata", async () => {
   const dir = makeTempGitRepo({ "readme.md": "# test" })
   await runCli(["feature", "new", "workflow-status"], { cwd: dir })

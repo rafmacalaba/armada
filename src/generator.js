@@ -571,7 +571,7 @@ description: armada — resume after an interrupted session
 subtask: true
 agent: ${agentNameFor("orchestrator")}
 ---
-Run \`armada reconcile\` and print the resume line plus any drift list. If \`armada\` is not on PATH, report the missing binary.
+Run \`armada resume\` and print the resume line plus any drift list. If \`armada\` is not on PATH, report the missing binary.
 `
 }
 

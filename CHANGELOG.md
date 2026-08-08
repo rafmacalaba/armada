@@ -47,6 +47,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Removed
+
+- Removed `armada reconcile` (alias for resume) and `armada feature status` (was deprecated in v1.0; use `armada status --feature <name>`).
+
 ### Changed
 
 - CI: drop armada-evidence workflow; require Node >= 22 (was >= 20).

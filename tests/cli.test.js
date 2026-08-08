@@ -614,17 +614,6 @@ test("drive --print-attach prints attach command and exits 1 (deprecated)", asyn
 
 // -- cli-routing (P1 fixes) --
 
-test("reconcile exits 0 when no state dir exists (no drift)", async () => {
-  const dir = makeTempRepo({})
-  const r = await runCli(["reconcile", "--repo", dir], { cwd: dir })
-  assert.strictEqual(r.code, 0)
-})
-
-test("reconcile appears in help text", async () => {
-  const r = await runCli(["help"])
-  assert.match(r.stdout, /reconcile/)
-})
-
 test("uninstall --all removes armada/state directory", async () => {
   const dir = makeTempRepo({ "armada/armada.yaml": manifestYaml() })
   await runCli(["init", "--from-armada", "armada/armada.yaml"], { cwd: dir })

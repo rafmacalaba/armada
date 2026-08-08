@@ -188,7 +188,6 @@ table.
 | | `--target <dir>` | operate on a different repo root |
 | | `--from-armada <file>` | read ownership from a specific manifest |
 | `armada help` | — | usage; `armada --version` for the version |
-| `armada reconcile` | (alias for resume) | same flags as resume |
 
 ### Deprecated aliases (exit 1, removed in v2.0)
 
@@ -197,7 +196,6 @@ table.
 | `armada drive <lane>` | `armada voyage --from-path <lane>` |
 | `armada update` | `armada init --from-armada --restart` |
 | `armada preset <name>` | `armada init --budget <name>` |
-| `armada feature status [name]` | `armada status --feature <name>` |
 | `armada feature new <name>` | `armada voyage <name>` |
 | `armada feature list` | `armada voyage list` |
 | `armada feature close <name>` | `armada voyage close <name>` |
@@ -227,7 +225,6 @@ help text for discoverability (`src/cli.js:87-89`).
 | `armada feature` | ok | name required, error | — |
 | `armada models` | ok | refresh/cache failure | — |
 | `armada resume` | no drift | error | evidence drifts reported |
-| `armada reconcile` | no drift | error | evidence drifts reported |
 | `armada uninstall` | ok | manifest parse error, permission error | — |
 | deprecated aliases | — | always (deprecation) | — |
 | `armada help` | ok | — | — |
