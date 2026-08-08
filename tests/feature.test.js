@@ -2,7 +2,7 @@ import { test } from "node:test"
 import assert from "node:assert"
 import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs"
 import { join } from "node:path"
-import { runCli, makeTempRepo } from "./helpers.js"
+import { runCli, makeTempRepo, makeTempGitRepo } from "./helpers.js"
 import { contractStub, extractFinalCriteriaEvidence, createFeature, listFeatures, closeFeature, setActiveContract, readActive } from "../src/feature-commands.js"
 
 // ---- unit: contractStub ---------------------------------------------------
@@ -96,7 +96,7 @@ test("extractFinalCriteriaEvidence stops at next heading", () => {
 // ---- CLI e2e ---------------------------------------------------------------
 
 test("feature new creates contract, entry, index, active", async () => {
-  const dir = makeTempRepo({})
+  const dir = makeTempGitRepo({})
   const r = await runCli(["feature", "new", "foo", "--target", dir])
   assert.strictEqual(r.code, 0, `stdout: ${r.stdout} stderr: ${r.stderr}`)
   assert.match(r.stdout, /feature "foo" created/)
@@ -116,7 +116,7 @@ test("feature new creates contract, entry, index, active", async () => {
 })
 
 test("feature list shows features", async () => {
-  const dir = makeTempRepo({})
+  const dir = makeTempGitRepo({})
   await runCli(["feature", "new", "foo", "--target", dir])
   await runCli(["feature", "new", "bar", "--target", dir])
 
@@ -128,14 +128,14 @@ test("feature list shows features", async () => {
 })
 
 test("feature list with no features", async () => {
-  const dir = makeTempRepo({})
+  const dir = makeTempGitRepo({})
   const r = await runCli(["feature", "list", "--target", dir])
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /No features/)
 })
 
 test("feature close without evidence fails", async () => {
-  const dir = makeTempRepo({})
+  const dir = makeTempGitRepo({})
   await runCli(["feature", "new", "foo", "--target", dir])
 
   const r = await runCli(["feature", "close", "foo", "--target", dir])
@@ -145,7 +145,7 @@ test("feature close without evidence fails", async () => {
 })
 
 test("feature close with evidence succeeds", async () => {
-  const dir = makeTempRepo({})
+  const dir = makeTempGitRepo({})
   await runCli(["feature", "new", "foo", "--target", dir])
 
   // Edit the contract to add evidence
@@ -174,14 +174,14 @@ test("feature close with evidence succeeds", async () => {
 })
 
 test("feature close nonexistent fails", async () => {
-  const dir = makeTempRepo({})
+  const dir = makeTempGitRepo({})
   const r = await runCli(["feature", "close", "nonexistent", "--target", dir])
   assert.strictEqual(r.code, 1)
   assert.match(r.stderr, /not found/)
 })
 
 test("feature new with duplicate name overrides entry in index", async () => {
-  const dir = makeTempRepo({})
+  const dir = makeTempGitRepo({})
   await runCli(["feature", "new", "foo", "--target", dir])
   await runCli(["feature", "new", "foo", "--target", dir])
 
@@ -191,7 +191,7 @@ test("feature new with duplicate name overrides entry in index", async () => {
 })
 
 test("init --requirements wires active contract", async () => {
-  const dir = makeTempRepo({
+  const dir = makeTempGitRepo({
     "reqs.md": "# MyContract\n\n## Final criteria\n\n- [ ] c1\n  Evidence: x\n",
     "armada/armada.yaml": "project:\n  name: test\n  stack: {}\nteam:\n  - role: orchestrator\n    model: opencode-go/minimax-m3\n    enabled: true\n",
   })
@@ -207,21 +207,21 @@ test("init --requirements wires active contract", async () => {
 test("feature status shows deprecation hint across scenarios, exits 1", async () => {
   for (const [label, makeRepo] of [
     ["active feature", async () => {
-      const dir = makeTempRepo({})
+      const dir = makeTempGitRepo({})
       await runCli(["feature", "new", "foo", "--target", dir])
       return { dir, r: await runCli(["feature", "status", "--target", dir]) }
     }],
     ["named active feature", async () => {
-      const dir = makeTempRepo({})
+      const dir = makeTempGitRepo({})
       await runCli(["feature", "new", "foo", "--target", dir])
       return { dir, r: await runCli(["feature", "status", "foo", "--target", dir]) }
     }],
     ["nonexistent feature", async () => {
-      const dir = makeTempRepo({})
+      const dir = makeTempGitRepo({})
       return { dir, r: await runCli(["feature", "status", "nope", "--target", dir]) }
     }],
     ["no active feature", async () => {
-      const dir = makeTempRepo({})
+      const dir = makeTempGitRepo({})
       return { dir, r: await runCli(["feature", "status", "--target", dir]) }
     }],
   ]) {
@@ -233,7 +233,7 @@ test("feature status shows deprecation hint across scenarios, exits 1", async ()
 })
 
 test("status JSON exposes adaptive workflow metadata", async () => {
-  const dir = makeTempRepo({})
+  const dir = makeTempGitRepo({})
   await runCli(["feature", "new", "workflow-status", "--target", dir])
 
   const activePath = join(dir, "armada/state/active.json")
@@ -259,7 +259,7 @@ test("status JSON exposes adaptive workflow metadata", async () => {
 })
 
 test("closeFeature throws when no final criteria", () => {
-  const dir = makeTempRepo({
+  const dir = makeTempGitRepo({
     "armada/contracts/fc.md": "# FC\n\n## Goal\n\nno criteria\n",
   })
   // Make the feature entry manually
@@ -285,7 +285,7 @@ test("closeFeature throws when no final criteria", () => {
 })
 
 test("feature close with multiple criteria, some missing evidence", async () => {
-  const dir = makeTempRepo({})
+  const dir = makeTempGitRepo({})
   await runCli(["feature", "new", "multi", "--target", dir])
 
   // Read the contract, customize to have multiple criteria

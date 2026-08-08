@@ -11,7 +11,7 @@ import { join, basename, resolve, relative } from "node:path"
 import { existsSync, readFileSync, lstatSync, realpathSync } from "node:fs"
 import { readSafe } from "../state/atomic.js"
 import { computeContractHash, isApproved, validateApprovalState } from "../state/contract-approval.js"
-import { execFileSync } from "node:child_process"
+import { spawnSync } from "node:child_process"
 
 // ---- paths ----------------------------------------------------------------
 
@@ -129,30 +129,26 @@ export function checkContractApproval(repoDir) {
  */
 export function resolveMainCheckout(lanePath, sandboxDir) {
   let mainDir
-  try {
-    // git rev-parse --git-common-dir returns the .git directory path of the
-    // main repository (not the worktree). For worktrees, this points to the
-    // common .git dir which is the main repo's .git.
-    const gitCommonDir = execFileSync("git", ["rev-parse", "--git-common-dir"],
-      { cwd: lanePath, encoding: "utf8" }).trim()
-    // The main repo is the parent of .git
-    mainDir = join(lanePath, gitCommonDir)
-    // If it's a relative path from the worktree, resolve it
-    mainDir = resolve(lanePath, gitCommonDir)
-    // .git lives inside the main repo, so mainDir is the parent of .git
-    if (basename(mainDir) === ".git") {
-      mainDir = resolve(mainDir, "..")
-    }
-  } catch {
-    // Fall back to string heuristic (backward compat)
-    const sep = lanePath.includes("\\") ? "\\" : "/"
-    const parts = lanePath.split(sep)
-    const sandboxIdx = parts.lastIndexOf("sandbox")
-    if (sandboxIdx > 0) {
-      mainDir = parts.slice(0, sandboxIdx).join(sep)
-    } else {
-      mainDir = lanePath
-    }
+
+  // git rev-parse --git-common-dir returns the .git directory path of the
+  // main repository (not the worktree). For worktrees, this points to the
+  // common .git dir which is the main repo's .git.
+  const r = spawnSync("git", ["rev-parse", "--git-common-dir"],
+    { cwd: lanePath, encoding: "utf8" })
+  if (r.status !== 0) {
+    console.error("armada voyage: current directory is not inside a git repository.")
+    console.error("Run `git init` to initialize one, or `armada new <name>` to create a new project.")
+    process.exitCode = 1
+    throw new Error("not a git repository")
+  }
+  const gitCommonDir = r.stdout.trim()
+  // The main repo is the parent of .git
+  mainDir = join(lanePath, gitCommonDir)
+  // If it's a relative path from the worktree, resolve it
+  mainDir = resolve(lanePath, gitCommonDir)
+  // .git lives inside the main repo, so mainDir is the parent of .git
+  if (basename(mainDir) === ".git") {
+    mainDir = resolve(mainDir, "..")
   }
 
   // Containment check: sandbox must be under the main repo
