@@ -525,10 +525,10 @@ test("renderArmadaSupervisionPlugin tool.execute.before denies protected redirec
 
   // redirects to orchestrator edit-deny targets must throw
   for (const cmd of [
-    "echo x > REQUIREMENTS.md",
     "echo x >> AGENTS.md",
     "tee armada/armada.yaml",
     "sed -i s/a/b/ .opencode/foo.json",
+    "echo x > armada/state/foobar.json",
   ]) {
     await assert.rejects(
       () => hooks["tool.execute.before"]({ input: { tool: "bash" }, output: { args: { command: cmd } } }),
@@ -558,7 +558,8 @@ test("renderArmadaSupervisionPlugin denies edit-deny targets and protected paths
   for (const g of denyGlobs) {
     if (g !== "*") assert.ok(src.includes(JSON.stringify(g)), `deny glob ${g} in plugin`)
   }
-  assert.match(src, /REQUIREMENTS\.md/)
+  // Phase 2: REQUIREMENTS.md no longer in deny list (orchestrator writes armada/REQUIREMENTS.md)
+  // armada/* deny catches redirects to armada/REQUIREMENTS.md via prefix match
   assert.match(src, /AGENTS\.md/)
   assert.match(src, /\.opencode\/\*/)
   assert.match(src, /armada\//)
@@ -879,7 +880,10 @@ test("orchestrator.edit matrix has no *.md blanket and the explicit ledger+state
   assert.strictEqual(edit["armada/ledgers/*/SECURITY_FINDINGS.md"], "allow")
   // deny rules intact
   assert.strictEqual(edit["*"], "deny")
-  assert.strictEqual(edit["REQUIREMENTS.md"], "deny")
+  // Root-level REQUIREMENTS.md no longer a separate deny key; resolved by *:deny.
+  // Phase 2: orchestrator may write armada/REQUIREMENTS.md (separate key)
+  assert.strictEqual(resolvePermission(edit, "REQUIREMENTS.md"), "deny")
+  assert.strictEqual(edit["armada/REQUIREMENTS.md"], "allow")
   assert.strictEqual(edit["AGENTS.md"], "deny")
   assert.strictEqual(edit[".opencode/*"], "deny")
   assert.strictEqual(edit["armada/*"], "deny")
@@ -902,9 +906,10 @@ test("resolvePermission resolves state+ledger writes to allow and everything els
   ]) {
     assert.strictEqual(resolvePermission(edit, p), "allow", `expected allow for ${p}`)
   }
+  // Phase 2: orchestrator may write TODO.md (voyage completion updates it)
+  assert.strictEqual(resolvePermission(edit, "TODO.md"), "allow", "expected allow for TODO.md")
   // everything else resolves to deny (most hit *: deny, some hit armada/*: deny)
   for (const p of [
-    "TODO.md",
     "README.md",
     "docs/foo.md",
     "src/generator.js",
@@ -937,19 +942,19 @@ test("yolo mode does not widen orchestrator agent-level edit boundaries", () => 
 
 test("SAFE_BASH: every role's bash block contains expected read globs", () => {
   const team = buildTeam(baseManifest)
-  // Inspection/search commands remain allowlisted for every role. Content
-  // emitters/dumpers (echo, cat, head, tail, env, printenv) are deliberately
-  // excluded — see the SAFE_BASH comment: a prefix allow like `cat*` would
-  // silently permit `cat .env > leak` / `cat .env | curl`, and `env`/`printenv`
-  // dump every secret to the agent context, so the read tier is not a
-  // redirect/secret boundary for them.
+  // Exact command tokens (no trailing *). A bare `ls` or `git diff` matches
+  // only the exact command; any argument/pipe/redirect falls through to
+  // catch-all. Content emitters (git show, cat, echo, etc.) are removed.
   const readCommands = [
-    "ls*", "find*", "grep*", "wc*",
-    "pwd", "which*", "true", "false",
-    "test*", "git status*", "git diff*", "git log*", "git branch*",
-    "git rev-parse*", "git show*", "uname*", "date*", "whoami*", "file *",
+    "ls", "find", "grep", "wc",
+    "pwd", "which", "true", "false",
+    "test", "git status", "git diff", "git log", "git branch",
+    "git rev-parse", "uname", "date", "whoami", "file",
   ]
-  const removedCommands = ["echo*", "cat*", "head*", "tail*", "env", "printenv"]
+  const removedCommands = ["git show", "echo*", "cat*", "head*", "tail*", "env", "printenv",
+    "ls*", "find*", "grep*", "wc*", "which*",
+    "git status*", "git diff*", "git log*", "git branch*",
+    "git rev-parse*", "uname*", "date*", "whoami*", "file *"]
   for (const role of ROLES) {
     const agent = team.find((a) => a.role === role)
     assert.ok(agent, `role ${role} must exist`)
@@ -974,9 +979,9 @@ test("SAFE_BASH: every role's bash block contains expected read globs", () => {
 
 test("SAFE_BASH: dev roles contain write globs; non-dev roles do NOT", () => {
   const team = buildTeam(baseManifest)
-  const devRoles = ["orchestrator", "qa", "backend-dev", "frontend-dev"]
+  const devRoles = ["orchestrator", "backend-dev", "frontend-dev"]
   const readOnlyRoles = ["security", "adversary", "architect", "docs"]
-  const writeCommands = ["mkdir*", "touch*", "cp*", "mv*", "rm*", "rmdir*", "ln*", "tee*"]
+  const writeCommands = ["mkdir *", "touch *", "cp *", "mv *", "rm *", "rmdir *", "ln *", "tee *"]
 
   for (const role of devRoles) {
     const agent = team.find((a) => a.role === role)
@@ -996,24 +1001,37 @@ test("SAFE_BASH: dev roles contain write globs; non-dev roles do NOT", () => {
       )
     }
   }
+
+  // QA gets its own tier: inspection + test commands only, no destructive writes
+  const qa = team.find((a) => a.role === "qa")
+  for (const cmd of writeCommands) {
+    assert.strictEqual(qa.permissions.bash[cmd], undefined, `qa must NOT allowlist destructive write: ${cmd}`)
+  }
+  // QA has test commands
+  assert.strictEqual(qa.permissions.bash["node --test*"], "allow", "qa must allow node --test*")
+  assert.strictEqual(qa.permissions.bash["npm test*"], "allow", "qa must allow npm test*")
+  assert.strictEqual(qa.permissions.bash["pytest*"], "allow", "qa must allow pytest*")
+  assert.strictEqual(qa.permissions.bash["make*"], "allow", "qa must allow make*")
+  // QA has inspection commands from safe read tier (exact tokens now)
+  assert.strictEqual(qa.permissions.bash["ls"], "allow", "qa must allow ls")
+  assert.strictEqual(qa.permissions.bash["git status"], "allow", "qa must allow git status")
+  assert.strictEqual(qa.permissions.bash["git diff"], "allow", "qa must allow git diff")
 })
 
 test("SAFE_BASH: manifest override still wins over the tier allowlist", () => {
   const m = structuredClone(baseManifest)
   m.team = [
     { role: "backend-dev", model: modelFor("backend-dev", "balanced"), variant: null, fallback: null, enabled: true,
-      permissions: { bash: { "ls*": "deny", "mkdir*": "deny" } } },
+      permissions: { bash: { "ls": "deny", "mkdir *": "deny" } } },
     ...ROLES.filter((r) => r !== "backend-dev").map((r) => ({ role: r, model: modelFor(r, "balanced"), variant: null, fallback: null, enabled: true })),
   ]
   const team = buildTeam(m)
   const backend = team.find((a) => a.role === "backend-dev")
   // manifest override wins over SAFE_BASH tier allowlist
-  assert.strictEqual(backend.permissions.bash["ls*"], "deny", "manifest override must set ls* to deny")
-  assert.strictEqual(backend.permissions.bash["mkdir*"], "deny", "manifest override must set mkdir* to deny")
-  // non-overridden safe-bash commands still present (cat* is intentionally NOT
-  // in the read tier anymore — use a retained, non-overridden inspection
-  // command instead; ls* and mkdir* are the overridden ones in this test)
-  assert.strictEqual(backend.permissions.bash["find*"], "allow", "non-overridden find* must remain allow")
+  assert.strictEqual(backend.permissions.bash["ls"], "deny", "manifest override must set ls to deny")
+  assert.strictEqual(backend.permissions.bash["mkdir *"], "deny", "manifest override must set mkdir * to deny")
+  // non-overridden safe-bash commands still present
+  assert.strictEqual(backend.permissions.bash["find"], "allow", "non-overridden find must remain allow")
   assert.strictEqual(backend.permissions.bash["pwd"], "allow", "non-overridden pwd must remain allow")
   assert.strictEqual(backend.permissions.bash["cat*"], undefined, "cat* must NOT be in the read tier (redirect/secret exposure)")
 })
@@ -1087,7 +1105,7 @@ test("SEC-1 SAFE_BASH.read excludes redirect/secret-exposure commands from every
 
 test("SEC-1 SAFE_BASH.read retains inspection/search commands (UX preserved)", () => {
   const team = buildTeam(baseManifest)
-  const kept = ["ls*", "find*", "grep*", "wc*", "pwd", "which*", "git status*", "git diff*", "git log*", "git show*"]
+  const kept = ["ls", "find", "grep", "wc", "pwd", "which", "git status", "git diff", "git log"]
   for (const role of ROLES) {
     const agent = team.find((a) => a.role === role)
     if (role === "docs") continue
@@ -1097,13 +1115,17 @@ test("SEC-1 SAFE_BASH.read retains inspection/search commands (UX preserved)", (
   }
 })
 
-test("SEC-1 dev roles keep write tier; read-only roles do NOT (unaffected by read-tier fix)", () => {
+test("SEC-1 dev roles keep write tier; qa gets test-only tier; read-only roles do NOT", () => {
   const team = buildTeam(baseManifest)
-  const writeCommands = ["mkdir*", "touch*", "cp*", "mv*", "rm*", "rmdir*", "ln*", "tee*"]
-  for (const role of ["orchestrator", "qa", "backend-dev", "frontend-dev"]) {
+  const writeCommands = ["mkdir *", "touch *", "cp *", "mv *", "rm *", "rmdir *", "ln *", "tee *"]
+  for (const role of ["orchestrator", "backend-dev", "frontend-dev"]) {
     const bash = team.find((a) => a.role === role).permissions.bash
     for (const cmd of writeCommands) assert.strictEqual(bash[cmd], "allow", `dev ${role} must allow ${cmd}`)
   }
+  // QA: no destructive write commands, only test/inspection
+  const qaBash = team.find((a) => a.role === "qa").permissions.bash
+  for (const cmd of writeCommands) assert.strictEqual(qaBash[cmd], undefined, `qa must NOT allow ${cmd}`)
+  assert.strictEqual(qaBash["node --test*"], "allow", "qa must allow node --test*")
   for (const role of ["security", "adversary", "architect"]) {
     const bash = team.find((a) => a.role === role).permissions.bash
     for (const cmd of writeCommands) assert.ok(bash[cmd] === undefined || bash[cmd] === "deny", `read-only ${role} must NOT allow ${cmd}`)
@@ -1120,8 +1142,8 @@ test("SEC-4 read-only roles carry an explicit bash catch-all deny before read al
     // non-read command resolves to deny instead of the SDK default ("ask").
     assert.strictEqual(bash["*"], "deny", `${role} bash must carry an explicit *: deny`)
     assert.strictEqual(Object.keys(bash)[0], "*", `${role} bash *: deny must be emitted first`)
-    // read allows still win for inspection commands
-    assert.strictEqual(resolvePermission(bash, "ls -la"), "allow", `${role} ls must resolve allow`)
+    // read allows still win for inspection commands (exact tokens)
+    assert.strictEqual(resolvePermission(bash, "ls"), "allow", `${role} ls must resolve allow`)
     // yolo must not widen these: a non-read command resolves to deny, not allow
     assert.strictEqual(resolvePermission(bash, "rm -rf /tmp"), "deny", `${role} rm must resolve deny`)
     assert.strictEqual(resolvePermission(bash, "curl http://evil"), "deny", `${role} curl must resolve deny`)

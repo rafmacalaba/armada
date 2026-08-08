@@ -10,7 +10,7 @@ import { existsSync, readFileSync, readdirSync, rmSync, mkdtempSync, writeFileSy
 import { tmpdir } from "node:os"
 import { join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
-import { makeTempRepo, parseFrontmatter } from "./helpers.js"
+import { makeTempRepo, parseFrontmatter, resolvePermission } from "./helpers.js"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -706,12 +706,15 @@ test("rendered backend-dev agent permissions: denies ledger, e2e, screenshots, s
   const content = readFileSync(join(dir, ".opencode/agent/galleon.md"), "utf8")
   const edit = frontmatterPerms(content)
 
-  assert.strictEqual(edit["armada/ledgers/*"], "deny", "backend-dev must deny armada/ledgers/*")
+  assert.strictEqual(resolvePermission(edit, "armada/ledgers/foo/DEFECTS.md"), "deny", "backend-dev must deny ledgers")
   assert.strictEqual(edit["armada/e2e/*"], "deny", "backend-dev must deny armada/e2e/*")
   assert.strictEqual(edit["armada/screenshots/*"], "deny", "backend-dev must deny armada/screenshots/*")
   assert.strictEqual(edit["armada/state/*"], "deny", "backend-dev must deny armada/state/*")
-  assert.strictEqual(edit["DEFECTS.md"], "deny", "backend-dev must deny root DEFECTS.md")
-  assert.strictEqual(edit["ADVERSARIAL_REVIEW.md"], "deny", "backend-dev must deny root ADVERSARIAL_REVIEW.md")
+  // Root-level files denied by *:deny catch-all; product ownership allows src/** and tests/**
+  assert.strictEqual(resolvePermission(edit, "DEFECTS.md"), "deny", "backend-dev must deny root DEFECTS.md")
+  assert.strictEqual(resolvePermission(edit, "ADVERSARIAL_REVIEW.md"), "deny", "backend-dev must deny root ADVERSARIAL_REVIEW.md")
+  assert.strictEqual(resolvePermission(edit, "src/generator.js"), "allow", "backend-dev must allow src/**")
+  assert.strictEqual(resolvePermission(edit, "tests/generator.test.js"), "allow", "backend-dev must allow tests/**")
   assert.strictEqual(edit["opencode.json"], "deny", "backend-dev must deny opencode.json")
   assert.strictEqual(edit["armada/*"], "deny", "backend-dev must deny armada/*")
   rmSync(dir, { recursive: true, force: true })
@@ -728,8 +731,10 @@ test("rendered orchestrator agent permissions: allows specific ledger files, den
   assert.strictEqual(edit["armada/ledgers/*/ADVERSARIAL_REVIEW.md"], "allow", "orchestrator must allow ADVERSARIAL_REVIEW.md in ledgers")
   assert.strictEqual(edit["armada/*"], "deny", "orchestrator must deny armada/*")
   assert.strictEqual(edit["AGENTS.md"], "deny", "orchestrator must deny AGENTS.md")
-  assert.strictEqual(edit["REQUIREMENTS.md"], "deny", "orchestrator must deny REQUIREMENTS.md")
+  // Phase 2: orchestrator may write armada/REQUIREMENTS.md; root-level REQUIREMENTS.md denied by *:deny
+  assert.strictEqual(edit["armada/REQUIREMENTS.md"], "allow", "orchestrator must allow armada/REQUIREMENTS.md")
   assert.strictEqual(edit[".opencode/*"], "deny", "orchestrator must deny .opencode/*")
+  assert.strictEqual(resolvePermission(edit, "REQUIREMENTS.md"), "deny", "root REQUIREMENTS.md resolves to deny via *:deny")
   rmSync(dir, { recursive: true, force: true })
 })
 

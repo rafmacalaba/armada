@@ -40,25 +40,80 @@ export function deepMerge(base, override) {
 // wc, git read, ...) remain allowlisted.
 export const SAFE_BASH = Object.freeze({
   read: Object.freeze({
-    "ls*": "allow", "find*": "allow", "grep*": "allow", "wc*": "allow",
-    "pwd": "allow", "which*": "allow",
-    "true": "allow", "false": "allow", "test*": "allow",
-    "git status*": "allow", "git diff*": "allow", "git log*": "allow",
-    "git branch*": "allow", "git rev-parse*": "allow", "git show*": "allow",
-    "uname*": "allow", "date*": "allow", "whoami*": "allow", "file *": "allow",
-  }),
-  write: Object.freeze({
-    "mkdir*": "allow", "touch*": "allow", "cp*": "allow", "mv*": "allow",
-    "rm*": "allow", "rmdir*": "allow", "ln*": "allow", "tee*": "allow",
+    "pwd": "allow",
+    "true": "allow",
+    "false": "allow",
+    "test": "allow",
+    "uname": "allow",
+    "date": "allow",
+    "whoami": "allow",
+    "ls": "allow",
+    "find": "allow",
+    "grep": "allow",
+    "wc": "allow",
+    "which": "allow",
+    "file": "allow",
+    "git status": "allow",
+    "git diff": "allow",
+    "git log": "allow",
+    "git branch": "allow",
+    "git rev-parse": "allow",
   }),
 })
 
-// Map each role to its bash tier. Dev roles get read+write; security,
+// Write-bash allowlist for dev roles (backend-dev, frontend-dev, orchestrator).
+// Each entry is a prefix glob (openCode's `*` becomes `.*`) that matches the
+// command token. Denial rules for forbidden target paths follow in the
+// permission matrix so they override these allows (last-match-wins —
+// DEF-002/SEC-001/SEC-002).  eslint: keep in `buildTeam` section.
+const WRITE_BASH_ALLOWS = Object.freeze({
+  "cp *": "allow",
+  "mv *": "allow",
+  "mkdir *": "allow",
+  "touch *": "allow",
+  "rm *": "allow",
+  "rmdir *": "allow",
+  "ln *": "allow",
+  "tee *": "allow",
+})
+
+// Deny-list patterns that prevent write commands from targeting edit-denied
+// paths. Applied AFTER the WRITE_BASH_ALLOWS so last-match wins.
+// These use the `*` wildcard (→ `.*`) to match both the source and target
+// portions of cp/mv commands. For example, `* armada/*` matches
+// `cp src/x armada/REQUIREMENTS.md` because `.*` crosses spaces.
+const WRITE_BASH_DENIES = Object.freeze({
+  "*armada.yaml*": "deny",
+  "* armada/*": "deny",
+  "* .opencode/*": "deny",
+  "* opencode.json": "deny",
+  "* AGENTS.md": "deny",
+  "* README.md": "deny",
+  "* docs/*": "deny",
+  "* TODO.md": "deny",
+})
+
+// QA-specific safe bash: inspection commands + test runners, no destructive writes.
+// Mirrors SAFE_BASH pattern: prefix allows for test commands so qa can run
+// node --test, npm test, pytest, make, gh pr view, etc. Destructive write
+// commands (rm*, mkdir*, cp*, mv*, rmdir*) are intentionally absent.
+export const QA_SAFE_BASH = Object.freeze({
+  "node --test*": "allow",
+  "npm test*": "allow",
+  "npm run*": "allow",
+  "gh pr view*": "allow",
+  "gh run*": "allow",
+  "pytest*": "allow",
+  "make*": "allow",
+})
+
+// Map each role to its bash tier. Dev roles get read+write; qa gets its own
+// tier (safe read + test commands only, no destructive writes); security,
 // adversary, architect, and docs get read-only. Unknown roles default to
 // "read" (fail-safe).
 const ROLE_BASH_TIER = {
   orchestrator: "read+write",
-  qa: "read+write",
+  qa: "qa",
   "backend-dev": "read+write",
   "frontend-dev": "read+write",
   security: "read",
@@ -74,42 +129,55 @@ const BASE_PERMISSIONS = {
   orchestrator: {
     edit: {
       "*": "deny",
-      "REQUIREMENTS.md": "deny",
       "AGENTS.md": "deny",
       ".opencode/*": "deny",
       "armada/*": "deny",
+      "armada/REQUIREMENTS.md": "allow",
       "armada/state/active.json": "allow",
       "armada/state/features/*": "allow",
+      "armada/state/contract-approval.json": "allow",
+      "armada.yaml": "allow",
+      "TODO.md": "allow",
     },
-    bash: { "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow" },
+    bash: { "*": "ask", "git status": "allow", "git diff": "allow", "git log": "allow" },
     skill: "allow",
   },
   "backend-dev": {
     edit: {
+      "*": "deny",
+      "src/**": "allow",
+      "tests/**": "allow",
       "armada/e2e/*": "deny",
       "armada/screenshots/*": "deny",
       "armada/state/*": "deny",
-      "REQUIREMENTS.md": "deny",
+      "armada/REQUIREMENTS.md": "deny",
       "AGENTS.md": "deny",
       ".opencode/*": "deny",
       "opencode.json": "deny",
-      "DEFECTS.md": "deny",
-      "ADVERSARIAL_REVIEW.md": "deny",
+      "README.md": "deny",
+      "docs/*": "deny",
+      "TODO.md": "deny",
+      "armada.yaml": "deny",
       "armada/*": "deny",
     },
     skill: "allow",
   },
   "frontend-dev": {
     edit: {
+      "*": "deny",
+      "src/**": "allow",
+      "tests/**": "allow",
       "armada/e2e/*": "deny",
       "armada/screenshots/*": "deny",
       "armada/state/*": "deny",
-      "REQUIREMENTS.md": "deny",
+      "armada/REQUIREMENTS.md": "deny",
       "AGENTS.md": "deny",
       ".opencode/*": "deny",
       "opencode.json": "deny",
-      "DEFECTS.md": "deny",
-      "ADVERSARIAL_REVIEW.md": "deny",
+      "README.md": "deny",
+      "docs/*": "deny",
+      "TODO.md": "deny",
+      "armada.yaml": "deny",
       "armada/*": "deny",
     },
     skill: "allow",
@@ -117,27 +185,69 @@ const BASE_PERMISSIONS = {
   qa: {
     edit: {
       "*": "deny",
+      "tests/**": "allow",
       "armada/e2e/*": "allow",
       "armada/screenshots/*": "allow",
+      "src/**": "deny",
+      "armada/REQUIREMENTS.md": "deny",
+      "armada/state/*": "deny",
+      "armada.yaml": "deny",
+      ".opencode/*": "deny",
+      "opencode.json": "deny",
     },
-    bash: { "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow" },
     skill: "allow",
   },
   adversary: {
     edit: {
       "*": "deny",
       "armada/screenshots/*": "allow",
+      "src/**": "deny",
+      "tests/**": "deny",
+      "armada/REQUIREMENTS.md": "deny",
+      "armada/state/*": "deny",
+      "armada.yaml": "deny",
+      ".opencode/*": "deny",
+      "opencode.json": "deny",
+      "AGENTS.md": "deny",
     },
   },
   security: {
     edit: {
       "*": "deny",
       "armada/screenshots/*": "allow",
+      "src/**": "deny",
+      "tests/**": "deny",
+      "armada/REQUIREMENTS.md": "deny",
+      "armada/state/*": "deny",
+      "armada.yaml": "deny",
+      ".opencode/*": "deny",
+      "opencode.json": "deny",
+      "AGENTS.md": "deny",
+      "README.md": "deny",
     },
     webfetch: "allow",
   },
   docs: {
-    edit: { "*": "allow", ".opencode/*": "deny", "armada/e2e/*": "deny" },
+    edit: {
+      "*": "deny",
+      "docs/*": "allow",
+      "README.md": "allow",
+      "AGENTS.md": "allow",
+      "CHANGELOG.md": "allow",
+      "CONTRIBUTING.md": "allow",
+      "SPEC.md": "allow",
+      "src/**": "deny",
+      ".opencode/*": "deny",
+      "opencode.json": "deny",
+      "armada/e2e/*": "deny",
+      "armada/REQUIREMENTS.md": "deny",
+      "armada/state/*": "deny",
+      "armada.yaml": "deny",
+      "armada/*": "deny",
+      "TODO.md": "deny",
+      "tests/**": "deny",
+      "armada/screenshots/*": "deny",
+    },
     bash: "deny",
   },
   architect: {
@@ -205,6 +315,7 @@ function ledgerPermissions(pb) {
   const defect = ledgerFileGlob(pb, "defect")
   const adversarial = ledgerFileGlob(pb, "adversarial")
   const security = ledgerFileGlob(pb, "security")
+  const architect = ledgerFileGlob(pb, "architect")
   const dir = ledgerDirGlob(pb)
   return {
     orchestrator: { edit: { [defect]: "allow", [adversarial]: "allow", [security]: "allow" } },
@@ -214,7 +325,7 @@ function ledgerPermissions(pb) {
     adversary: { edit: { [adversarial]: "allow" } },
     security: { edit: { [security]: "allow" } },
     docs: { edit: { [dir]: "deny" } },
-    architect: { edit: {} },
+    architect: { edit: { [architect]: "allow" } },
   }
 }
 
@@ -239,8 +350,14 @@ export function buildTeam(manifest) {
     // is emitted first so the read allows (appended after) keep winning for
     // inspection commands.
     const safeBashPerms = { bash: structuredClone(SAFE_BASH.read) }
-    if (roleTier === "read+write") Object.assign(safeBashPerms.bash, structuredClone(SAFE_BASH.write))
+    if (roleTier === "read+write") {
+      // Dev roles: add write commands with deny-list for forbidden target paths.
+      // Allows come first, then denies override them (last-match-wins).
+      Object.assign(safeBashPerms.bash, structuredClone(WRITE_BASH_ALLOWS))
+      Object.assign(safeBashPerms.bash, structuredClone(WRITE_BASH_DENIES))
+    }
     if (roleTier === "read") safeBashPerms.bash = { "*": "deny", ...structuredClone(SAFE_BASH.read) }
+    if (roleTier === "qa") safeBashPerms.bash = { "*": "ask", ...structuredClone(SAFE_BASH.read), ...structuredClone(QA_SAFE_BASH) }
     const permissions = deepMerge(
       deepMerge(
         safeBashPerms,
