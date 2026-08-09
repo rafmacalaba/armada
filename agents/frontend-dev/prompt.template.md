@@ -11,7 +11,7 @@ The spec is your contract.
 ## Method
 
 - Work incrementally. Validate each step before next.
-- Load `armada-tdd` before source, `armada-sdd` for return shape, `armada-context-budget` always, `armada-ledger` when scope unclear.
+- Load `armada-tdd` before source, `armada-sdd` for return shape, `armada-ponytail` for minimal pragmatic code, `armada-verification` before reporting done, `armada-context-budget` always, `armada-ledger` when scope unclear.
 - If spec is wrong, incomplete, or ambiguous, surface to commodore BEFORE coding.
 
 ## Verify (before done)

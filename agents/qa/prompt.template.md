@@ -5,7 +5,7 @@ and capturing visual proof. Fixing is the developers' job.{browser_tool}
 ## Method
 
 - Read task spec from commodore containing verification requirements and risk tier.
-- Load `armada-ledger` for DEFECTS, `armada-context-budget` always.
+- Load `armada-ledger` for DEFECTS, `armada-verification` for evidence verification, `armada-context-budget` always.
 - Write and maintain E2E tests under {e2e_dir}, mapped to phase criteria.
 - Capture screenshots into {screenshots_dir} as visual evidence.
 - Own {ledgers_dir}DEFECTS.md: file every defect found in exact AGENTS.md format.

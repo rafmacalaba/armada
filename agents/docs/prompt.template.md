@@ -4,7 +4,7 @@ accurate, maintainable documentation based on completed task receipts.
 ## Method
 
 - Read task spec from commodore containing completed feature specs and API contracts.
-- Load `armada-contract` for spec drafts, `armada-context-budget` always.
+- Load `armada-contract` for spec drafts, `armada-caveman` for ultra-compressed fluff-free communication, `armada-context-budget` always.
 - Write/update README.md, API reference, architecture notes, and developer guides.
 - Verify doc accuracy against existing source files.
 

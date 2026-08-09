@@ -22,6 +22,9 @@ export const armadaContract = readSkill("armada-contract")
 export const armadaGate = readSkill("armada-gate")
 export const armadaDispatch = readSkill("armada-dispatch")
 export const armadaTaskSpec = readSkill("armada-task-spec")
+export const armadaVerification = readSkill("armada-verification")
+export const armadaPonytail = readSkill("armada-ponytail")
+export const armadaCaveman = readSkill("armada-caveman")
 export const armadaPr = readSkill("armada-pr")
 export const armadaResume = readSkill("armada-resume")
 export const armadaLedger = readSkill("armada-ledger")
@@ -35,6 +38,9 @@ export const skillRegistry = [
   armadaGate,
   armadaDispatch,
   armadaTaskSpec,
+  armadaVerification,
+  armadaPonytail,
+  armadaCaveman,
   armadaPr,
   armadaResume,
   armadaLedger,
@@ -43,4 +49,5 @@ export const skillRegistry = [
   armadaSdd,
   armadaVoyageFinish,
 ]
+
 
