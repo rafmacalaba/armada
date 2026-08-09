@@ -31,7 +31,12 @@ const SHOT_DIR = resolve(
 // its default branch, this is the only place to update — About.tsx and any
 // other consumer should derive from this constant.
 const DEFAULT_BRANCH = "master";
-const REPO_BLOB = `https://github.com/rafmacalaba/armada/blob/${DEFAULT_BRANCH}`;
+// Branch-less prefix for the link-collection filter. Using the branch-less
+// prefix ensures that links pointing at the wrong branch (e.g. "main" after
+// a regression) still reach the branch-mismatch detector below; a branch-
+// aware filter would silently drop them and the detector would never fire.
+const REPO_PREFIX = "https://github.com/rafmacalaba/armada/blob";
+const REPO_BLOB = `${REPO_PREFIX}/${DEFAULT_BRANCH}`;
 
 const EXPECTED_SECTIONS = [
   "mission",
@@ -145,8 +150,10 @@ async function main() {
   // to "main" (or any other wrong branch) even when the smoke's other checks
   // pass.
   // Path shape: /<user>/<repo>/blob/<branch>/<file> — branch lives at [4].
+  // Filter uses REPO_PREFIX (branch-less) so wrong-branch links are NOT
+  // dropped before the branch-mismatch detector below.
   const repoBlobLinks = external.filter((l) =>
-    (l.href || "").startsWith(REPO_BLOB + "/"),
+    (l.href || "").startsWith(REPO_PREFIX + "/"),
   );
   const branchMismatch = [];
   for (const link of repoBlobLinks) {
@@ -167,7 +174,7 @@ async function main() {
       `branch-mismatch: ${JSON.stringify(branchMismatch)}`,
     );
   }
-  // Drift guard: if the page rendered zero REPO_BLOB links, About.tsx has
+  // Drift guard: if the page rendered zero REPO_PREFIX links, About.tsx has
   // likely regressed to a wrong branch while the smoke's constant stayed
   // correct — fail loudly instead of silently validating an empty set.
   if (repoBlobLinks.length === 0) {
