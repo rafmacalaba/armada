@@ -4,6 +4,14 @@ All notable changes to armada are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-08-09
+
+### Fixed
+
+- Autonomous net-new multi-file implementation now defaults to voyage flow regardless of project size or low-risk classification.
+- "Do it on your own" now removes routine questions without bypassing contract approval, safety gates, or automatic voyage launch.
+- Main Commodore no longer treats unavailable background dispatch as permission to implement voyage work in the main checkout.
+
 ## Features
 
 - Deprecated feature new/list/close/status; use voyage <name>, voyage list, voyage close (removed in 2.0)
@@ -193,4 +201,3 @@ bash prefix globs, yolo key order, dev `*:deny` missing, orchestrator
 - `src/generator.js` `BASE_PERMISSIONS.orchestrator.edit`: 6 line additions.
 - `package.json` version bumped to `1.0.8`.
 - `src/cli.js:63` `VERSION` bumped to `1.0.8`.
-
