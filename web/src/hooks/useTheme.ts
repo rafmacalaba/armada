@@ -7,7 +7,7 @@ const DEFAULT_THEME: Theme = "light";
 function readStoredTheme(): Theme {
   if (typeof window === "undefined") return DEFAULT_THEME;
   const raw = window.localStorage.getItem(STORAGE_KEY);
-  return raw === "light" ? "light" : "dark";
+  return raw === "light" || raw === "dark" ? raw : DEFAULT_THEME;
 }
 
 function applyTheme(theme: Theme) {
