@@ -55,8 +55,8 @@ const ROADMAP = [
 
 const CONTACT_LINKS = [
   { label: "GitHub issues", href: "https://github.com/rafmacalaba/armada/issues" },
-  { label: "Contributing guide", href: "https://github.com/rafmacalaba/armada/blob/main/CONTRIBUTING.md" },
-  { label: "License (MIT)", href: "https://github.com/rafmacalaba/armada/blob/main/LICENSE" },
+  { label: "Contributing guide", href: "https://github.com/rafmacalaba/armada/blob/master/CONTRIBUTING.md" },
+  { label: "License (MIT)", href: "https://github.com/rafmacalaba/armada/blob/master/LICENSE" },
 ];
 
 export function About() {
@@ -201,7 +201,7 @@ export function About() {
           Designed and built by <strong>Rafael Macalaba</strong>. Released
           under the{" "}
           <a
-            href="https://github.com/rafmacalaba/armada/blob/main/LICENSE"
+            href="https://github.com/rafmacalaba/armada/blob/master/LICENSE"
             target="_blank"
             rel="noopener noreferrer"
           >

@@ -34,7 +34,7 @@ type DocLink = {
   description: string;
 };
 
-const REPO = "https://github.com/rafmacalaba/armada/blob/main";
+const REPO = "https://github.com/rafmacalaba/armada/blob/master";
 
 const GET_STARTED: DocLink[] = [
   {

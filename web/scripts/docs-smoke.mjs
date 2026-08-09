@@ -23,8 +23,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..", "..");
 
 const BASE = process.env.BASE ?? "http://127.0.0.1:5173";
-const SHOT_DIR = resolve(repoRoot, "armada/screenshots/web-v2");
-const REPO_BLOB = "https://github.com/rafmacalaba/armada/blob/main";
+const SHOT_DIR = resolve(repoRoot, "armada/screenshots/web-v2-followup");
+// Single source of truth for the repo's default branch. If the repo renames
+// its default branch, this is the only place to update — Docs.tsx and any
+// other consumer should derive from this constant.
+const DEFAULT_BRANCH = "master";
+// Branch-less prefix for the link-collection filter. Using the branch-less
+// prefix ensures that links pointing at the wrong branch (e.g. "main" after
+// a regression) still reach the branch-mismatch detector below; a branch-
+// aware filter would silently drop them and the detector would never fire.
+const REPO_PREFIX = "https://github.com/rafmacalaba/armada/blob";
+const REPO_BLOB = `${REPO_PREFIX}/${DEFAULT_BRANCH}`;
 
 const EXPECTED_GROUPS = ["get-started", "operate-it", "contribute"];
 
@@ -95,11 +104,27 @@ async function main() {
       rel: a.getAttribute("rel"),
       target: a.getAttribute("target"),
     })).filter((l) => l.href.startsWith(blobPrefix));
-  }, REPO_BLOB);
+  }, REPO_PREFIX);
 
   const localFiles = [];
   const missing = [];
+  const branchMismatch = [];
   for (const link of linkCheck) {
+    // Drift guard: assert the branch segment of every docs href matches the
+    // repo's actual default branch. Catches Docs.tsx regressing to "main"
+    // (or any other wrong branch) even when the local file still exists.
+    // Path shape: /<user>/<repo>/blob/<branch>/<file> — branch lives at [4].
+    // Runs before localPathFor so a wrong-branch link is reported as
+    // branch-mismatch, not silently misclassified as a missing local file.
+    const branchSegment = new URL(link.href).pathname.split("/")[4];
+    if (branchSegment !== DEFAULT_BRANCH) {
+      branchMismatch.push({
+        href: link.href,
+        branch: branchSegment,
+        expected: DEFAULT_BRANCH,
+      });
+      continue;
+    }
     try {
       const { rel, abs } = localPathFor(link.href);
       localFiles.push({ href: link.href, text: link.text, rel, abs, ok: true });
@@ -136,6 +161,11 @@ async function main() {
   if (!groupsOk) failed.push("group-order");
   if (groupReports.some((g) => !g.found)) failed.push("group-missing");
   if (missing.length > 0) failed.push("missing-local-files");
+  if (branchMismatch.length > 0) failed.push("branch-mismatch");
+  // Drift guard: if the page rendered zero REPO_PREFIX links, Docs.tsx has
+  // likely regressed to a wrong branch while the smoke's constant stayed
+  // correct — fail loudly instead of silently validating an empty set.
+  if (linkCheck.length === 0) failed.push("no-docs-links");
   if (navDocsAriaCurrent !== "page") failed.push(`aria-current: ${navDocsAriaCurrent}`);
   if (linkCheck.some((l) => !l.rel || !l.rel.includes("noopener"))) {
     failed.push("rel-noopener");
@@ -147,10 +177,12 @@ async function main() {
     title,
     h1,
     description,
+    defaultBranch: DEFAULT_BRANCH,
     groups: groupReports,
     links: linkCheck,
     localFiles,
     missing,
+    branchMismatch,
     navDocs: { ariaCurrent: navDocsAriaCurrent, class: navDocsClass },
     consoleErrors,
   };

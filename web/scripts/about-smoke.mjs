@@ -5,11 +5,14 @@
 //   1. /#/about renders all 9 required sections in order.
 //   2. Per-page meta: title, description, og:title, og:description, og:url are set.
 //   3. All external links carry rel="noopener noreferrer".
-//   4. No console errors during page load.
-//   5. Desktop screenshot saved to armada/screenshots/about/about-desktop.png.
+//   4. Every GitHub-anchored link points at the repo's default branch
+//      (DEFAULT_BRANCH). Catches About.tsx regressing to "main" or any other
+//      wrong branch, even if the local file still happens to exist.
+//   5. No console errors during page load.
+//   6. Desktop screenshot saved to armada/screenshots/web-v2-followup/about-desktop.png.
 //
 // Usage: node scripts/about-smoke.mjs
-// Optional env: BASE=http://127.0.0.1:5173 SHOT_DIR=armada/screenshots/about
+// Optional env: BASE=http://127.0.0.1:5173 SHOT_DIR=armada/screenshots/web-v2-followup
 
 import { chromium } from "playwright";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -22,8 +25,18 @@ const repoRoot = resolve(__dirname, "..", "..");
 const BASE = process.env.BASE ?? "http://127.0.0.1:5173";
 const SHOT_DIR = resolve(
   repoRoot,
-  process.env.SHOT_DIR ?? "armada/screenshots/about",
+  process.env.SHOT_DIR ?? "armada/screenshots/web-v2-followup",
 );
+// Single source of truth for the repo's default branch. If the repo renames
+// its default branch, this is the only place to update — About.tsx and any
+// other consumer should derive from this constant.
+const DEFAULT_BRANCH = "master";
+// Branch-less prefix for the link-collection filter. Using the branch-less
+// prefix ensures that links pointing at the wrong branch (e.g. "main" after
+// a regression) still reach the branch-mismatch detector below; a branch-
+// aware filter would silently drop them and the detector would never fire.
+const REPO_PREFIX = "https://github.com/rafmacalaba/armada/blob";
+const REPO_BLOB = `${REPO_PREFIX}/${DEFAULT_BRANCH}`;
 
 const EXPECTED_SECTIONS = [
   "mission",
@@ -130,6 +143,42 @@ async function main() {
   );
   if (bad.length > 0) {
     fail(`external links missing target/rel: ${JSON.stringify(bad)}`);
+  }
+
+  // 4b. Drift guard: every GitHub blob link must point at the repo's default
+  // branch. Mirrors the docs-smoke hardening. Catches About.tsx regressing
+  // to "main" (or any other wrong branch) even when the smoke's other checks
+  // pass.
+  // Path shape: /<user>/<repo>/blob/<branch>/<file> — branch lives at [4].
+  // Filter uses REPO_PREFIX (branch-less) so wrong-branch links are NOT
+  // dropped before the branch-mismatch detector below.
+  const repoBlobLinks = external.filter((l) =>
+    (l.href || "").startsWith(REPO_PREFIX + "/"),
+  );
+  const branchMismatch = [];
+  for (const link of repoBlobLinks) {
+    const branchSegment = new URL(link.href).pathname.split("/")[4];
+    if (branchSegment !== DEFAULT_BRANCH) {
+      branchMismatch.push({
+        href: link.href,
+        branch: branchSegment,
+        expected: DEFAULT_BRANCH,
+      });
+    }
+  }
+  report.defaultBranch = DEFAULT_BRANCH;
+  report.repoBlobLinks = repoBlobLinks.map((l) => l.href);
+  report.branchMismatch = branchMismatch;
+  if (branchMismatch.length > 0) {
+    fail(
+      `branch-mismatch: ${JSON.stringify(branchMismatch)}`,
+    );
+  }
+  // Drift guard: if the page rendered zero REPO_PREFIX links, About.tsx has
+  // likely regressed to a wrong branch while the smoke's constant stayed
+  // correct — fail loudly instead of silently validating an empty set.
+  if (repoBlobLinks.length === 0) {
+    fail("no-about-links: expected at least one GitHub blob link");
   }
 
   // 5. Screenshot
