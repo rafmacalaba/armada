@@ -60,7 +60,7 @@ import { releaseStep1, releaseStep2, validateVersion, productionInjection } from
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
 
-export const VERSION = "1.2.3"
+export const VERSION = "1.2.4"
 
 const HELP = `armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).
