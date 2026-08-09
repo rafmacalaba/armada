@@ -218,12 +218,17 @@ test("artifact consistency: mergeOpenCodeJson over committed opencode.json is id
   const manifest = loadCommittedManifest()
   const team = buildTeam(manifest)
   let existing
-  try {
-    existing = JSON.parse(read("opencode.json"))
-  } catch {
-    // CI: opencode.json is gitignored; use rendered baseline — merge on a pure
-    // armada output is trivially idempotent but still catches renderer regressions.
+  if (!existsSync(join(ROOT, "armada/armada.yaml"))) {
+    // Without the manifest, an ignored opencode.json may belong to another
+    // generated configuration. Use the matching rendered baseline instead.
     existing = JSON.parse(JSON.stringify(renderOpenCodeJson(manifest, team)))
+  } else {
+    try {
+      existing = JSON.parse(read("opencode.json"))
+    } catch {
+      // opencode.json is gitignored in CI; use rendered baseline when absent.
+      existing = JSON.parse(JSON.stringify(renderOpenCodeJson(manifest, team)))
+    }
   }
   const merged = mergeOpenCodeJson(existing, manifest, team)
   assert.deepStrictEqual(existing, merged, "opencode.json must equal mergeOpenCodeJson(existing, manifest, buildTeam(manifest))")
@@ -447,4 +452,3 @@ function* phantomSurfaces() {
   for (const f of walk(".opencode")) yield f
   for (const f of walk("docs")) yield f
 }
-
