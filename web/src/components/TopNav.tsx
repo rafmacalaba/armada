@@ -17,7 +17,10 @@ export function TopNav() {
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M6 22h20M8 22V10l8 6 8-6v12" />
+              <path d="M22 12 A7 7 0 1 0 22 24" />
+              <path d="M22 8 V26" />
+              <path d="M22 9 L16 14 H22" />
+              <path d="M5 28 Q9 26 13 28 T21 28" />
             </svg>
           </span>
           <span className="topnav__name">armada</span>
@@ -32,6 +35,14 @@ export function TopNav() {
             }
           >
             Home
+          </NavLink>
+          <NavLink
+            to="/docs"
+            className={({ isActive }) =>
+              isActive ? "topnav__link topnav__link--active" : "topnav__link"
+            }
+          >
+            Docs
           </NavLink>
           <NavLink
             to="/about"
