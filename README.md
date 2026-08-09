@@ -5,25 +5,47 @@
 <h1 align="center">armada</h1>
 
 <p align="center">
-  <strong>A fleet of AI specialists — from a written contract to a merged Pull Request.</strong>
+  <em>Loop engineering for software development.</em>
+</p>
+
+<p align="center">
+  <strong>Turn any repository into a self-organizing AI engineering team.<br/>One command. 8 specialists. Evidence-gated delivery.</strong>
 </p>
 
 <p align="center">
   <a href="https://www.npmjs.com/package/@rafamacalaba/armada"><img src="https://img.shields.io/npm/v/%40rafamacalaba%2Farmada" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/@rafamacalaba/armada"><img src="https://img.shields.io/npm/dm/%40rafamacalaba%2Farmada" alt="npm downloads" /></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT" /></a>
   <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D22-brightgreen" alt="Node.js >= 22" /></a>
   <a href="https://github.com/rafmacalaba/armada/actions"><img src="https://github.com/rafmacalaba/armada/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
 </p>
 
+<p align="center">
+  <a href="https://rafmacalaba.github.io/armada/">Website</a> &middot;
+  <a href="./docs/getting-started.md">Getting Started</a> &middot;
+  <a href="./docs/user-guide.md">User Guide</a> &middot;
+  <a href="./docs/WHY.md">Why armada?</a>
+</p>
+
 ---
 
-## What it is
+## The problem with AI coding agents
 
-armada is a fleet of eight AI specialists that ships software like a voyage. The **contract** is at the bow — a written agreement of what gets built and how you know it works. The **loop** is the hull — dispatch, build, test, review, repeat. The **Pull Request** is the stern — the artifact the fleet hands back to you.
+AI coding agents are fast. They are also unsupervised, unverified, and amnesiac.
 
-You don't write code with armada. You write the contract, the fleet runs the loop, and a reviewed PR lands in your repo. It runs on [opencode](https://opencode.ai) today and is designed to be harness-agnostic.
+- **They guess when they should ask.** "Build the login page" becomes a framework choice, an auth strategy, and a color palette — all decided without you.
+- **They skip verification.** The same agent that wrote the bug declares it fixed. There is no maker/checker split.
+- **They forget everything.** Kill the terminal, lose the context. A 5-phase feature starts from scratch.
+- **They have no boundaries.** A solo agent rewrites your CI config while fixing a CSS bug. Nothing stops it.
+- **They clobber your working tree.** Direct edits on your active branch. Parallel tasks collide. Recovery is manual.
 
-## How it works
+These are not model failures. They are **environment** failures. The fix is not a smarter model — it is a smarter harness and a tighter loop.
+
+## The fix: loop engineering
+
+[Loop engineering](https://github.com/cobusgreyling/loop-engineering) replaces one-shot prompting with **control loops that prompt agents for you**. You define the goal. The loop handles dispatch, verification, gating, and iteration — agents are components in the loop, not autonomous actors.
+
+armada implements loop engineering as a concrete system. You write the **contract** (what to build and how to know it works), and the fleet runs the **loop** until a reviewed Pull Request lands in your repo.
 
 <p align="center">
   <img src="./docs/workflow.png" alt="armada workflow" width="640" />
@@ -31,58 +53,67 @@ You don't write code with armada. You write the contract, the fleet runs the loo
 
 ```
    contract  →  dispatch  →  build  →  test  →  review  →  PR
-        ↑                                                       |
-        └────── evidence gates every step ──────────────────────┘
+        ↑           |                                        |
+        |      [phases with no          [defects loop back   |
+        |       dependency run           to the developer]   |
+        |       in parallel]                                 |
+        └──────── evidence gates every transition ──────────┘
 ```
 
-A written contract becomes a sequence of evidence-gated phases. Each phase is handled by a specialist agent, each gate is enforced by tests and screenshots, and the loop runs until the work passes review. Nothing advances on "trust me" — only on evidence you can read.
+The loop has mechanical properties that make it reliable:
 
-[Why this works →](./docs/WHY.md)
+- **Maker/checker split.** Developers write code. QA and the adversary check it. A maker never passes its own work.
+- **Parallel phases.** Independent phases dispatch simultaneously as background subagents with disjoint file scope. Only phases that depend on each other serialize.
+- **Evidence, not reports.** Every gate requires proof you can read — a passing test run, a screenshot, a file:line citation. Nothing advances on "trust me."
+- **Crash-proof state.** Every transition writes to disk. Kill the session, reopen, and the loop continues where it left off.
 
-## Install
+### Parallel feature work
+
+armada isolates each feature in its own Git worktree (sandbox). Multiple features run simultaneously in the same repo without colliding — each with its own contract, state, and branch. One fleet, many voyages.
 
 ```bash
-npm install -g @rafamacalaba/armada
+armada voyage auth-system              # boots a lane for feature "auth-system"
+armada voyage dashboard                # boots another lane — runs in parallel
+armada fleet                           # dashboard: one row per active lane
 ```
 
-Requires Node.js 22+ and an authenticated [opencode](https://opencode.ai) install. Run `armada doctor` to confirm your environment is ready.
+Features in separate worktrees cannot collide. `main` stays pristine. Every voyage ends in a PR, never a local merge.
+
+[Why this works →](./docs/WHY.md)
 
 ## Quick start
 
 ```bash
-# New project — answers a short questionnaire, scaffolds the fleet, then opens opencode.
-armada new my-app && cd my-app
+# Install globally
+npm install -g @rafamacalaba/armada
 
-# Existing repo — detects your stack and scaffolds the team in place.
+# Existing repo — detects your stack, scaffolds the team in place.
 cd your-repo && armada init
 
-# One-off, no global install.
+# New project — questionnaire, scaffold, ready to ship.
+armada new my-app && cd my-app
+
+# Zero-install trial.
 npx @rafamacalaba/armada@latest new my-app
 ```
 
-After `armada new` or `armada init`, your repo owns a fleet. Open it in opencode and you're ready to ship.
+Requires Node.js 22+ and an authenticated [opencode](https://opencode.ai) install. Run `armada doctor` to confirm your environment is ready.
 
-## The contract: where you come in
-
-Your only job is to write the **contract**. The code is the fleet's job.
-
-The **Commodore** (the orchestrator agent) co-writes the contract with you: you describe the goal in plain language — a wish, a ticket, a PRD — and the Commodore interviews you for the missing details. Together you produce `armada/REQUIREMENTS.md` with phases, dependencies, and measurable success criteria. **No code is written against an unapproved contract.**
-
-Once you sign off, the Commodore dispatches the fleet. Specialists work in isolated Git worktrees (separate copies of your repo, so the main branch stays clean), evidence flows back at every step, and the loop runs until a reviewed Pull Request opens. The Admiral (you) approves the contract and merges the PR. Everyone else is a ship.
+After `armada init`, open the repo in opencode. The fleet is loaded. Describe your goal in plain language — a wish, a ticket, a PRD — and the **Commodore** (orchestrator) interviews you for the missing details. Together you produce the contract (`armada/REQUIREMENTS.md`) with phases, dependencies, and measurable success criteria. Once you approve, the fleet runs the loop autonomously until a PR opens.
 
 ## The fleet
 
-| Ship | Role | What it does |
+| Role | Codename | What it does |
 |---|---|---|
-| **Admiral** (you) | High commander | Sets the mission, signs the contract, merges the PR |
-| **Commodore** | Orchestrator | Co-writes the contract, dispatches specialists, gates evidence |
-| **Galleon** | Backend | Server logic, APIs, databases, backend tests |
-| **Clipper** | Frontend | UI, styling, responsive pages, client tests |
-| **Corvette** | QA | E2E tests, screenshots, owns the defect ledger |
-| **Xebec** | Adversary | Hostile review; hunts edge cases, vulns, UI flaws |
-| **Frigate** | Security | Auth, permissions, data leaks, dependency review |
-| **Caravel** | Docs | READMEs, API docs, changelogs, user manuals |
-| **Bark** | Architect | Code review, refactoring risk, pattern compliance (read-only) |
+| **You** | Admiral | Sets the mission, signs the contract, merges the PR |
+| **Orchestrator** | Commodore | Co-writes the contract, dispatches specialists, gates evidence |
+| **Backend** | Galleon | Server logic, APIs, databases, backend tests |
+| **Frontend** | Clipper | UI, styling, responsive pages, client tests |
+| **QA** | Corvette | E2E tests, screenshots, owns the defect ledger |
+| **Adversary** | Xebec | Hostile review — hunts edge cases, vulns, UI flaws |
+| **Security** | Frigate | Auth, permissions, data leaks, dependency audit |
+| **Docs** | Caravel | READMEs, API docs, changelogs, user manuals |
+| **Architect** | Bark | Code review, refactoring risk, pattern compliance (read-only) |
 
 Boundaries are enforced by SDK permissions, not prompt politeness. The Commodore cannot edit source code. Security, adversary, and architect can only write their own review artifacts. Full per-role detail in the [user guide](./docs/user-guide.md).
 
@@ -98,10 +129,10 @@ your-repo/
 │   ├── state/                    # restart-proof loop memory
 │   ├── ledgers/<feature>/        # DEFECTS.md, ADVERSARIAL_REVIEW.md, SECURITY_FINDINGS.md
 │   ├── e2e/<feature>/            # per-feature E2E evidence
-│   └── screenshots/<feature>/    # per-feature evidence
+│   └── screenshots/<feature>/    # per-feature visual evidence
 └── .opencode/
-    ├── agent/                    # 8 native agents with permissions
-    └── commands/                 # slash commands
+    ├── agent/                    # 8 native agents with SDK-enforced permissions
+    └── commands/                 # slash commands (/voyage, /patrol, /fleet, /status)
 ```
 
 `armada init` never clobbers existing `opencode.json` or `AGENTS.md`. Re-scaffold any time from the manifest:
@@ -110,12 +141,23 @@ your-repo/
 armada init --from-armada armada/armada.yaml --restart
 ```
 
+## Built with armada
+
+armada uses itself. The fleet builds armada's own features through the same contract/dispatch/gate loop that any user would run.
+
+- The fleet built armada's session-based state system in **~26 minutes**, at a cost of **$0.18**, running fully autonomously. Blank contract to working code with passing tests.
+- It surfaced a real permission deadlock — a case where the Commodore's deny-all-edit rule conflicted with a state-write. The fleet asked the right question instead of silently failing.
+- QA caught and the loop self-corrected **3 test failures** the developers introduced. The gate sent them back; they fixed them.
+
+Every feature armada ships was built by armada. [Read the full story →](./docs/WHY.md#what-we-learned-building-it)
+
 ## Learn more
 
-- **[Website tour](https://rafmacalaba.github.io/armada/)** — visual walkthrough of the loop, the fleet, and what each phase produces.
+- **[Website](https://rafmacalaba.github.io/armada/)** — visual walkthrough of the loop, the fleet, and what each phase produces.
 - **[Getting started](./docs/getting-started.md)** — your first feature, end to end.
 - **[User guide](./docs/user-guide.md)** — fleet concepts, roles, day-to-day usage.
-- **[Why armada?](./docs/WHY.md)** — the case for loop engineering over prompting.
+- **[Why armada?](./docs/WHY.md)** — the case for loop engineering over one-shot prompting.
+- **[Architecture](./ARCHITECTURE.md)** — the full technical deep dive.
 - **[Operator guide](./docs/operator-guide.md)** — CLI reference, upgrades, rollback.
 
 ## License

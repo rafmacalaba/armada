@@ -3,3 +3,4 @@
 /.opencode/
 /opencode.json
 # armada:end
+node_modules/

@@ -296,7 +296,7 @@ What the graph encodes:
 
 ## The self-improvement loop
 
-armada uses itself. `docs/armada-improves-armada.md` documents the two-mode workflow:
+armada uses itself. `docs/self-improvement.md` documents the two-mode workflow:
 - **Patrol — Audit:** the fleet reviews armada's own code, files findings.
 - **Voyage — Feature:** the fleet implements armada's next feature (in a `sandbox/<name>/`
   worktree so the live repo stays clean).
@@ -341,4 +341,4 @@ See [SPEC.md](./SPEC.md) for design decisions and [TODO.md](./TODO.md) for the r
 The rest of this file's module map and data-flow diagrams live above; for the mechanical
 rendering pipeline, see [src/](src/) and the tests in [tests/](tests/).
 
-<!-- Old terminology: Lane A = patrol, Lane B = voyage. Canonical fleet terms live in docs/using-armada.md#the-fleet-terminology. -->
+<!-- Old terminology: Lane A = patrol, Lane B = voyage. Canonical fleet terms live in docs/user-guide.md. -->

@@ -26,7 +26,7 @@ node --test 'tests/*.test.js'         # run the test suite (must pass)
 node src/cli.js help                  # verify the CLI
 ```
 
-**Requirements:** Node.js >= 20. The only runtime dependency is `yaml`.
+**Requirements:** Node.js >= 22. The only runtime dependency is `yaml`.
 
 ---
 
@@ -34,27 +34,19 @@ node src/cli.js help                  # verify the CLI
 
 ### Small fixes (direct edit)
 
-Doc edits, README updates, single-file bug fixes, and defect ledger maintenance can be
-edited directly on a branch. Whether a change is done in-window or through an armada lane is
-decided by [docs/process/triage.md](./docs/process/triage.md) — the sole triage authority
-(in-window first, voyage by exception). Consult it before deciding.
+Doc edits, README updates, single-file bug fixes, and defect ledger maintenance can be edited directly on a branch.
 
 ### Feature work (armada lane)
 
-Net-new fleet-orchestrated functionality runs through an armada lane per
-[docs/process/triage.md](./docs/process/triage.md). When a change is classified as a voyage,
-the lane mechanics are mandatory:
+Net-new fleet-orchestrated functionality runs through an armada lane per [docs/self-improvement.md](./docs/self-improvement.md):
 
 1. Create the lane: `git worktree add -b feat/<name> sandbox/<name>`
 2. Scaffold the team: `node src/cli.js init --yes --yolo --budget balanced` (from the sandbox)
 3. Write the contract at `sandbox/<name>/armada/REQUIREMENTS.md`
-4. Drive it: `opencode` (the orchestrator boots and dispatches)
+4. Drive it: `armada voyage sandbox/<name>`
 5. Push the branch and open a PR — never merge locally
 
 The live repo stays pristine — the lane safeguard above is what keeps it that way.
-
-See [docs/process/triage.md](./docs/process/triage.md) for the in-window / voyage decision and
-[docs/self-improvement.md](./docs/self-improvement.md) for the full lane workflow.
 
 ---
 

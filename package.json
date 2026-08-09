@@ -1,7 +1,7 @@
 {
   "name": "@rafamacalaba/armada",
   "version": "1.2.6",
-  "description": "Turn any repo into a self-organizing AI engineering team — one command, 8 specialists, evidence-gated delivery. For opencode.",
+  "description": "Loop engineering for software development. Turn any repo into a self-organizing AI team — 8 specialists, evidence-gated phases, parallel feature voyages.",
   "type": "module",
   "repository": {
     "type": "git",
@@ -59,9 +59,12 @@
     "code-generation",
     "automation",
     "devtools",
+    "developer-tools",
     "scaffolding",
     "evidence-gated",
-    "ai-coding"
+    "ai-coding",
+    "loop-engineering",
+    "harness-engineering"
   ],
   "license": "MIT",
   "peerDependencies": {
