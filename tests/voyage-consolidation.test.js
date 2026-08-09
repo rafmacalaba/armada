@@ -43,6 +43,8 @@ test("voyage <name> creates worktree and boots lane", async () => {
   assert.match(r.stdout, /prompt registered/)
   const worktreePath = join(repoDir, "sandbox", "myfeature")
   assert.ok(existsSync(worktreePath), `worktree missing: ${worktreePath}`)
+  assert.ok(existsSync(join(worktreePath, "armada", "REQUIREMENTS.md")), "canonical voyage contract missing")
+  assert.ok(!existsSync(join(worktreePath, "armada", "contracts", "myfeature.md")), "voyage must not use secondary contract")
   const activePath = join(worktreePath, "armada", "state", "active.json")
   assert.ok(existsSync(activePath), "active.json missing")
 })
@@ -137,7 +139,7 @@ test("voyage close with evidence succeeds", async () => {
   const binPath = stubBins()
   await spawnCli(["voyage", "foo"], { env: { PATH: binPath, HOME: mkdtempSync(join(tmpdir(), "armada-home-")) }, cwd: repoDir })
 
-  const contractPath = join(repoDir, "sandbox", "foo", "armada", "contracts", "foo.md")
+   const contractPath = join(repoDir, "sandbox", "foo", "armada", "REQUIREMENTS.md")
   let contract = readFileSync(contractPath, "utf8")
   contract = contract.replace(/Evidence: \n/g, "Evidence: src/foo.js:42\n")
   writeFileSync(contractPath, contract, "utf8")
@@ -190,7 +192,7 @@ test("feature close prints deprecation warning and delegates", async () => {
     cwd: repoDir,
   })
 
-  const contractPath = join(repoDir, "sandbox", "fclose1", "armada", "contracts", "fclose1.md")
+  const contractPath = join(repoDir, "sandbox", "fclose1", "armada", "REQUIREMENTS.md")
   let contract = readFileSync(contractPath, "utf8")
   contract = contract.replace(/Evidence: \n/g, "Evidence: x\n")
   writeFileSync(contractPath, contract, "utf8")
@@ -200,4 +202,3 @@ test("feature close prints deprecation warning and delegates", async () => {
   assert.strictEqual(r.code, 0)
   assert.match(r.stdout, /shipped/)
 })
-

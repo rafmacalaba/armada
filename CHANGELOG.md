@@ -4,6 +4,13 @@ All notable changes to armada are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] - 2026-08-09
+
+### Fixed
+
+- Voyages now create and use canonical `sandbox/<name>/armada/REQUIREMENTS.md` contracts instead of leaving only an unused `armada/contracts/<name>.md` placeholder.
+- Voyage registry, active state, close flow, and fleet discovery now reference the same canonical contract.
+
 ## [1.2.2] - 2026-08-09
 
 ### Fixed

@@ -102,7 +102,7 @@ test("feature new creates contract, entry, index, active", async () => {
   assert.match(r.stdout, /feature "foo" created/)
 
   const wtDir = join(dir, "sandbox", "foo")
-  assert.ok(existsSync(join(wtDir, "armada/contracts/foo.md")))
+  assert.ok(existsSync(join(wtDir, "armada/REQUIREMENTS.md")))
   assert.ok(existsSync(join(wtDir, "armada/state/features/foo.json")))
   assert.ok(existsSync(join(wtDir, "armada/state/features/index.json")))
   assert.ok(existsSync(join(wtDir, "armada/state/active.json")))
@@ -151,7 +151,7 @@ test("feature close with evidence succeeds", async () => {
   await runCli(["feature", "new", "foo"], { cwd: dir })
 
   // Edit the contract in the worktree to add evidence
-  const contractPath = join(dir, "sandbox", "foo", "armada", "contracts", "foo.md")
+  const contractPath = join(dir, "sandbox", "foo", "armada", "REQUIREMENTS.md")
   let contract = readFileSync(contractPath, "utf8")
   contract = contract.replace(/Evidence: \n/g, "Evidence: src/foo.js:42\n")
   writeFileSync(contractPath, contract, "utf8")
@@ -257,7 +257,7 @@ test("feature close with multiple criteria, some missing evidence", async () => 
   await runCli(["feature", "new", "multi"], { cwd: dir })
 
   // Read the contract in the worktree, customize to have multiple criteria
-  const contractPath = join(dir, "sandbox", "multi", "armada", "contracts", "multi.md")
+  const contractPath = join(dir, "sandbox", "multi", "armada", "REQUIREMENTS.md")
   let contract = readFileSync(contractPath, "utf8")
   // Replace the final criteria section to have multiple criteria
   contract = contract.replace(
