@@ -710,3 +710,26 @@ test("snapshotContract re-verifies hash against approval after copy (TOCTOU)", a
 
   rmSync(dir, { recursive: true, force: true })
 })
+
+// ===========================================================================
+// 8. Contract propagation without approval state gate
+// ===========================================================================
+
+test("createWorktreeFeature propagates live main contract to sandbox worktree", async () => {
+  const { createWorktreeFeature } = await import("../src/feature-commands.js")
+  const customContract = "# Custom Contract\n\nPhase 1: Build feature\n"
+  const dir = makeTempGitRepo({
+    "armada/REQUIREMENTS.md": customContract,
+  })
+
+  await createWorktreeFeature(dir, "test-propagate", {})
+  const sandboxContractPath = join(dir, "sandbox", "test-propagate", "armada", "REQUIREMENTS.md")
+  assert.ok(existsSync(sandboxContractPath), "sandbox contract file must exist")
+  const content = readFileSync(sandboxContractPath, "utf8")
+  assert.strictEqual(content, customContract, "sandbox contract must match live main contract")
+
+  spawnSync("git", ["worktree", "remove", "--force", join(dir, "sandbox", "test-propagate")], { cwd: dir })
+  spawnSync("git", ["branch", "-D", "feat/test-propagate"], { cwd: dir })
+  rmSync(dir, { recursive: true, force: true })
+})
+

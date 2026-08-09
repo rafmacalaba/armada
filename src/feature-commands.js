@@ -4,7 +4,7 @@
  * @module feature-commands
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, unlinkSync, realpathSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, unlinkSync, realpathSync, copyFileSync } from "node:fs"
 import { join, basename } from "node:path"
 import { spawnSync } from "node:child_process"
 import {
@@ -338,22 +338,40 @@ export async function createWorktreeFeature(repoDir, name, options = {}) {
   // Re-scaffold Armada-owned lane files from main manifest. `armada new` can
   // leave these files uncommitted, so git worktree add alone is insufficient.
   const manifestPath = join(mainRepo, "armada", "armada.yaml")
+  let configuredRequirementsRel = "armada/REQUIREMENTS.md"
   if (existsSync(manifestPath)) {
-    const manifest = parseManifestYaml(readFileSync(manifestPath, "utf8"))
-    manifest.targetDir = worktreePath
-    manifest.project = {
-      ...manifest.project,
-      requirementsFile: "armada/REQUIREMENTS.md",
-    }
-    scaffold(manifest, manifest.project.stack ?? {})
+    try {
+      const manifest = parseManifestYaml(readFileSync(manifestPath, "utf8"))
+      if (manifest?.project?.requirementsFile) {
+        configuredRequirementsRel = manifest.project.requirementsFile
+      }
+      manifest.targetDir = worktreePath
+      manifest.project = {
+        ...manifest.project,
+        requirementsFile: "armada/REQUIREMENTS.md",
+      }
+      scaffold(manifest, manifest.project.stack ?? {})
+    } catch {}
   }
 
   // Scaffold canonical voyage contract inside the worktree.
+  // Preserve/propagate the live contract from mainRepo if it exists.
   const contractRelPath = "armada/REQUIREMENTS.md"
   const contractPath = join(worktreePath, contractRelPath)
   ensureDir(join(worktreePath, "armada"))
-  const contractContent = contractStub(name, options.phaseGraph)
-  writeFileSync(contractPath, contractContent, "utf8")
+
+  const mainContractPath = join(mainRepo, configuredRequirementsRel)
+  const defaultMainContractPath = join(mainRepo, "armada", "REQUIREMENTS.md")
+  const sourceContractPath = existsSync(mainContractPath)
+    ? mainContractPath
+    : (existsSync(defaultMainContractPath) ? defaultMainContractPath : null)
+
+  if (sourceContractPath) {
+    copyFileSync(sourceContractPath, contractPath)
+  } else {
+    const contractContent = contractStub(name, options.phaseGraph)
+    writeFileSync(contractPath, contractContent, "utf8")
+  }
 
   const phaseGraph = (options.phaseGraph && options.phaseGraph.phases)
     ? options.phaseGraph
