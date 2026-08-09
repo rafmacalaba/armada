@@ -29,6 +29,16 @@ test("main Commodore prompt embeds delivery mode and automatic voyage launch", (
   assert.match(orchestratorPrompt, /Do not implement voyage work in the main checkout/i)
 })
 
+test("main Commodore prompt makes autonomous multi-file work an automatic voyage", () => {
+  assert.match(orchestratorPrompt, /multi-file implementation is voyage work/i)
+  assert.match(orchestratorPrompt, /regardless of project size|regardless of.*low-risk|low risk.*does not downgrade/i)
+  assert.match(orchestratorPrompt, /do it on your own.*routine|autonomy.*routine/i)
+  assert.match(orchestratorPrompt, /does not.*bypass.*approval|does not.*replace.*contract approval/i)
+  assert.match(orchestratorPrompt, /after approval.*launch.*automatically/i)
+  assert.match(orchestratorPrompt, /do not ask.*second.*voyage|without.*second.*confirmation/i)
+  assert.match(orchestratorPrompt, /background.*does not change.*execution mode/i)
+})
+
 test("main Commodore prompt does not depend on process triage document", () => {
   assert.doesNotMatch(orchestratorPrompt, /docs\/process\/triage\.md/)
 })
