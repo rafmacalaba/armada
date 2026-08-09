@@ -733,3 +733,22 @@ test("createWorktreeFeature propagates live main contract to sandbox worktree", 
   rmSync(dir, { recursive: true, force: true })
 })
 
+test("createWorktreeFeature configures yolo: true on sandbox lane manifest for autopilot mode", async () => {
+  const { createWorktreeFeature } = await import("../src/feature-commands.js")
+  const { parseManifestYaml } = await import("../src/manifest.js")
+  const dir = makeTempGitRepo({
+    "armada/armada.yaml": "project:\n  name: test-app\n  yolo: false\nteam:\n  - role: orchestrator\n    model: test-model\n    enabled: true\n",
+  })
+
+  await createWorktreeFeature(dir, "test-autopilot", {})
+  const sandboxManifestPath = join(dir, "sandbox", "test-autopilot", "armada", "armada.yaml")
+  assert.ok(existsSync(sandboxManifestPath), "sandbox manifest file must exist")
+  const manifest = parseManifestYaml(readFileSync(sandboxManifestPath, "utf8"))
+  assert.strictEqual(manifest.project.yolo, true, "sandbox lane manifest must have yolo: true for autopilot mode")
+
+  spawnSync("git", ["worktree", "remove", "--force", join(dir, "sandbox", "test-autopilot")], { cwd: dir })
+  spawnSync("git", ["branch", "-D", "feat/test-autopilot"], { cwd: dir })
+  rmSync(dir, { recursive: true, force: true })
+})
+
+
