@@ -1,18 +1,18 @@
 import { useEffect } from "react";
-import { Hero } from "./landing/Hero";
-import { ProblemAndPromise } from "./landing/ProblemAndPromise";
-import { HowItWorks } from "./landing/HowItWorks";
-import { MeetTheFleet } from "./landing/MeetTheFleet";
-import { WhatMakesItDifferent } from "./landing/WhatMakesItDifferent";
-import { QuickStart } from "./landing/QuickStart";
-import { KeyFeatures } from "./landing/KeyFeatures";
-import { RoadmapHighlights } from "./landing/RoadmapHighlights";
-import { FinalCta } from "./landing/FinalCta";
-import { LandingStyles } from "./landing/LandingStyles";
+import { Hero } from "./home/Hero";
+import { ProblemAndPromise } from "./home/ProblemAndPromise";
+import { HowItWorks } from "./home/HowItWorks";
+import { MeetTheFleet } from "./home/MeetTheFleet";
+import { WhatMakesItDifferent } from "./home/WhatMakesItDifferent";
+import { QuickStart } from "./home/QuickStart";
+import { KeyFeatures } from "./home/KeyFeatures";
+import { RoadmapHighlights } from "./home/RoadmapHighlights";
+import { FinalCta } from "./home/FinalCta";
+import { LandingStyles } from "./home/LandingStyles";
 
-const PAGE_TITLE = "armada — multi-agent software voyages";
+const PAGE_TITLE = "armada — AI agent fleets that ship software";
 const PAGE_DESCRIPTION =
-  "armada turns a written contract into a coordinated team of AI agents that build, test, review, and ship software — in parallel, behind phase gates, with evidence at every step.";
+  "armada turns a written contract into a coordinated fleet of AI agents that build, test, review, and ship software, in parallel, behind phase gates, with evidence at every step.";
 const PAGE_URL = "https://rafmacalaba.github.io/armada/";
 
 type MetaName = "description" | "og:title" | "og:description" | "og:type" | "og:url";
@@ -30,7 +30,8 @@ function setMeta(name: MetaName, content: string) {
   el.setAttribute("content", content);
 }
 
-export function Landing() {
+// Home page — top-level marketing surface.
+export function Home() {
   useEffect(() => {
     document.title = PAGE_TITLE;
     setMeta("description", PAGE_DESCRIPTION);

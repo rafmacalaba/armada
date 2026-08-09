@@ -7,7 +7,7 @@ export function NotFound() {
       <h1>Lost at sea</h1>
       <p>
         That page isn&rsquo;t on the chart. Head back to the{" "}
-        <Link to="/">landing</Link> or the <Link to="/about">about</Link> page.
+        <Link to="/">home</Link> or the <Link to="/about">about</Link> page.
       </p>
       <style>{`
         .notfound { text-align: center; padding: var(--space-8) 0; }

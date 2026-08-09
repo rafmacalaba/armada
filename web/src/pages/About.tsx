@@ -3,7 +3,7 @@ import { useEffect } from "react";
 type Meta = { name?: string; property?: string; content: string };
 
 const META_TAGS: Meta[] = [
-  { name: "description", content: "About armada — the team, workflow, and engineering principles behind a fleet of AI agents that ship software together." },
+  { name: "description", content: "About armada: the team, workflow, and engineering principles behind a fleet of AI agents that ships software together." },
   { property: "og:title", content: "About — armada" },
   { property: "og:description", content: "armada is a small fleet of cooperating agents that plan, build, review, and ship software. Learn what it is, what it isn't, and where it's going." },
   { property: "og:type", content: "website" },

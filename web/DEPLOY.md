@@ -1,4 +1,4 @@
-# armada landing page — deploy + smoke
+# armada home page — deploy + smoke
 
 This document covers how the static site under `web/` is built, deployed to
 GitHub Pages, and locally smoke-tested. It exists alongside the actual smoke

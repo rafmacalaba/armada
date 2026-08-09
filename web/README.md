@@ -1,4 +1,4 @@
-# armada web — landing + about
+# armada web — home + about
 
 Phase 1 foundation. Vite + React + TypeScript, HashRouter, two themes
 persisted in `localStorage` under `armada-theme`.
@@ -16,7 +16,7 @@ npm run lint
 
 ## Routes
 
-- `/`         — Landing (Phase 2 will add real content)
+- `/`         — Home (Phase 2 will add real content)
 - `/about`    — About  (Phase 3 will add real content)
 - anything else — 404 fallback
 

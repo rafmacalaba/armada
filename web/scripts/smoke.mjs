@@ -5,10 +5,10 @@
 //   1. / and /#/about render the expected H1 text.
 //   2. Theme toggle changes data-theme and the change survives a reload.
 //
-// Screenshots are written under armada/screenshots/landing-page/phase-1/.
+// Screenshots are written under armada/screenshots/home/.
 //
 // Usage: node scripts/smoke.mjs
-// Optional env: BASE=http://127.0.0.1:5173 SHOT_DIR=armada/screenshots/landing-page/phase-1
+// Optional env: BASE=http://127.0.0.1:5173 SHOT_DIR=armada/screenshots/home
 
 import { chromium } from "playwright";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -21,7 +21,7 @@ const repoRoot = resolve(__dirname, "..", "..");
 const BASE = process.env.BASE ?? "http://127.0.0.1:5173";
 const SHOT_DIR = resolve(
   repoRoot,
-  process.env.SHOT_DIR ?? "armada/screenshots/landing-page/phase-1",
+  process.env.SHOT_DIR ?? "armada/screenshots/home",
 );
 
 async function ensureDir(p) {
@@ -39,12 +39,12 @@ async function main() {
 
   const results = [];
 
-  // 1. Landing
+  // 1. Home
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
-  const landingH1 = (await page.locator("h1").first().textContent())?.trim();
-  results.push({ route: "/", h1: landingH1 });
+  const homeH1 = (await page.locator("h1").first().textContent())?.trim();
+  results.push({ route: "/", h1: homeH1 });
   await page.screenshot({
-    path: resolve(SHOT_DIR, "landing-desktop.png"),
+    path: resolve(SHOT_DIR, "home-desktop.png"),
     fullPage: true,
   });
 
@@ -66,8 +66,8 @@ async function main() {
     fullPage: true,
   });
 
-  // 4. Theme toggle: load landing dark by default, toggle to light, reload,
-  //    confirm data-theme stays light and localStorage key is set.
+  // 4. Theme toggle: load home (light by default), toggle to dark, reload,
+  //    confirm data-theme stays dark and localStorage key is set.
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
   const initialTheme = await page.getAttribute("html", "data-theme");
   await page.getByRole("button", { name: /switch to .* theme/i }).click();
@@ -80,7 +80,7 @@ async function main() {
     localStorage.getItem("armada-theme"),
   );
 
-  // Reset back to dark for any subsequent runs.
+  // Reset back to light for any subsequent runs.
   await page.getByRole("button", { name: /switch to .* theme/i }).click();
   const restoredTheme = await page.getAttribute("html", "data-theme");
 

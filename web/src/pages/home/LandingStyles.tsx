@@ -1,7 +1,7 @@
-/* LandingStyles — shared visual primitives for the landing page sections.
+/* LandingStyles — shared visual primitives for the home page sections.
    Section components render their own layout; this file holds the
    container, type scale, and table/card primitives used by several
-   sections. Kept inside the landing page scope (no shared chrome edits). */
+   sections. Kept inside the home page scope (no shared chrome edits). */
 
 export function LandingStyles() {
   return (

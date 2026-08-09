@@ -1,15 +1,15 @@
-// scripts/landing-smoke.mjs — Playwright smoke for Phase 2 (Landing page).
+// scripts/home-smoke.mjs — Playwright smoke for Phase 2 (Home page).
 //
 // Run after `npm run dev` is up on http://127.0.0.1:5173 (or set BASE).
 // Verifies:
-//   1. All 9 landing sections render in order.
+//   1. All 9 home sections render in order.
 //   2. No console errors during page load.
 //   3. Every in-page anchor link resolves to an element on the page.
 //   4. Every external GitHub link carries rel="noopener noreferrer".
 //
-// Screenshots are written under armada/screenshots/landing/.
+// Screenshots are written under armada/screenshots/home/.
 //
-// Usage: node scripts/landing-smoke.mjs
+// Usage: node scripts/home-smoke.mjs
 // Optional env: BASE=http://127.0.0.1:5173
 
 import { chromium } from "playwright";
@@ -21,7 +21,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..", "..");
 
 const BASE = process.env.BASE ?? "http://127.0.0.1:5173";
-const SHOT_DIR = resolve(repoRoot, "armada/screenshots/landing");
+const SHOT_DIR = resolve(repoRoot, "armada/screenshots/home");
 
 const EXPECTED_SECTIONS = [
   { id: null, heading: "Multi-agent software voyages", level: 1 },
@@ -58,7 +58,7 @@ async function main() {
     consoleErrors.push(`pageerror: ${err.message}`);
   });
 
-  // 1. Load landing, capture title + meta tags.
+  // 1. Load home, capture title + meta tags.
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
   const title = await page.title();
   const description = await page
@@ -144,14 +144,14 @@ async function main() {
   // 6. Screenshots: desktop + mobile.
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
   await page.screenshot({
-    path: resolve(SHOT_DIR, "landing-desktop.png"),
+    path: resolve(SHOT_DIR, "home-desktop.png"),
     fullPage: true,
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${BASE}/`, { waitUntil: "networkidle" });
   await page.screenshot({
-    path: resolve(SHOT_DIR, "landing-mobile.png"),
+    path: resolve(SHOT_DIR, "home-mobile.png"),
     fullPage: true,
   });
 
@@ -180,13 +180,13 @@ async function main() {
   };
 
   await writeFile(
-    resolve(SHOT_DIR, "landing-smoke.json"),
+    resolve(SHOT_DIR, "home-smoke.json"),
     JSON.stringify(report, null, 2),
   );
 
   // Exit non-zero on failures so CI can gate.
   const failed = [];
-  if (title !== "armada — multi-agent software voyages") failed.push("title");
+  if (title !== "armada — AI agent fleets that ship software") failed.push("title");
   if (!description) failed.push("meta description");
   if (!ogTitle) failed.push("og:title");
   if (ogType !== "website") failed.push("og:type");

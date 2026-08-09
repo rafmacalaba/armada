@@ -6,9 +6,9 @@ export function Hero() {
         Multi-agent software voyages
       </h1>
       <p className="landing__lede">
-        armada turns a written contract into a coordinated team of AI agents
-        that build, test, review, and ship your software — in parallel, behind
-        phase gates, with evidence at every step.
+        Turn a written contract into a coordinated fleet of AI agents that
+        build, test, review, and ship your software, in parallel, behind phase
+        gates, with evidence at every step.
       </p>
       <div className="landing__hero-ctas">
         <a className="landing__btn landing__btn--primary" href="#quick-start">
