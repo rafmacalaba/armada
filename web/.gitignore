@@ -1,0 +1,14 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# vite cache
+.vite/
+
+# typescript build cache
+*.tsbuildinfo
+
+# lighthouse output (kept in screenshots dir instead)
+lighthouse*.json

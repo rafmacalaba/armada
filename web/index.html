@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="armada is a team of AI agents that ships software like a fleet — captain, navigator, and crew."
+    />
+    <title>armada</title>
+    <script>
+      // Apply persisted theme before React mounts to avoid a flash of wrong
+      // theme on first paint. Matches the logic in useTheme.ts.
+      (function () {
+        try {
+          var t = localStorage.getItem("armada-theme");
+          if (t === "light" || t === "dark") {
+            document.documentElement.setAttribute("data-theme", t);
+          }
+        } catch (_) {
+          /* localStorage unavailable — keep default from <html> */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

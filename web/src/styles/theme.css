@@ -1,0 +1,97 @@
+/* theme.css — CSS variables for dark (default) and light themes.
+   Applied via [data-theme="..."] on <html>. */
+
+:root,
+[data-theme="dark"] {
+  /* surfaces */
+  --color-bg: #0b1220;
+  --color-bg-elevated: #111a2e;
+  --color-surface: #16223b;
+  --color-border: #243152;
+
+  /* text */
+  --color-text: #e6edf7;
+  --color-text-muted: #9aa9c2;
+  --color-text-soft: #c7d2e3;
+
+  /* brand */
+  --color-accent: #7dd3fc;
+  --color-accent-strong: #38bdf8;
+  --color-accent-contrast: #0b1220;
+
+  /* feedback */
+  --color-link: #7dd3fc;
+  --color-danger: #f87171;
+  --color-success: #34d399;
+
+  /* spacing scale (4px base) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-8: 3rem;
+  --space-10: 4rem;
+  --space-12: 6rem;
+
+  /* radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* typography (system stack) */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    Cantarell, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono",
+    monospace;
+
+  --text-xs: 0.78rem;
+  --text-sm: 0.9rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.35rem;
+  --text-2xl: 1.7rem;
+  --text-3xl: 2.2rem;
+  --text-4xl: 2.8rem;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.55;
+  --leading-loose: 1.75;
+
+  --tracking-tight: -0.015em;
+  --tracking-wide: 0.04em;
+
+  /* layout */
+  --content-width: 1080px;
+  --topnav-height: 56px;
+
+  /* elevation */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="light"] {
+  --color-bg: #f6f8fc;
+  --color-bg-elevated: #ffffff;
+  --color-surface: #ffffff;
+  --color-border: #d8dfe9;
+
+  --color-text: #0b1220;
+  --color-text-muted: #4a5568;
+  --color-text-soft: #2d3748;
+
+  --color-accent: #0369a1;
+  --color-accent-strong: #0284c7;
+  --color-accent-contrast: #ffffff;
+
+  --color-link: #0369a1;
+  --color-danger: #b91c1c;
+  --color-success: #047857;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
