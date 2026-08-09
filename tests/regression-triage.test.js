@@ -379,9 +379,6 @@ test("safeguard: no-clobber — scaffold preserves user opencode.json, AGENTS.md
 const LANE_ALLOWLIST = new Set([
   "TODO.md",
   "ARCHITECTURE.md",
-  "docs/armada-improves-armada.md",
-  "docs/using-armada.md",
-  "docs/process/consistency-audit.md",
 ])
 
 // Live/user-facing surfaces scanned for stale terms. docs/ is scanned
@@ -427,10 +424,8 @@ test("grep suite: no bare `armada drive` as a current command (every mention is 
 })
 
 // Phantom slash-command refs: every `/armada[-<name>]` in live surfaces must
-// resolve to a generated `.opencode/commands/<name>.md`. The Phase 3 audit
-// record (consistency-audit.md) legitimately enumerates historical phantoms
-// and is exempt.
-const PHANTOM_EXEMPT = new Set(["docs/process/consistency-audit.md"])
+// resolve to a generated `.opencode/commands/<name>.md`.
+const PHANTOM_EXEMPT = new Set([])
 // A slash-command ref is `/armada` or `/armada-<name>` at a prose boundary
 // (preceded by start, whitespace, backtick, `(`, `[`, or `>` — the characters
 // that introduce a command in prose). Anything preceded by a word, `/`, or `.`

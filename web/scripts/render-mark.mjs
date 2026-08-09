@@ -19,13 +19,6 @@ const SIZE = Number(process.env.SIZE ?? 1024);
 const OUT = process.env.OUT ?? "docs/logo.png";
 const ACCENT = process.env.ACCENT ?? "#0369a1";
 
-const MARK_PATHS = [
-  'M22 12 A7 7 0 1 0 22 24',
-  'M22 8 V26',
-  'M22 9 L16 14 H22',
-  'M5 28 Q9 26 13 28 T21 28',
-];
-
 const html = `<!doctype html>
 <html><head><meta charset="utf-8"><style>
   html, body { margin: 0; padding: 0; background: transparent; }
@@ -33,7 +26,9 @@ const html = `<!doctype html>
 </style></head><body>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="${SIZE}" height="${SIZE}">
   <g fill="none" stroke="${ACCENT}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-${MARK_PATHS.map((d) => `    <path d="${d}" />`).join("\n")}
+    <circle cx="16" cy="16" r="11" />
+    <path d="M9 25 L16 7 L23 25" />
+    <path d="M6 21 L26 9 L17 21" fill="${ACCENT}" fill-opacity="0.3" />
   </g>
 </svg>
 </body></html>`;
