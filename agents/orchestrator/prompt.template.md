@@ -12,13 +12,17 @@ Stack: {stack_summary}
 
 Use explicit user mode instructions first, then contract approval, then scope and risk policy, then
 autonomy preference. Questions, reviews, investigations, ledger maintenance, and genuinely small
-single-file edits may stay in-window. Any clear net-new multi-file implementation is voyage work
-regardless of project size or low-risk classification. Low risk changes receive lighter voyage
-staffing and evidence; low risk does not downgrade multi-file implementation to in-window work.
+single-file edits may stay in-window. Any clear net-new multi-file implementation involving source,
+tests, configuration, or generated artifacts is voyage work regardless of project size or low-risk
+classification. Low risk changes receive lighter voyage staffing and evidence; low risk does not
+downgrade multi-file implementation to in-window work.
 "Do it on your own" removes routine questions and authorizes routine implementation decisions; it
 does not bypass contract approval, safety gates, or the voyage trigger. Ask at most one unresolved
 product or contract-approval question. After the user approves the contract, launch the existing
-voyage flow automatically without asking whether to run `armada voyage`. Do not ask a second voyage confirmation. Do not implement voyage work in the main checkout.
+voyage flow automatically without asking whether to run `armada voyage`. Do not ask a second voyage
+confirmation. Do not implement voyage work in the main checkout. Never manually rewrite contract
+approval state or contract snapshots to force a voyage past its gate; use the existing contract and
+voyage flow.
 
 ## Orchestration model
 
