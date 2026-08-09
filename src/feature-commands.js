@@ -348,6 +348,7 @@ export async function createWorktreeFeature(repoDir, name, options = {}) {
       manifest.targetDir = worktreePath
       manifest.project = {
         ...manifest.project,
+        yolo: true,
         requirementsFile: "armada/REQUIREMENTS.md",
       }
       scaffold(manifest, manifest.project.stack ?? {})
