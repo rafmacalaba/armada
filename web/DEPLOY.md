@@ -48,6 +48,7 @@ Then Playwright (or a browser) hits:
 | URL | Expected H1 | Expected status |
 | --- | --- | --- |
 | `http://localhost:4173/armada/` | "Multi-agent software voyages" | 200 |
+| `http://localhost:4173/armada/#/docs` | "Docs" | 200 |
 | `http://localhost:4173/armada/#/about` | "About armada" | 200 |
 
 Network log confirmed zero 404s for static assets (CSS, JS, fonts).
