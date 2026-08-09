@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import { TopNav } from "./components/TopNav";
 import { Footer } from "./components/Footer";
-import { Landing } from "./pages/Landing";
+import { Home } from "./pages/Home";
 import { About } from "./pages/About";
 import { NotFound } from "./pages/NotFound";
 
@@ -11,7 +11,7 @@ export function App() {
       <TopNav />
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

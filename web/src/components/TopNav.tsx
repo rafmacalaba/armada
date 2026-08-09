@@ -31,7 +31,7 @@ export function TopNav() {
               isActive ? "topnav__link topnav__link--active" : "topnav__link"
             }
           >
-            Landing
+            Home
           </NavLink>
           <NavLink
             to="/about"

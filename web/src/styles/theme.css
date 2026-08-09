@@ -1,28 +1,28 @@
-/* theme.css — CSS variables for dark (default) and light themes.
-   Applied via [data-theme="..."] on <html>. */
+/* theme.css — CSS variables for light (default) and dark themes.
+   Applied via [data-theme="..."] on <html>. The :root block is the
+   light base; [data-theme="dark"] overrides colors and shadows. */
 
-:root,
-[data-theme="dark"] {
+:root {
   /* surfaces */
-  --color-bg: #0b1220;
-  --color-bg-elevated: #111a2e;
-  --color-surface: #16223b;
-  --color-border: #243152;
+  --color-bg: #f6f8fc;
+  --color-bg-elevated: #ffffff;
+  --color-surface: #ffffff;
+  --color-border: #d8dfe9;
 
   /* text */
-  --color-text: #e6edf7;
-  --color-text-muted: #9aa9c2;
-  --color-text-soft: #c7d2e3;
+  --color-text: #0b1220;
+  --color-text-muted: #4a5568;
+  --color-text-soft: #2d3748;
 
   /* brand */
-  --color-accent: #7dd3fc;
-  --color-accent-strong: #38bdf8;
-  --color-accent-contrast: #0b1220;
+  --color-accent: #0369a1;
+  --color-accent-strong: #0284c7;
+  --color-accent-contrast: #ffffff;
 
   /* feedback */
-  --color-link: #7dd3fc;
-  --color-danger: #f87171;
-  --color-success: #34d399;
+  --color-link: #0369a1;
+  --color-danger: #b91c1c;
+  --color-success: #047857;
 
   /* spacing scale (4px base) */
   --space-1: 0.25rem;
@@ -70,28 +70,28 @@
   --topnav-height: 56px;
 
   /* elevation */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.35);
-}
-
-[data-theme="light"] {
-  --color-bg: #f6f8fc;
-  --color-bg-elevated: #ffffff;
-  --color-surface: #ffffff;
-  --color-border: #d8dfe9;
-
-  --color-text: #0b1220;
-  --color-text-muted: #4a5568;
-  --color-text-soft: #2d3748;
-
-  --color-accent: #0369a1;
-  --color-accent-strong: #0284c7;
-  --color-accent-contrast: #ffffff;
-
-  --color-link: #0369a1;
-  --color-danger: #b91c1c;
-  --color-success: #047857;
-
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] {
+  --color-bg: #0b1220;
+  --color-bg-elevated: #111a2e;
+  --color-surface: #16223b;
+  --color-border: #243152;
+
+  --color-text: #e6edf7;
+  --color-text-muted: #9aa9c2;
+  --color-text-soft: #c7d2e3;
+
+  --color-accent: #7dd3fc;
+  --color-accent-strong: #38bdf8;
+  --color-accent-contrast: #0b1220;
+
+  --color-link: #7dd3fc;
+  --color-danger: #f87171;
+  --color-success: #34d399;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
