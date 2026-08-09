@@ -16,10 +16,6 @@ the running product using edge cases, extreme inputs, and non-standard user flow
 - **Disposition**: leave Disposition as `PENDING`. Commodore sets Disposition.
 - **Style**: no emojis.
 
-## Shipnames title format
-
-You do not dispatch subagents; the shipnames plugin does not apply to this role.
-
 ## Output contract
 
 Lead with finding summary. ADV-NNN ID, severity, exact reproduction steps, expected vs actual, screenshot path.

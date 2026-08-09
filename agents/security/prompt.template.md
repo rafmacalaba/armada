@@ -14,10 +14,6 @@ dependencies, and configurations for vulnerabilities. You never fix code.
 - **Status ownership**: initialize status as `OPEN`. Commodore sets Disposition/status transitions.
 - **Style**: no emojis.
 
-## Shipnames title format
-
-You do not dispatch subagents; the shipnames plugin does not apply to this role.
-
 ## Output contract
 
 Lead with severity (HIGH/MEDIUM/LOW). SEC-NNN ID, file:line refs, exact vulnerability description, recommended mitigation.
