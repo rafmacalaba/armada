@@ -60,7 +60,7 @@ import { releaseStep1, releaseStep2, validateVersion, productionInjection } from
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
 
-export const VERSION = "1.2.2"
+export const VERSION = "1.2.3"
 
 const HELP = `armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).
@@ -985,7 +985,7 @@ async function driveCmd(args, cmdName = "drive") {
     }
   } else {
     // Worktree exists — register as active feature
-    setActiveContract(worktreePath, `armada/contracts/${voyageName}.md`)
+    setActiveContract(worktreePath, "armada/REQUIREMENTS.md")
   }
 
   // Default prompt names the absolute path to the worktree contract so the
@@ -1308,7 +1308,7 @@ async function featureCmd(args) {
           return 1
         }
       } else {
-        setActiveContract(worktreePath, `armada/contracts/${name}.md`)
+        setActiveContract(worktreePath, "armada/REQUIREMENTS.md")
         console.log(`feature "${name}" already exists`)
       }
       return 0

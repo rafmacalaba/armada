@@ -333,11 +333,10 @@ export async function createWorktreeFeature(repoDir, name, options = {}) {
     throw new Error(`git worktree add failed: ${stderr}`)
   }
 
-  // Scaffold inside the worktree
-  const contractsDir = join(worktreePath, "armada", "contracts")
-  ensureDir(contractsDir)
-
-  const contractPath = join(contractsDir, `${name}.md`)
+  // Scaffold canonical voyage contract inside the worktree.
+  const contractRelPath = "armada/REQUIREMENTS.md"
+  const contractPath = join(worktreePath, contractRelPath)
+  ensureDir(join(worktreePath, "armada"))
   const contractContent = contractStub(name, options.phaseGraph)
   writeFileSync(contractPath, contractContent, "utf8")
 
@@ -345,15 +344,15 @@ export async function createWorktreeFeature(repoDir, name, options = {}) {
     ? options.phaseGraph
     : { phases: [{ id: "phase-1", title: "Implementation", dependsOn: [], status: "pending", criteria: [{ id: "c1", text: "All tests pass", evidence: null }] }] }
 
-  const entry = emptyFeatureIndexEntry(name, `armada/contracts/${name}.md`, phaseGraph)
+  const entry = emptyFeatureIndexEntry(name, contractRelPath, phaseGraph)
   writeFeatureEntry(worktreePath, entry)
 
   let index = readFeatureIndex(worktreePath)
   index = index.filter((e) => e.name !== name)
-  index.push({ name, status: entry.status, contract: `armada/contracts/${name}.md` })
+  index.push({ name, status: entry.status, contract: contractRelPath })
   writeFeatureIndex(worktreePath, index)
 
-  const active = emptyActive(name, `armada/contracts/${name}.md`, phaseGraph)
+  const active = emptyActive(name, contractRelPath, phaseGraph)
   const activePath = join(worktreePath, "armada", "state", "active.json")
   ensureDir(join(worktreePath, "armada", "state"))
   writeJson(activePath, active)
@@ -375,7 +374,7 @@ export async function createWorktreeFeature(repoDir, name, options = {}) {
   gIndex.push({
     name,
     status: entry.status,
-    contract: `armada/contracts/${name}.md`,
+    contract: contractRelPath,
     worktree: `sandbox/${name}`,
     branch: `feat/${name}`,
   })
@@ -392,7 +391,7 @@ export async function createWorktreeFeature(repoDir, name, options = {}) {
       voyage: name,
       branch: `feat/${name}`,
       worktree: `sandbox/${name}`,
-      contract: `armada/contracts/${name}.md`,
+      contract: contractRelPath,
     })
     const stateDir = join(worktreePath, "armada", "state")
     ensureDir(stateDir)
