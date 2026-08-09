@@ -4,6 +4,13 @@ All notable changes to armada are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-08-09
+
+### Fixed
+
+- Existing live contracts (`armada/REQUIREMENTS.md` or configured `requirementsFile`) are now preserved and copied from main checkout into sandbox worktrees during voyage creation instead of being overwritten by empty stub templates.
+- Added fallback contract synchronization for voyages launched without an active `contract-approval.json` gate.
+
 ## [1.2.4] - 2026-08-09
 
 ### Fixed

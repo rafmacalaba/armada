@@ -33,7 +33,7 @@ if (runtimeError) {
   process.exit(1)
 }
 
-import { existsSync, readFileSync, realpathSync } from "node:fs"
+import { existsSync, readFileSync, realpathSync, copyFileSync, mkdirSync } from "node:fs"
 import { basename, resolve, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -60,7 +60,7 @@ import { releaseStep1, releaseStep2, validateVersion, productionInjection } from
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
 
-export const VERSION = "1.2.4"
+export const VERSION = "1.2.5"
 
 const HELP = `armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).
@@ -1025,6 +1025,17 @@ async function driveCmd(args, cmdName = "drive") {
       console.error(`contract snapshot failed: ${snapErr.message}`)
       process.exitCode = 1
       return 1
+    }
+  } else {
+    // Fallback when opt-in contract approval gate is not active:
+    // Sync the live contract from main checkout to sandbox worktree if present.
+    const liveContractPath = selectedContractPath || join(mainCheckout, "armada", "REQUIREMENTS.md")
+    if (existsSync(liveContractPath)) {
+      const sandboxArmadaDir = join(worktreePath, "armada")
+      if (!existsSync(sandboxArmadaDir)) {
+        mkdirSync(sandboxArmadaDir, { recursive: true })
+      }
+      copyFileSync(liveContractPath, join(sandboxArmadaDir, "REQUIREMENTS.md"))
     }
   }
 
