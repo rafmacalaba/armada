@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./docs/logo.png" alt="armada" width="180" />
+  <img src="./docs/logo.png?v=2" alt="armada" width="180" />
 </p>
 
 <h1 align="center">armada</h1>
