@@ -18,6 +18,20 @@
 
 ---
 
+## Website
+
+armada runs live at <https://rafmacalaba.github.io/armada/>. Multi-agent software voyages — an opencode-powered fleet for any repo.
+
+![armada site](./armada/screenshots/web-v2/home-screenshot.png)
+
+## Documentation links
+
+- Live site docs route: <https://rafmacalaba.github.io/armada/#/docs> (ships in this voyage)
+- [Getting started](./docs/getting-started.md)
+- [User guide](./docs/user-guide.md)
+
+---
+
 ## The problem
 
 **Solo AI coding agents are reckless.** Left unguided, a single agent will guess requirements instead of asking, skip test verification, clobber your working tree with half-baked code, and lose all progress when a session crashes or times out. You get code, sure - but no proof it works, no separation between builder and reviewer, and a mess on your main branch.

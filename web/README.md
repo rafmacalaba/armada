@@ -1,7 +1,7 @@
-# armada web — home + about
+# armada web — home + about + docs
 
-Phase 1 foundation. Vite + React + TypeScript, HashRouter, two themes
-persisted in `localStorage` under `armada-theme`.
+Vite + React + TypeScript, HashRouter, two themes persisted in
+`localStorage` under `armada-theme`.
 
 ## Develop
 
@@ -16,9 +16,7 @@ npm run lint
 
 ## Routes
 
-- `/`         — Home (Phase 2 will add real content)
-- `/about`    — About  (Phase 3 will add real content)
+- `/` — Home
+- `/docs` — Docs (curated index of the docs/*.md guides, links to GitHub)
+- `/about` — About
 - anything else — 404 fallback
-
-Phase 4 will switch `vite.config.ts` `base` to `/armada/` and add a
-`deploy` script that pushes `dist/` to `gh-pages`.

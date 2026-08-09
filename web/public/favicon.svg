@@ -1,4 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="armada">
   <rect width="32" height="32" rx="6" fill="#0b1220"/>
-  <path d="M6 22h20M8 22V10l8 6 8-6v12" stroke="#7dd3fc" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke="#7dd3fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M22 12 A7 7 0 1 0 22 24" />
+    <path d="M22 8 V26" />
+    <path d="M22 9 L16 14 H22" />
+    <path d="M5 28 Q9 26 13 28 T21 28" />
+  </g>
 </svg>
