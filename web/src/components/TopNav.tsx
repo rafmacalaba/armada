@@ -17,10 +17,9 @@ export function TopNav() {
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M22 12 A7 7 0 1 0 22 24" />
-              <path d="M22 8 V26" />
-              <path d="M22 9 L16 14 H22" />
-              <path d="M5 28 Q9 26 13 28 T21 28" />
+              <circle cx="16" cy="16" r="11" />
+              <path d="M9 25 L16 7 L23 25" />
+              <path d="M6 21 L26 9 L17 21" fill="currentColor" fillOpacity="0.3" />
             </svg>
           </span>
           <span className="topnav__name">armada</span>
