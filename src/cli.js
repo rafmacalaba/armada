@@ -949,6 +949,16 @@ async function driveCmd(args, cmdName = "drive") {
   const mainRepo = resolveMainRepo(process.cwd())
   const worktreePath = join(mainRepo, "sandbox", voyageName)
 
+  // Explicitly approved contracts initialize the existing approval gate before
+  // creating a lane, so invalid contracts leave no worktree or tmux session.
+  const { ensureApprovalState } = await import("./voyage/contract-snapshot.js")
+  const approval = await ensureApprovalState(mainRepo)
+  if (!approval.ok) {
+    console.error(`contract approval: ${approval.reason}`)
+    process.exitCode = 1
+    return 1
+  }
+
   // Create worktree if it doesn't exist; otherwise register as active
   if (!existsSync(worktreePath)) {
     try {

@@ -67,8 +67,8 @@ function* walk(relDir) {
 
 // ---------------------------------------------------------------------------
 // 1. Triage canon: every triage-decision statement in the fleet surfaces
-//    either links docs/process/triage.md or IS that file. No restated policy
-//    without citing the canon.
+//    embeds delivery policy in generated Commodore context. Runtime prompts
+//    must not depend on a separate triage document.
 // ---------------------------------------------------------------------------
 
 // Rendered command files — source of truth, no disk dependency.
@@ -79,43 +79,13 @@ const RENDERED_COMMAND_FILES = {
   ".opencode/commands/armada-voyage.md": renderArmadaVoyageCommand(),
 }
 
-const TRIAGE_SURFACES = [
-  "agents/orchestrator/prompt.template.md",
-  "AGENTS.md",
-  ...Object.keys(RENDERED_COMMAND_FILES),
-]
-for (const f of walk("agents")) TRIAGE_SURFACES.push(f)
-for (const f of walk("docs")) TRIAGE_SURFACES.push(f)
-
-const TRIAGE_KEYWORDS = [
-  "in-window",
-  "voyage by exception",
-  "split a broad",
-  "separate voyages when",
-  "voyage vs",
-  "in-window first",
-]
-
-test("triage canon: every triage-decision statement cites docs/process/triage.md", () => {
-  const violators = []
-  for (const rel of TRIAGE_SURFACES) {
-    if (rel === "docs/process/triage.md") continue
-    let txt
-    try {
-      txt = read(rel)
-    } catch {
-      // Fall back to rendered content for command files (survives CI)
-      txt = RENDERED_COMMAND_FILES[rel]
-      if (txt === undefined) continue
-    }
-    if (!TRIAGE_KEYWORDS.some((k) => txt.includes(k))) continue
-    // Cite the canon: a markdown link (any relative depth) or a plain
-    // authority path reference. Every form includes the canon path fragment
-    // `process/triage.md` (e.g. `docs/process/triage.md`, `./process/triage.md`,
-    // `../../docs/process/triage.md`).
-    if (!txt.includes("process/triage.md")) violators.push(rel)
-  }
-  assert.deepEqual(violators, [], `triage policy restated without citing canon: ${violators.join(", ")}`)
+test("delivery policy is embedded in Commodore context without runtime triage dependency", () => {
+  const prompt = read("agents/orchestrator/prompt.template.md")
+  assert.match(prompt, /Delivery mode/i)
+  assert.match(prompt, /in-window/i)
+  assert.match(prompt, /launch.*voyage|voyage.*launch/i)
+  assert.doesNotMatch(prompt, /docs\/process\/triage\.md/)
+  assert.doesNotMatch(RENDERED_COMMAND_FILES[".opencode/commands/armada-voyage.md"], /docs\/process\/triage\.md/)
 })
 
 // ---------------------------------------------------------------------------
@@ -477,5 +447,4 @@ function* phantomSurfaces() {
   for (const f of walk(".opencode")) yield f
   for (const f of walk("docs")) yield f
 }
-
 

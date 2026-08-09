@@ -8,6 +8,14 @@ Stack: {stack_summary}
 
 {instructions}
 
+## Delivery mode
+
+Main-window mode is default. Keep questions, reviews, investigations, small low-risk edits, and
+ledger maintenance in-window. Net-new multi-file functionality, independent contract/evidence/PR
+work, or work that materially needs fleet orchestration becomes a voyage. Ask at most one scope
+clarification. After the user approves the contract, launch the existing voyage flow automatically.
+Do not implement voyage work in the main checkout.
+
 ## Orchestration model
 
 Load `armada-contract` for contract work, `armada-gate` when gating a phase, `armada-dispatch` when 2+ phases parallel, `armada-pr` before reporting done, `armada-resume` on session start.
@@ -138,15 +146,12 @@ After the lane's final criteria pass and the PR is open, do these three steps in
    `armada/state/features/<name>.json` + `armada/state/features/index.json` as appropriate)
    before the turn ends. Never end a turn with unsaved state. If a write would fail, surface
    the error to the user instead of silently continuing.
-5. **Voyage vs. in-window is decided by the triage doc, not by you.** The decision of whether a
-   task runs in-window or as a dedicated lane — and how to split a broad task — is the sole
-   authority of [docs/process/triage.md](../../docs/process/triage.md). Do not rebuild that
-   policy from first principles. If the task is net-new functionality or an implementation and
-   you are not already inside its feature worktree with an approved contract, consult
-   `docs/process/triage.md`: default in-window and only set up a dock when a voyage is warranted.
-   When it is, set the dock up first: `git worktree add -b feat/<name> sandbox/<name>`, scaffold
-   the team into it, write (or co-write) the contract, then set sail there. If the user asks you
-   to implement without dock setup, propose the dock and get approval before editing any source.
+5. **Delivery mode and voyage ownership.** Main-window mode is default; use the Delivery mode
+   rules above to decide whether fleet orchestration is warranted. When a voyage is warranted and
+   its contract is approved, launch the existing voyage flow automatically. Do not implement its
+   work in the main checkout. The tmux session's Voyage Commodore owns implementation, worker
+   dispatch, phase gates, QA, evidence, and PR inside its sandbox. Do not re-triage, launch a nested
+   voyage, or direct voyage implementation into the main checkout.
 6. **PR-first finish.** The final step before reporting a feature lane done is `gh pr create --base master` from the lane branch (or an explicit `PR blocked: <reason>` if a PR is genuinely impossible). Never `git merge` locally, never `git push origin master` directly. No done without a PR URL or a stated blocker.
 
 ## Fleet commands
@@ -161,14 +166,12 @@ After the lane's final criteria pass and the PR is open, do these three steps in
 ## Voyage launch
 
 If the user asks to launch a voyage / start a feature, use the `/armada-voyage` command or the
-armada CLI to create the lane, arm it, and boot the ship; report the lane path and that the
-contract is ready to co-write. Triage policy lives in
-[docs/process/triage.md](../../docs/process/triage.md) — check it before launching: in-window
-by default, voyage by exception, and split a broad request into **separate voyages when its
-workstreams are independent** (disjoint files, independent contracts, own PRs), **one voyage
-when workstreams share writers or form a single contract**. You may launch several voyages in
-parallel — create each independent worktree and start each ship without waiting for another
-voyage to finish. If using the armada CLI
+armada CLI to create the lane, arm it, and boot the ship after the contract is approved; report
+the lane path and tmux session. Keep in-window work as default, launch a voyage by exception, and
+split a broad request into **separate voyages when its workstreams are independent** (disjoint
+files, independent contracts, own PRs), **one voyage when workstreams share writers or form a
+single contract**. You may launch several voyages in parallel — create each independent worktree
+and start each ship without waiting for another voyage to finish. If using the armada CLI
 path, first verify cwd is the main repo (refuse if `git rev-parse --show-toplevel` differs from
 the main checkout or a `sandbox/<name>` ancestor exists). Do not start building in the main repo.
 

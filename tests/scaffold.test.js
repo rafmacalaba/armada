@@ -193,7 +193,7 @@ test("scaffold writes armada-voyage.md matching generator output", () => {
   const content = readFileSync(path, "utf8")
   assert.strictEqual(content, renderArmadaVoyageCommand(), "content matches generator output")
   assert.match(content, /armada feature new/)
-  assert.match(content, /armada voyage sandbox\//)
+  assert.match(content, /armada voyage <name>/)
 
   const removed = uninstall(manifest)
   assert.ok(!existsSync(path), "armada-voyage.md removed on uninstall")

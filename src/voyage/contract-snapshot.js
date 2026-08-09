@@ -10,7 +10,12 @@
 import { join, dirname } from "node:path"
 import { existsSync, readFileSync, copyFileSync, mkdirSync, rmSync } from "node:fs"
 import { writeAtomic, readSafe } from "../state/atomic.js"
-import { computeContractHash, validateApprovalState } from "../state/contract-approval.js"
+import {
+  computeContractHash,
+  validateApprovalState,
+  createApprovalState,
+  approveContract,
+} from "../state/contract-approval.js"
 import { checkContractApproval } from "./contract-gate.js"
 
 // ---- helpers ---------------------------------------------------------------
@@ -26,6 +31,41 @@ function contractPath(repoDir) {
 }
 
 // ---- public API ------------------------------------------------------------
+
+/**
+ * Connect an explicitly approved contract to the existing approval gate.
+ * Contracts without a Status line retain legacy opt-in behavior.
+ *
+ * @param {string} repoDir - main repository root
+ * @returns {Promise<{ required: boolean, ok: boolean, reason?: string }>}
+ */
+export async function ensureApprovalState(repoDir) {
+  const path = contractPath(repoDir)
+  if (!existsSync(path)) {
+    return { required: false, ok: true }
+  }
+
+  const content = readFileSync(path, "utf8")
+  const status = content.match(/^Status:\s*(\S+)\s*$/mi)?.[1]?.toUpperCase()
+  if (!status) return { required: false, ok: true }
+  if (status !== "APPROVED") {
+    return { required: true, ok: false, reason: `contract is not approved (status: ${status})` }
+  }
+
+  const existing = readSafe(approvalPath(repoDir))
+  if (existing !== null) {
+    const gate = checkContractApproval(repoDir)
+    return { required: true, ok: gate.ok, ...(gate.ok ? {} : { reason: gate.reason }) }
+  }
+
+  const state = approveContract(
+    createApprovalState({ contractPath: path }),
+    "user",
+    content,
+  )
+  await writeAtomic(approvalPath(repoDir), JSON.stringify(state, null, 2) + "\n", { mode: 0o600 })
+  return { required: true, ok: true }
+}
 
 /**
  * Copy the approved live contract and approval metadata into the sandbox.
