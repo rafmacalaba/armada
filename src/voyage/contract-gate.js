@@ -19,8 +19,17 @@ function approvalPath(repoDir) {
   return join(repoDir, "armada", "state", "contract-approval.json")
 }
 
-function contractPath(repoDir) {
-  return join(repoDir, "armada", "REQUIREMENTS.md")
+export function resolveApprovedContractPath(repoDir, liveContractPath) {
+  if (typeof liveContractPath !== "string" || liveContractPath === "") {
+    throw new Error("approval state liveContractPath must be a non-empty string")
+  }
+  const repo = resolve(repoDir)
+  const candidate = resolve(repo, liveContractPath)
+  const rel = relative(repo, candidate)
+  if (rel.startsWith("..") || resolve(repo, rel) !== candidate) {
+    throw new Error(`approved contract path escapes repo root: ${liveContractPath}`)
+  }
+  return candidate
 }
 
 // ---- public API -----------------------------------------------------------
@@ -59,7 +68,12 @@ export function checkContractApproval(repoDir) {
   }
 
   // 2. Check contract file exists and is not a symlink
-  const cPath = contractPath(repoDir)
+  let cPath
+  try {
+    cPath = resolveApprovedContractPath(repoDir, approval.liveContractPath)
+  } catch (err) {
+    return { ok: false, reason: `invalid approved contract path: ${err.message}` }
+  }
   if (!existsSync(cPath)) {
     return {
       ok: false,

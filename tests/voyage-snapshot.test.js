@@ -96,6 +96,24 @@ test("checkContractApproval accepts APPROVED state with matching hash", async ()
   rmSync(dir, { recursive: true, force: true })
 })
 
+test("checkContractApproval uses approved custom contract path", async () => {
+  const { createApprovalState, approveContract } = await import("../src/state/contract-approval.js")
+  const { checkContractApproval } = await import("../src/voyage/contract-gate.js")
+  const customPath = "armada/REQUIREMENTS-brand-assets.md"
+  const dir = makeTempGitRepo({
+    [customPath]: "# Brand assets\n\nPhase 1: inventory\nStatus: APPROVED\n",
+  })
+  mkdirSync(join(dir, "armada", "state"), { recursive: true })
+  let approval = createApprovalState({ contractPath: join(dir, customPath) })
+  const content = readFileSync(join(dir, customPath), "utf8")
+  approval = approveContract(approval, "admiral", content)
+  writeFileSync(join(dir, "armada", "state", "contract-approval.json"), JSON.stringify(approval, null, 2) + "\n")
+
+  const result = checkContractApproval(dir)
+  assert.deepStrictEqual(result, { ok: true, reason: null })
+  rmSync(dir, { recursive: true, force: true })
+})
+
 test("checkContractApproval rejects missing contract file", async () => {
   const { createApprovalState, approveContract } = await import("../src/state/contract-approval.js")
   const { checkContractApproval } = await import("../src/voyage/contract-gate.js")
@@ -158,6 +176,49 @@ test("snapshotContract copies approved contract byte-for-byte into sandbox", asy
   const verify = verifySnapshot(join(dir, "armada", "REQUIREMENTS.md"), join(sandboxDir, "armada", "REQUIREMENTS.md"))
   assert.strictEqual(verify.ok, true)
 
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("snapshotContract copies approved custom contract to canonical sandbox path", async () => {
+  const { createApprovalState, approveContract } = await import("../src/state/contract-approval.js")
+  const { snapshotContract } = await import("../src/voyage/contract-snapshot.js")
+  const customPath = "armada/REQUIREMENTS-brand-assets.md"
+  const dir = makeTempGitRepo({
+    [customPath]: "# Brand assets\n\nPhase 1: inventory\nPhase 2: build\nStatus: APPROVED\n",
+  })
+  mkdirSync(join(dir, "armada", "state"), { recursive: true })
+  let approval = createApprovalState({ contractPath: join(dir, customPath) })
+  const content = readFileSync(join(dir, customPath), "utf8")
+  approval = approveContract(approval, "admiral", content)
+  writeFileSync(join(dir, "armada", "state", "contract-approval.json"), JSON.stringify(approval, null, 2) + "\n")
+
+  const sandboxDir = join(dir, "sandbox", "brand-assets")
+  const result = await snapshotContract(dir, sandboxDir)
+  assert.strictEqual(result.ok, true)
+  assert.deepStrictEqual(
+    readFileSync(join(sandboxDir, "armada", "REQUIREMENTS.md")),
+    readFileSync(join(dir, customPath)),
+  )
+  const sandboxApproval = JSON.parse(readFileSync(join(sandboxDir, "armada", "state", "contract-approval.json"), "utf8"))
+  assert.strictEqual(sandboxApproval.liveContractPath, join(dir, customPath))
+  rmSync(dir, { recursive: true, force: true })
+})
+
+test("ensureApprovalState rejects approval for a different configured contract", async () => {
+  const { createApprovalState, approveContract } = await import("../src/state/contract-approval.js")
+  const { ensureApprovalState } = await import("../src/voyage/contract-snapshot.js")
+  const dir = makeTempGitRepo({
+    "armada/REQUIREMENTS.md": "# Stub\nStatus: APPROVED\n",
+    "armada/REQUIREMENTS-brand-assets.md": "# Real contract\nStatus: APPROVED\n",
+  })
+  mkdirSync(join(dir, "armada", "state"), { recursive: true })
+  let approval = createApprovalState({ contractPath: join(dir, "armada", "REQUIREMENTS.md") })
+  approval = approveContract(approval, "admiral", readFileSync(join(dir, "armada", "REQUIREMENTS.md"), "utf8"))
+  writeFileSync(join(dir, "armada", "state", "contract-approval.json"), JSON.stringify(approval, null, 2) + "\n")
+
+  const result = await ensureApprovalState(dir, join(dir, "armada", "REQUIREMENTS-brand-assets.md"))
+  assert.strictEqual(result.ok, false)
+  assert.match(result.reason, /manifest selects|re-approve/i)
   rmSync(dir, { recursive: true, force: true })
 })
 

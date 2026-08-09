@@ -60,7 +60,7 @@ import { releaseStep1, releaseStep2, validateVersion, productionInjection } from
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
 
-export const VERSION = "1.2.1"
+export const VERSION = "1.2.2"
 
 const HELP = `armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).
@@ -952,7 +952,22 @@ async function driveCmd(args, cmdName = "drive") {
   // Explicitly approved contracts initialize the existing approval gate before
   // creating a lane, so invalid contracts leave no worktree or tmux session.
   const { ensureApprovalState } = await import("./voyage/contract-snapshot.js")
-  const approval = await ensureApprovalState(mainRepo)
+  let selectedContractPath
+  const manifestPath = join(mainRepo, "armada", "armada.yaml")
+  if (existsSync(manifestPath)) {
+    try {
+      const manifest = parseManifestYaml(readFileSync(manifestPath, "utf8"))
+      const configuredPath = manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md"
+      if (configuredPath !== "armada/REQUIREMENTS.md") {
+        selectedContractPath = resolve(mainRepo, configuredPath)
+      }
+    } catch (err) {
+      console.error(`manifest: ${err.message}`)
+      process.exitCode = 1
+      return 1
+    }
+  }
+  const approval = await ensureApprovalState(mainRepo, selectedContractPath)
   if (!approval.ok) {
     console.error(`contract approval: ${approval.reason}`)
     process.exitCode = 1

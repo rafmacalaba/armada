@@ -16,7 +16,7 @@ import {
   createApprovalState,
   approveContract,
 } from "../state/contract-approval.js"
-import { checkContractApproval } from "./contract-gate.js"
+import { checkContractApproval, resolveApprovedContractPath } from "./contract-gate.js"
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -24,10 +24,6 @@ function nowISO() { return new Date().toISOString() }
 
 function approvalPath(repoDir) {
   return join(repoDir, "armada", "state", "contract-approval.json")
-}
-
-function contractPath(repoDir) {
-  return join(repoDir, "armada", "REQUIREMENTS.md")
 }
 
 // ---- public API ------------------------------------------------------------
@@ -39,9 +35,14 @@ function contractPath(repoDir) {
  * @param {string} repoDir - main repository root
  * @returns {Promise<{ required: boolean, ok: boolean, reason?: string }>}
  */
-export async function ensureApprovalState(repoDir) {
-  const path = contractPath(repoDir)
+export async function ensureApprovalState(repoDir, selectedContractPath) {
+  const path = selectedContractPath
+    ? resolveApprovedContractPath(repoDir, selectedContractPath)
+    : join(repoDir, "armada", "REQUIREMENTS.md")
   if (!existsSync(path)) {
+    if (selectedContractPath) {
+      return { required: true, ok: false, reason: `live contract not found at ${path}` }
+    }
     return { required: false, ok: true }
   }
 
@@ -54,6 +55,21 @@ export async function ensureApprovalState(repoDir) {
 
   const existing = readSafe(approvalPath(repoDir))
   if (existing !== null) {
+    if (selectedContractPath) {
+      try {
+        const existingState = JSON.parse(existing)
+        const approvedPath = resolveApprovedContractPath(repoDir, existingState.liveContractPath)
+        if (approvedPath !== path) {
+          return {
+            required: true,
+            ok: false,
+            reason: `approval state targets ${approvedPath}, but manifest selects ${path}. Re-approve the selected contract before launching a voyage.`,
+          }
+        }
+      } catch (err) {
+        return { required: true, ok: false, reason: `invalid approval state: ${err.message}` }
+      }
+    }
     const gate = checkContractApproval(repoDir)
     return { required: true, ok: gate.ok, ...(gate.ok ? {} : { reason: gate.reason }) }
   }
@@ -96,7 +112,13 @@ export async function snapshotContract(repoDir, sandboxDir) {
   validateApprovalState(approval)
 
   // 3. Read live contract
-  const liveContent = readFileSync(contractPath(repoDir))
+  let liveContractPath
+  try {
+    liveContractPath = resolveApprovedContractPath(repoDir, approval.liveContractPath)
+  } catch (err) {
+    return { ok: false, reason: `invalid approved contract path: ${err.message}`, hash: null }
+  }
+  const liveContent = readFileSync(liveContractPath)
   const liveHash = computeContractHash(liveContent)
 
   // 4. Ensure sandbox directories exist
@@ -111,7 +133,7 @@ export async function snapshotContract(repoDir, sandboxDir) {
 
   // 5. Copy contract byte-for-byte
   const sandboxContractPath = join(sandboxArmadaDir, "REQUIREMENTS.md")
-  copyFileSync(contractPath(repoDir), sandboxContractPath)
+  copyFileSync(liveContractPath, sandboxContractPath)
 
   // 6. Verify byte-for-byte
   const sandboxContent = readFileSync(sandboxContractPath)
