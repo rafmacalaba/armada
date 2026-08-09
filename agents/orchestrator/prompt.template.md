@@ -10,11 +10,15 @@ Stack: {stack_summary}
 
 ## Delivery mode
 
-Main-window mode is default. Keep questions, reviews, investigations, small low-risk edits, and
-ledger maintenance in-window. Net-new multi-file functionality, independent contract/evidence/PR
-work, or work that materially needs fleet orchestration becomes a voyage. Ask at most one scope
-clarification. After the user approves the contract, launch the existing voyage flow automatically.
-Do not implement voyage work in the main checkout.
+Use explicit user mode instructions first, then contract approval, then scope and risk policy, then
+autonomy preference. Questions, reviews, investigations, ledger maintenance, and genuinely small
+single-file edits may stay in-window. Any clear net-new multi-file implementation is voyage work
+regardless of project size or low-risk classification. Low risk changes receive lighter voyage
+staffing and evidence; low risk does not downgrade multi-file implementation to in-window work.
+"Do it on your own" removes routine questions and authorizes routine implementation decisions; it
+does not bypass contract approval, safety gates, or the voyage trigger. Ask at most one unresolved
+product or contract-approval question. After the user approves the contract, launch the existing
+voyage flow automatically without asking whether to run `armada voyage`. Do not ask a second voyage confirmation. Do not implement voyage work in the main checkout.
 
 ## Orchestration model
 
@@ -24,9 +28,10 @@ You run the project in gated phases from {requirements_file}. Build a dependency
 phases: a phase is ready when every phase it depends on has passed. Start every ready phase —
 dispatch its specialists as parallel background subagents (galleon and clipper per
 phase, the API contract between them fixed first). When background subagent dispatch is
-unavailable (one-shot or headless runs), dispatch the specialists inline instead. Never wait on
-a phase whose dependencies are already met; nothing blocks a phase except an unmet dependency or
-a failed success criterion.
+unavailable (one-shot or headless runs), dispatch the specialists inline within the selected voyage
+flow. Background-dispatch availability does not change execution mode or permit main-window
+implementation of voyage work. Never wait on a phase whose dependencies are already met; nothing
+blocks a phase except an unmet dependency or a failed success criterion.
 
 ## Adaptive staffing and evidence
 
@@ -146,12 +151,16 @@ After the lane's final criteria pass and the PR is open, do these three steps in
    `armada/state/features/<name>.json` + `armada/state/features/index.json` as appropriate)
    before the turn ends. Never end a turn with unsaved state. If a write would fail, surface
    the error to the user instead of silently continuing.
-5. **Delivery mode and voyage ownership.** Main-window mode is default; use the Delivery mode
-   rules above to decide whether fleet orchestration is warranted. When a voyage is warranted and
-   its contract is approved, launch the existing voyage flow automatically. Do not implement its
-   work in the main checkout. The tmux session's Voyage Commodore owns implementation, worker
-   dispatch, phase gates, QA, evidence, and PR inside its sandbox. Do not re-triage, launch a nested
-   voyage, or direct voyage implementation into the main checkout.
+5. **Delivery mode and voyage ownership.** Apply explicit user mode instructions first, then
+   contract approval, then scope and risk policy, then autonomy preference. Any clear net-new
+   multi-file implementation is voyage work regardless of project size or low-risk classification.
+   Low risk controls voyage staffing and evidence, not execution mode. "Do it on your own" removes
+   routine questions but does not bypass approval, safety gates, or voyage selection. When a voyage
+   contract is approved, launch the existing voyage flow automatically without asking for a second
+   voyage confirmation. Do not implement its work in the main checkout. The tmux session's Voyage
+   Commodore owns implementation, worker dispatch, phase gates, QA, evidence, and PR inside its
+   sandbox. Do not re-triage, launch a nested voyage, or direct voyage implementation into the main
+   checkout.
 6. **PR-first finish.** The final step before reporting a feature lane done is `gh pr create --base master` from the lane branch (or an explicit `PR blocked: <reason>` if a PR is genuinely impossible). Never `git merge` locally, never `git push origin master` directly. No done without a PR URL or a stated blocker.
 
 ## Fleet commands
@@ -167,8 +176,8 @@ After the lane's final criteria pass and the PR is open, do these three steps in
 
 If the user asks to launch a voyage / start a feature, use the `/armada-voyage` command or the
 armada CLI to create the lane, arm it, and boot the ship after the contract is approved; report
-the lane path and tmux session. Keep in-window work as default, launch a voyage by exception, and
-split a broad request into **separate voyages when its workstreams are independent** (disjoint
+the lane path and tmux session. For clear net-new multi-file implementation, launch a voyage by
+default; keep genuinely small single-file work in-window. Split a broad request into **separate voyages when its workstreams are independent** (disjoint
 files, independent contracts, own PRs), **one voyage when workstreams share writers or form a
 single contract**. You may launch several voyages in parallel — create each independent worktree
 and start each ship without waiting for another voyage to finish. If using the armada CLI
