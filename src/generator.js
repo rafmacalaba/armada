@@ -45,7 +45,16 @@ const BASE_PERMISSIONS = {
       "armada/ledgers/*/DEFECTS.md": "allow",
       "armada/ledgers/*/ADVERSARIAL_REVIEW.md": "allow",
     },
-    bash: { "*": "ask", "git status*": "allow", "git diff*": "allow", "git log*": "allow" },
+    bash: {
+      "*": "ask",
+      "git status*": "allow",
+      "git diff*": "allow",
+      "git log*": "allow",
+      "armada feature new *": "allow",
+      "armada init *": "allow",
+      "armada voyage *": "allow",
+      "armada voyage-handoff *": "allow",
+    },
     skill: "allow",
   },
   "backend-dev": {
@@ -583,8 +592,8 @@ description: armada — launch a feature voyage (creates the lane, arms it, boot
 subtask: true
 agent: ${agentNameFor("orchestrator")}
 ---
-You are the Commodore. The user has asked to launch a feature voyage. Parse the feature
-name from the request (kebab-case, no spaces). Refuse if cwd is already inside a worktree
+You are the main Commodore launching a feature voyage. Parse the feature name from the request
+(kebab-case, no spaces). The main contract must be approved before launch. Refuse if cwd is already inside a worktree
 (\`git rev-parse --show-toplevel\` differs from the main checkout, or a \`sandbox/<name>\`
 ancestor exists) — tell the user to run the command from the main repo.
 
@@ -595,18 +604,18 @@ and stop.
 Then run, in order:
 1. \`armada feature new <name> --worktree\` — creates \`feat/<name>\` and \`sandbox/<name>\`.
 2. \`armada init --yes --yolo --target sandbox/<name>\` to arm the lane.
-3. \`armada voyage sandbox/<name>\` to boot the ship (detached tmux session).
+3. \`armada voyage <name>\` to boot the ship (detached tmux session).
 4. Report the lane path (\`sandbox/<name>\`) and that the contract at
-   \`sandbox/<name>/armada/REQUIREMENTS.md\` is ready to co-write. The user can drive the
-   contract from there or ask you to keep going conversationally.
+   \`sandbox/<name>/armada/REQUIREMENTS.md\` was snapshotted from the approved main contract.
 
 All paths are relative to the main repo. The steps can be run in any order or in separate
 bash invocations — there is no \`cd\` mid-sequence.
 
-The user may ask for several voyages in parallel — repeat the steps per name, then
-\`/armada-fleet\` to see them all. Do not modify the main repo. Do not merge anything
-locally — final delivery is \`gh pr create --base master\` from the lane branch. Keep it
-terse.
+The user may ask for several voyages in parallel — repeat the steps per name. The launched tmux
+session is the Voyage Commodore: it owns implementation, phase gates, QA, evidence, and PR inside
+its sandbox. Do not re-triage or launch another voyage. Do not implement voyage work in the main
+repo. Do not merge anything locally — final delivery is \`gh pr create --base master\` from the lane
+branch. Keep it terse.
 `
 }
 

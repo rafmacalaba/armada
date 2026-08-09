@@ -60,7 +60,7 @@ import { releaseStep1, releaseStep2, validateVersion, productionInjection } from
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
 
-export const VERSION = "1.1.1"
+export const VERSION = "1.2.0"
 
 const HELP = `armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).
@@ -948,6 +948,16 @@ async function driveCmd(args, cmdName = "drive") {
   // ---- resolve main repo and worktree path ----
   const mainRepo = resolveMainRepo(process.cwd())
   const worktreePath = join(mainRepo, "sandbox", voyageName)
+
+  // Explicitly approved contracts initialize the existing approval gate before
+  // creating a lane, so invalid contracts leave no worktree or tmux session.
+  const { ensureApprovalState } = await import("./voyage/contract-snapshot.js")
+  const approval = await ensureApprovalState(mainRepo)
+  if (!approval.ok) {
+    console.error(`contract approval: ${approval.reason}`)
+    process.exitCode = 1
+    return 1
+  }
 
   // Create worktree if it doesn't exist; otherwise register as active
   if (!existsSync(worktreePath)) {
