@@ -1,6 +1,6 @@
 {
   "name": "@rafamacalaba/armada",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Loop engineering for software development. Turn any repo into a self-organizing AI team — 8 specialists, evidence-gated phases, parallel feature voyages.",
   "type": "module",
   "repository": {

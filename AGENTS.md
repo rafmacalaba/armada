@@ -32,6 +32,9 @@ shell commands: if the edit tool would deny a file, do not modify that file any 
 - No emojis in code, comments, print statements or logging.
 - Keep it simple: small modules, clear names, no defensive programming, no overengineering.
 - Prefer popular, well-supported libraries over custom code.
+- **Shipnames title format**: When invoking `task`, set `description` to the work-only title. Do not manually prefix `<Ship>` or `[role]`; the shipnames plugin auto-prefixes them.
+- **Evidence-based receipts**: Subagent tasks require pasted evidence in the receipt `Evidence` block. No claim of done is accepted without evidence.
+
 
 ## Adaptive delivery
 
