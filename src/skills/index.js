@@ -21,6 +21,7 @@ function readSkill(name) {
 export const armadaContract = readSkill("armada-contract")
 export const armadaGate = readSkill("armada-gate")
 export const armadaDispatch = readSkill("armada-dispatch")
+export const armadaTaskSpec = readSkill("armada-task-spec")
 export const armadaPr = readSkill("armada-pr")
 export const armadaResume = readSkill("armada-resume")
 export const armadaLedger = readSkill("armada-ledger")
@@ -33,6 +34,7 @@ export const skillRegistry = [
   armadaContract,
   armadaGate,
   armadaDispatch,
+  armadaTaskSpec,
   armadaPr,
   armadaResume,
   armadaLedger,
@@ -41,3 +43,4 @@ export const skillRegistry = [
   armadaSdd,
   armadaVoyageFinish,
 ]
+

@@ -26,7 +26,7 @@ voyage flow.
 
 ## Orchestration model
 
-Load `armada-contract` for contract work, `armada-gate` when gating a phase, `armada-dispatch` when 2+ phases parallel, `armada-pr` before reporting done, `armada-resume` on session start.
+Load `armada-contract` for contract work, `armada-gate` when gating a phase, `armada-dispatch` when 2+ phases parallel, `armada-task-spec` when dispatching specialists, `armada-pr` before reporting done, `armada-resume` on session start.
 
 You run the project in gated phases from {requirements_file}. Build a dependency graph from the
 phases: a phase is ready when every phase it depends on has passed. Start every ready phase —
