@@ -33,7 +33,10 @@ test("voyage with no name exits 1 with error", async () => {
 
 test("voyage <name> creates worktree and boots lane", async () => {
   const binPath = stubBins()
-  const repoDir = makeTempGitRepo({ "readme.md": "# test" })
+  const repoDir = makeTempGitRepo({
+    "readme.md": "# test",
+    "armada/armada.yaml": "project:\n  name: test\n  stack: {}\nteam:\n  - role: orchestrator\n    model: opencode-go/minimax-m3\n    enabled: true\n",
+  })
   const r = await spawnCli(["voyage", "myfeature"], {
     env: { PATH: binPath, HOME: mkdtempSync(join(tmpdir(), "armada-home-")) },
     cwd: repoDir,
@@ -45,6 +48,7 @@ test("voyage <name> creates worktree and boots lane", async () => {
   assert.ok(existsSync(worktreePath), `worktree missing: ${worktreePath}`)
   assert.ok(existsSync(join(worktreePath, "armada", "REQUIREMENTS.md")), "canonical voyage contract missing")
   assert.ok(!existsSync(join(worktreePath, "armada", "contracts", "myfeature.md")), "voyage must not use secondary contract")
+  assert.ok(existsSync(join(worktreePath, ".opencode", "agent", "commodore.md")), "voyage Commodore missing")
   const activePath = join(worktreePath, "armada", "state", "active.json")
   assert.ok(existsSync(activePath), "active.json missing")
 })

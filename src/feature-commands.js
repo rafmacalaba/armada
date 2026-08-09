@@ -14,6 +14,8 @@ import {
   validateFeatureIndex,
   markShipped,
 } from "./state.js"
+import { parseManifestYaml } from "./manifest.js"
+import { scaffold } from "./scaffold.js"
 
 // ---- helpers ---------------------------------------------------------------
 
@@ -331,6 +333,19 @@ export async function createWorktreeFeature(repoDir, name, options = {}) {
       throw new Error(`worktree or branch already exists: ${branch}`)
     }
     throw new Error(`git worktree add failed: ${stderr}`)
+  }
+
+  // Re-scaffold Armada-owned lane files from main manifest. `armada new` can
+  // leave these files uncommitted, so git worktree add alone is insufficient.
+  const manifestPath = join(mainRepo, "armada", "armada.yaml")
+  if (existsSync(manifestPath)) {
+    const manifest = parseManifestYaml(readFileSync(manifestPath, "utf8"))
+    manifest.targetDir = worktreePath
+    manifest.project = {
+      ...manifest.project,
+      requirementsFile: "armada/REQUIREMENTS.md",
+    }
+    scaffold(manifest, manifest.project.stack ?? {})
   }
 
   // Scaffold canonical voyage contract inside the worktree.
