@@ -4,6 +4,29 @@ All notable changes to armada are documented in this file. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Features
+
+- add armada models --discounts flag to inspect live OpenRouter provider pricing and discounts (#167)
+- add openrouter provider routing preference and real-time endpoint pricing API helper (v1.2.8) (#166)
+- bump version to 1.2.7 - execution-only subagent architecture & task spec template (#165)
+
+## Bug Fixes
+
+- voyage-handoff uses correct tmux session names; reject voyage- prefixed feature names (#169)
+- doc/about links use master (default branch); harden smokes against branch drift (#158)
+
+## Docs
+
+- log voyage-handoff fix (#169) (#170)
+- add OpenRouter discounted models and provider ordering guide (#168)
+- update logo file path to docs/logo-v2.png to guarantee fresh rendering on GitHub (#164)
+- add cache buster to logo image URL for GitHub proxy (#163)
+- overhaul README with loop engineering positioning, clean docs, update logo, and expand topics (#162)
+- restore brand voice, workflow.png, setup steps, contract co-writing (#161)
+- gateway rewrite — lead with the loop, point to website for depth (#160)
+- lean rewrite, fix broken site image, clarify site is informational (#159)
+- log web polish voyage #155 (#156)
+
 ## [1.2.6] - 2026-08-09
 
 ### Fixed
