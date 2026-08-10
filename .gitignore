@@ -1,6 +1,7 @@
+node_modules/
+
 # armada:start
 /armada/
 /.opencode/
 /opencode.json
 # armada:end
-node_modules/

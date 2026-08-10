@@ -101,6 +101,20 @@ function validateSkills(skills) {
   return skills
 }
 
+function validateOpenRouterProviders(providers) {
+  if (providers === undefined || providers === null) return undefined
+  const list = typeof providers === "string" ? [providers] : providers
+  if (!Array.isArray(list)) {
+    throw new Error("armada.yaml: schema violation: project.openrouter_providers must be a string or list of strings")
+  }
+  for (const p of list) {
+    if (typeof p !== "string" || p.trim() === "") {
+      throw new Error("armada.yaml: schema violation: project.openrouter_providers entries must be non-empty strings")
+    }
+  }
+  return list.map((p) => p.trim())
+}
+
 export function parseManifestYaml(text, target) {
   let raw
   try {
@@ -169,6 +183,7 @@ export function parseManifestYaml(text, target) {
   if (!team.length) throw new Error("armada.yaml: team is empty")
   validateRequirementsFile(p.requirementsFile ?? "armada/REQUIREMENTS.md")
   const skills = validateSkills(p.skills)
+  const openrouterProviders = validateOpenRouterProviders(p.openrouter_providers)
   return {
     project: {
       name: p.name ?? "project",
@@ -181,12 +196,14 @@ export function parseManifestYaml(text, target) {
       requirementsFile: p.requirementsFile ?? "armada/REQUIREMENTS.md",
       feature: p.feature ?? null,
       skills,
+      openrouterProviders,
       supervision: {
         plugin: p.supervision?.plugin ?? false,
         fleet: p.supervision?.fleet ?? true,
         watchdog: p.supervision?.watchdog ?? false,
         shipnames: p.supervision?.shipnames ?? true,
       },
+
       stack: {
         frontend: stack.frontend ?? null,
         backend: stack.backend ?? null,
