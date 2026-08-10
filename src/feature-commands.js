@@ -32,6 +32,9 @@ export function validateName(name) {
   if (name.startsWith(".") || name.endsWith(".")) {
     throw new Error(`invalid feature name "${name}": must not start or end with "."`)
   }
+  if (name.startsWith("voyage-")) {
+    throw new Error(`invalid feature name "${name}": must not start with "voyage-" (use --name if you need that exact tmux session)`)
+  }
   if (name.length > 64) throw new Error(`invalid feature name "${name}": must be 64 chars or fewer`)
 }
 
