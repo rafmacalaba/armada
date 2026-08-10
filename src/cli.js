@@ -1244,12 +1244,51 @@ function statusCmd(args) {
   return code
 }
 
-function voyageHandoffCmd(names) {
-  if (!names || names.length === 0) {
+function voyageHandoffCmd(args) {
+  // Collect voyage names, respecting --session <name> flag.
+  // Bare --session <value> applies retroactively to the last voyage name
+  // (or forward if no voyage names yet). --session=<value> applies to
+  // the next voyage name (with fallback to last if none follows).
+  const items = []
+  let nextSession = null
+  let waitingForSession = false
+
+  for (const arg of args) {
+    if (arg === "--session") {
+      waitingForSession = true
+      continue
+    }
+    if (arg.startsWith("--session=")) {
+      nextSession = arg.slice("--session=".length)
+      continue
+    }
+    if (waitingForSession) {
+      // bare --session <value>: retroactive to last, or forward if none
+      if (items.length > 0) {
+        items[items.length - 1].session = arg
+      } else {
+        nextSession = arg
+      }
+      waitingForSession = false
+      continue
+    }
+    // positional voyage name
+    const session = nextSession ?? `voyage-${arg}`
+    items.push({ voyage: arg, session })
+    nextSession = null
+  }
+
+  // Unconsumed nextSession falls back to last item
+  if (nextSession && items.length > 0) {
+    items[items.length - 1].session = nextSession
+  }
+
+  if (items.length === 0) {
     console.error("Usage: armada voyage-handoff <name> [<name>...]")
     return 1
   }
-  console.log(formatHandoffBlock(names))
+
+  console.log(formatHandoffBlock(items))
   return 0
 }
 async function releaseCmd(args) {

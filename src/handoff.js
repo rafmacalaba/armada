@@ -1,8 +1,21 @@
-export function formatHandoffBlock(sessions) {
-  if (!sessions || sessions.length === 0) return ""
+/**
+ * Format a handoff block for dispatched voyages.
+ *
+ * @param {(string|{voyage: string, session: string})[]} items
+ *   - string: voyage name  (session defaults to `voyage-${name}`)
+ *   - object: explicit { voyage, session } override
+ */
+export function formatHandoffBlock(items) {
+  if (!items || items.length === 0) return ""
 
-  const lines = sessions.map(
-    (name) => `  - ${name}  (tmux session: ${name})  attach: armada voyage attach ${name}`
+  const entries = items.map((item) => {
+    const voyage = typeof item === "string" ? item : item.voyage
+    const session = typeof item === "string" ? `voyage-${item}` : item.session
+    return { voyage, session }
+  })
+
+  const lines = entries.map(
+    (e) => `  - ${e.voyage}  (tmux session: ${e.session})  attach: armada voyage attach ${e.session}`
   )
 
   return `--- HANDOFF ---
