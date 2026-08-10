@@ -99,6 +99,18 @@ npx @rafamacalaba/armada@latest new my-app
 
 Requires Node.js 22+ and an authenticated [opencode](https://opencode.ai) install. Run `armada doctor` to confirm your environment is ready.
 
+### OpenRouter Provider Discounts
+
+Save up to 20x on OpenRouter models by routing to discounted providers (Novita, StreamLake, Xiaomi):
+
+```bash
+# Check live OpenRouter provider prices and savings multipliers
+armada models --discounts
+
+# Init repo with a preferred discounted provider
+armada init --openrouter-provider Novita
+```
+
 After `armada init`, open the repo in opencode. The fleet is loaded. Describe your goal in plain language — a wish, a ticket, a PRD — and the **Commodore** (orchestrator) interviews you for the missing details. Together you produce the contract (`armada/REQUIREMENTS.md`) with phases, dependencies, and measurable success criteria. Once you approve, the fleet runs the loop autonomously until a PR opens.
 
 ## The fleet

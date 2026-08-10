@@ -54,6 +54,28 @@ Source: `src/model-catalog.js:34-100`. `armada models [budget]` prints the curre
 manifest at `armada/armada.yaml:44`), then re-scaffold with
 `armada init --from-armada armada/armada.yaml`.
 
+### Discounted OpenRouter Models & Provider Ordering
+
+OpenRouter offers third-party provider backends (e.g. Novita, StreamLake, Xiaomi, GMICloud, DeepInfra) that frequently offer **4x to 20x price discounts** over standard endpoints.
+
+- **Inspect Live Discounts:** Run `armada models --discounts` to query OpenRouter's live API endpoints, calculate per-1M-token prompt/completion pricing, and display provider savings multipliers.
+- **Set Provider Ordering via CLI:**
+  ```bash
+  armada init --openrouter-provider Novita
+  # or multiple preferred providers in priority order:
+  armada init --openrouter-provider "Novita, StreamLake"
+  ```
+- **Set Provider Ordering via Manifest (`armada.yaml`):**
+  ```yaml
+  project:
+    name: my-project
+    budget: balanced
+    openrouter_providers:
+      - Novita
+      - StreamLake
+  ```
+When configured, Armada automatically injects `"order": ["Novita", "StreamLake"]` into `options.provider` for all OpenRouter model definitions in `opencode.json`, ensuring OpenRouter prioritizes the cheapest provider first.
+
 ## Cost expectations
 
 Costs are provider-billed (opencode providers and OpenRouter bill the account that owns the
