@@ -44,5 +44,11 @@ export function renderInitSummary(manifest) {
     )
   }
 
+  if (project.openrouterProviders?.length) {
+    lines.push(
+      `OpenRouter Provider Order: ${project.openrouterProviders.join(", ")}`,
+    )
+  }
+
   return lines.join("\n")
 }

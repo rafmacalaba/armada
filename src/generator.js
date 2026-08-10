@@ -236,8 +236,12 @@ export function renderOpenCodeJson(manifest, team) {
       if (!id.startsWith("openrouter/")) continue
       const slug = id.slice("openrouter/".length)
       if (!slug) continue
+      const provOpt = { allow_fallbacks: true }
+      if (manifest.project?.openrouterProviders?.length) {
+        provOpt.order = manifest.project.openrouterProviders
+      }
       openrouterModels[slug] = {
-        options: { provider: { allow_fallbacks: true } },
+        options: { provider: provOpt },
       }
     }
   }
@@ -1129,7 +1133,7 @@ project:
   yolo: ${manifest.project.yolo ?? false}
   # Path to the contract file (default: armada/REQUIREMENTS.md)
   requirementsFile: ${q(manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md")}
-${manifest.project.feature ? `  # (optional) Active feature name; sets armada/state/features/<name>.json\n  feature: ${q(manifest.project.feature)}\n` : ""}${manifest.project.skills !== undefined ? `  # (optional) Skills to load into the orchestrator prompt\n  skills: [${(manifest.project.skills || []).map((s) => q(s)).join(", ")}]\n` : ""}  supervision:
+${manifest.project.feature ? `  # (optional) Active feature name; sets armada/state/features/<name>.json\n  feature: ${q(manifest.project.feature)}\n` : ""}${manifest.project.skills !== undefined ? `  # (optional) Skills to load into the orchestrator prompt\n  skills: [${(manifest.project.skills || []).map((s) => q(s)).join(", ")}]\n` : ""}${manifest.project.openrouterProviders !== undefined ? `  # (optional) Preferred OpenRouter provider routing order (e.g. Novita, DeepInfra)\n  openrouter_providers: [${(manifest.project.openrouterProviders || []).map((p) => q(p)).join(", ")}]\n` : ""}  supervision:
     # Emit .opencode/plugins/armada-supervision.js
     plugin: ${manifest.project.supervision?.plugin ?? false}
     # Emit per-lane fleet dashboard (default: true)

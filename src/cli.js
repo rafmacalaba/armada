@@ -60,7 +60,7 @@ import { releaseStep1, releaseStep2, validateVersion, productionInjection } from
 // Track active heartbeat intervals so they can be cleaned up on exit.
 const activeHeartbeats = new Map()
 
-export const VERSION = "1.2.7"
+export const VERSION = "1.2.8"
 
 const HELP = `armada v${VERSION}
 Evidence-gated AI-engineer teams for opencode, natively (no plugin).
@@ -456,6 +456,14 @@ async function init(args) {
   if (args.includes("--no-shipnames")) {
     manifest.project.supervision = manifest.project.supervision ?? { plugin: false, fleet: true }
     manifest.project.supervision.shipnames = false
+  }
+  const providerIdx = args.findIndex((a) => a === "--openrouter-provider" || a === "--openrouter-providers")
+  if (providerIdx !== -1 && args[providerIdx + 1] && !args[providerIdx + 1].startsWith("--")) {
+    const rawVal = args[providerIdx + 1]
+    const providersList = rawVal.split(",").map((p) => p.trim()).filter(Boolean)
+    if (providersList.length) {
+      manifest.project.openrouterProviders = providersList
+    }
   }
   const reqIdx = args.indexOf("--requirements")
   if (reqIdx !== -1 && args[reqIdx + 1] && !args[reqIdx + 1].startsWith("--")) {
