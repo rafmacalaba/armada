@@ -48,3 +48,23 @@ export async function fetchModelEndpoints(modelSlug) {
     return null
   }
 }
+
+export async function fetchDiscountedModels(modelSlugs = ["z-ai/glm-5.2", "deepseek/deepseek-v4-pro", "minimax/minimax-m3", "xiaomi/mimo-v2.5"]) {
+  const results = []
+  for (const slug of modelSlugs) {
+    const endpoints = await fetchModelEndpoints(slug)
+    if (!endpoints || endpoints.length < 2) continue
+    const cheapest = endpoints[0]
+    const expensive = endpoints[endpoints.length - 1]
+    const savingsRatio = (expensive.totalCostPerM / (cheapest.totalCostPerM || 0.000001)).toFixed(1)
+    results.push({
+      slug,
+      endpoints,
+      cheapest,
+      expensive,
+      savingsRatio: parseFloat(savingsRatio),
+    })
+  }
+  return results
+}
+

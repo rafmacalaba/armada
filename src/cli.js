@@ -561,6 +561,32 @@ async function models(args) {
     }
   }
 
+  if (args.includes("--discounts") || args.includes("--discounted")) {
+    const { fetchDiscountedModels } = await import("./openrouter-api.js")
+    console.log("Fetching live OpenRouter provider discounts and pricing comparisons...\n")
+    const discounted = await fetchDiscountedModels()
+    if (!discounted || !discounted.length) {
+      console.log("No live discount data available right now.")
+      return 0
+    }
+    console.log("OpenRouter Provider Pricing & Discount Comparison:")
+    console.log("==================================================")
+    for (const item of discounted) {
+      console.log(`\nModel: ${item.slug}`)
+      for (const e of item.endpoints.slice(0, 4)) {
+        const isCheapest = e.providerName === item.cheapest.providerName
+        const tag = isCheapest ? ` (★ ${item.savingsRatio}x CHEAPER)` : ""
+        console.log(`  - ${e.providerName.padEnd(16)} $${e.promptCostPerM.toFixed(2)}/M prompt, $${e.completionCostPerM.toFixed(2)}/M completion${tag}`)
+      }
+    }
+    console.log("\nTo use a discounted provider in Armada:")
+    console.log("  armada init --openrouter-provider Novita")
+    console.log("Or add to armada.yaml:")
+    console.log("  project:")
+    console.log("    openrouter_providers: [\"Novita\", \"StreamLake\"]")
+    return 0
+  }
+
   const refresh = args.includes("--refresh")
   // Find the first non-flag arg as a budget candidate.
   // Exclude values of flags that take a value (e.g. --cache <path>).
