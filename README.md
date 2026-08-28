@@ -112,7 +112,7 @@ armada ships as a first-class [pi package](https://pi.dev/packages). Inside [pi]
 pi install npm:@rafamacalaba/armada
 ```
 
-To run the full fleet inside pi, add `harnesses: ["opencode", "pi"]` (or just `["pi"]`) under `project:` in `armada.yaml` and re-run `armada init`. This scaffolds each role into `.pi/agents/<ship-name>.md` (frontmatter name/description/model, prompt body, edit boundaries). Model IDs: `openrouter/*` roles pin their model; `opencode-*` roles inherit the dispatching session's model.
+To run the full fleet inside pi, add `harnesses: ["opencode", "pi"]` (or just `["pi"]`) under `project:` in `armada.yaml` and re-run `armada init`. This scaffolds each role into `.pi/agents/<ship-name>.md` (frontmatter name/description/model, prompt body, edit boundaries) and writes `defaultProvider: "openrouter"` + the orchestrator's OpenRouter model into `.pi/settings.json`, so the whole fleet — orchestrator session and subagents — runs on OpenRouter. Since pi cannot use `opencode-*` model IDs, every role maps to its catalog OpenRouter fallback (override per role in `armada.yaml` with any `openrouter/*` ID). Requires `OPENROUTER_API_KEY` or an existing pi OpenRouter auth.
 
 ### OpenRouter Provider Discounts
 

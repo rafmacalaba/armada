@@ -246,15 +246,22 @@ function renderEditBoundaries(permissions) {
   return lines.join("\n")
 }
 
+// Pi only knows pi-registered providers, so opencode-* model IDs are unusable
+// there. Map a role to its OpenRouter ID: the primary model when it is
+// openrouter/..., else the catalog fallback (also an openrouter/... ID).
+// Returns null when the role has no OpenRouter model at all (custom override).
+export function openrouterModelFor(agent) {
+  for (const id of [agent.model, agent.fallback]) {
+    if (typeof id === "string" && id.startsWith("openrouter/")) return id
+  }
+  return null
+}
+
 // Render one pi agent file: `.pi/agents/<ship-name>.md`.
 // Pi agents are markdown with YAML frontmatter (name, description, model).
-// Model: only openrouter/ IDs exist in pi's model registry; opencode-* IDs
-// are opencode-only, so they are omitted and the agent inherits the model of
-// the dispatching session.
+// Model: mapped via openrouterModelFor so budget tiers hold on OpenRouter.
 export function renderPiAgentFile(agent, promptText) {
-  const openrouterModel = typeof agent.model === "string" && agent.model.startsWith("openrouter/")
-    ? agent.model
-    : null
+  const openrouterModel = openrouterModelFor(agent)
   const frontmatter = {
     name: agentNameFor(agent.role),
     description: `${displayFor(agent.role)} — ${CATALOG[agent.role].label}`,
@@ -264,6 +271,15 @@ export function renderPiAgentFile(agent, promptText) {
   const boundaries = renderEditBoundaries(agent.permissions)
   const body = [promptText.trim(), boundaries].filter(Boolean).join("\n\n")
   return `---\n${yaml}\n---\n\n${body}\n`
+}
+
+// Build pi project settings for the pi harness: default the orchestrator's
+// session (and any agent without a pinned model) to OpenRouter. Merges into an
+// existing .pi/settings.json; null when the team has no OpenRouter model.
+export function renderPiSettings(manifest, team) {
+  const orchestratorModel = openrouterModelFor(team.find((a) => a.role === "orchestrator"))
+  if (!orchestratorModel) return null
+  return { defaultProvider: "openrouter", defaultModel: orchestratorModel }
 }
 
 // Build the per-repo `opencode.json` (project-level overrides). Merges over the

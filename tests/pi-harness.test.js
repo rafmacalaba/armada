@@ -1,7 +1,7 @@
 import { test } from "node:test"
 import assert from "node:assert"
 
-import { buildTeam, renderPiAgentFile, renderManifestYaml } from "../src/generator.js"
+import { buildTeam, renderPiAgentFile, renderPiSettings, renderManifestYaml } from "../src/generator.js"
 import { parseManifestYaml } from "../src/manifest.js"
 import { scaffold, uninstall } from "../src/scaffold.js"
 import { ROLES, modelFor } from "../src/model-catalog.js"
@@ -53,20 +53,20 @@ test("parseManifestYaml rejects invalid harnesses", () => {
   )
 })
 
-test("renderPiAgentFile emits pi frontmatter with openrouter model only", () => {
+test("renderPiAgentFile maps roles to their OpenRouter model", () => {
   const team = buildTeam(makeManifest("."))
   const backend = team.find((a) => a.role === "backend-dev")
+  // Primary is opencode-go (unusable in pi); the catalog fallback is OpenRouter.
+  assert.strictEqual(backend.model, "opencode-go/deepseek-v4-pro")
+  assert.strictEqual(backend.fallback, "openrouter/deepseek/deepseek-v4-pro")
   const file = renderPiAgentFile(backend, "# Galleon body\n\nDo backend work.")
-  assert.match(file, /^---\n/)
+  assert.match(file, /^model: openrouter\/deepseek\/deepseek-v4-pro$/m)
   assert.match(file, new RegExp(`name: ${agentNameFor("backend-dev")}`))
   assert.match(file, /description: Galleon — Backend implementation/)
-  // opencode-* model IDs do not exist in pi; openrouter fallback does not
-  // apply here because primary is opencode-go — model must be omitted.
-  assert.ok(!/^model:/m.test(file), "omits opencode-only model IDs")
   assert.match(file, /# Galleon body/)
 })
 
-test("renderPiAgentFile keeps openrouter model and appends edit boundaries", () => {
+test("renderPiAgentFile keeps explicit openrouter model and appends edit boundaries", () => {
   const team = buildTeam(makeManifest("."))
   const qa = team.find((a) => a.role === "qa")
   qa.model = "openrouter/xiaomi/mimo-v2.5"
@@ -76,6 +76,19 @@ test("renderPiAgentFile keeps openrouter model and appends edit boundaries", () 
   assert.match(file, /# Edit boundaries/)
   assert.match(file, /armada\/e2e\/\*/)
   assert.match(file, /QA body\./)
+})
+
+test("renderPiSettings defaults orchestrator session to OpenRouter", () => {
+  const team = buildTeam(makeManifest("."))
+  const settings = renderPiSettings(makeManifest("."), team)
+  // orchestrator balanced: opencode-go/minimax-m3 -> openrouter fallback
+  assert.deepStrictEqual(settings, {
+    defaultProvider: "openrouter",
+    defaultModel: "openrouter/z-ai/glm-5.2",
+  })
+  // No openrouter model anywhere -> no settings written
+  const custom = team.map((a) => ({ ...a, model: "opencode/big-pickle", fallback: null }))
+  assert.strictEqual(renderPiSettings(makeManifest("."), custom), null)
 })
 
 test("renderManifestYaml serializes harnesses", () => {
@@ -94,6 +107,10 @@ test("scaffold writes .pi/agents when pi harness enabled, not otherwise", () => 
     const content = readFileSync(qaFile, "utf8")
     assert.match(content, /^name: corvette$/m)
     assert.match(content, /description: Corvette — Quality assurance/)
+    // Project settings default the whole fleet (orchestrator session) to OpenRouter
+    const settings = JSON.parse(readFileSync(join(dir, ".pi", "settings.json"), "utf8"))
+    assert.strictEqual(settings.defaultProvider, "openrouter")
+    assert.strictEqual(settings.defaultModel, "openrouter/z-ai/glm-5.2")
 
     const withoutPi = makeManifest(dir)
     withoutPi.project.harnesses = undefined
@@ -109,15 +126,19 @@ test("scaffold writes .pi/agents when pi harness enabled, not otherwise", () => 
   }
 })
 
-test("uninstall removes pi agent files", () => {
+test("uninstall removes pi agent files and settings model keys", () => {
   const dir = mkdtempSync(join(tmpdir(), "armada-pi-harness-"))
   try {
     const manifest = makeManifest(dir, { harnesses: ["pi"] })
     scaffold(manifest, manifest.project.stack)
     assert.ok(existsSync(join(dir, ".pi", "agents", `${agentNameFor("qa")}.md`)))
+    const settingsPath = join(dir, ".pi", "settings.json")
+    assert.ok(existsSync(settingsPath))
     uninstall(manifest, {})
     assert.ok(!existsSync(join(dir, ".pi", "agents", `${agentNameFor("qa")}.md`)))
     assert.ok(!existsSync(join(dir, ".pi", "agents")))
+    // armada-owned model keys removed; file removed when nothing else remains
+    assert.ok(!existsSync(settingsPath))
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

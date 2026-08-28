@@ -7,7 +7,7 @@ import { join, resolve } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { buildTeam, renderAgentFile, renderPiAgentFile, renderSkillFile } from "./generator.js"
+import { buildTeam, renderAgentFile, renderPiAgentFile, renderPiSettings, renderSkillFile } from "./generator.js"
 import {
   renderOpenCodeJson,
   renderAgentsMd,
@@ -320,6 +320,30 @@ export function scaffold(manifest, stack, opts = {}) {
     }
   }
 
+  // 1a. Pi harness: project settings default the orchestrator session (and any
+  //     unpinned agent) to OpenRouter. Merges into existing .pi/settings.json;
+  //     only the two model keys are armada-owned.
+  if ((manifest.project?.harnesses ?? ["opencode"]).includes("pi")) {
+    const piSettings = renderPiSettings(manifest, team)
+    if (piSettings) {
+      const settingsRel = ".pi/settings.json"
+      const settingsPath = out(settingsRel)
+      let current = {}
+      if (!opts.dryRun && existsSync(settingsPath)) {
+        try {
+          current = JSON.parse(readFileSync(settingsPath, "utf8"))
+        } catch {
+          throw new Error(`cannot parse existing ${settingsRel} — fix or remove it, then re-run init`)
+        }
+      }
+      if (!opts.dryRun) {
+        ensure(".pi")
+        writeFileSync(settingsPath, JSON.stringify({ ...current, ...piSettings }, null, 2) + "\n", "utf8")
+      }
+      files.push(settingsRel)
+    }
+  }
+
   // 1b. Prune stale omo-slim artifacts from the old layout (armada-owned).
   const staleJsonc = out(".opencode/oh-my-opencode-slim.jsonc")
   if (!opts.dryRun && existsSync(staleJsonc)) rmSync(staleJsonc, { force: true })
@@ -530,6 +554,25 @@ export function uninstall(manifest, opts = {}) {
     removeFile(`.pi/agents/${agentNameFor(role)}.md`)
   }
   removeEmptyDir(".pi/agents")
+  // Remove armada-owned model keys from pi project settings.
+  const piSettingsPath = join(target, ".pi/settings.json")
+  if (existsSync(piSettingsPath)) {
+    try {
+      const current = JSON.parse(readFileSync(piSettingsPath, "utf8"))
+      delete current.defaultProvider
+      delete current.defaultModel
+      if (!opts.dryRun) {
+        if (Object.keys(current).length > 0) {
+          writeFileSync(piSettingsPath, JSON.stringify(current, null, 2) + "\n", "utf8")
+        } else {
+          rmSync(piSettingsPath, { force: true })
+        }
+      }
+      removed.push(".pi/settings.json (model keys)")
+    } catch {
+      warnings.push(`could not clean armada model keys from .pi/settings.json — invalid JSON`)
+    }
+  }
   // Remove armada skill files.
   for (const skill of skillRegistry) {
     removeFile(`.opencode/skills/${skill.name}/SKILL.md`)
