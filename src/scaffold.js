@@ -7,7 +7,7 @@ import { join, resolve } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { buildTeam, renderAgentFile, renderSkillFile } from "./generator.js"
+import { buildTeam, renderAgentFile, renderPiAgentFile, renderSkillFile } from "./generator.js"
 import {
   renderOpenCodeJson,
   renderAgentsMd,
@@ -298,6 +298,11 @@ export function scaffold(manifest, stack, opts = {}) {
     const content = renderAgentFile(a, promptText)
     const shipName = agentNameFor(a.role)
     write(`.opencode/agent/${shipName}.md`, content)
+    // Pi harness: same roles as native .pi/agents/<ship>.md files. Pi has no
+    // SDK permission globs, so edit boundaries ride along in the prompt body.
+    if ((manifest.project?.harnesses ?? ["opencode"]).includes("pi")) {
+      write(`.pi/agents/${shipName}.md`, renderPiAgentFile(a, promptText))
+    }
     // Orphan cleanup: remove legacy role-named agent file if it differs from ship name
     if (a.role !== shipName && LEGACY_ROLE_NAMES.has(a.role)) {
       const legacyRel = `.opencode/agent/${a.role}.md`
@@ -520,6 +525,11 @@ export function uninstall(manifest, opts = {}) {
     }
   }
   removeEmptyDir(".opencode/agent")
+  // Remove armada's pi agent files (pi harness).
+  for (const role of ROLES) {
+    removeFile(`.pi/agents/${agentNameFor(role)}.md`)
+  }
+  removeEmptyDir(".pi/agents")
   // Remove armada skill files.
   for (const skill of skillRegistry) {
     removeFile(`.opencode/skills/${skill.name}/SKILL.md`)

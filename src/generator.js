@@ -222,6 +222,50 @@ export function renderAgentFile(agent, promptText) {
   return `---\n${yaml}\n---\n\n${promptText}`
 }
 
+// Translate a role's opencode edit-permission matrix into a prompt section.
+// Pi has no SDK-level permission globs, so armada's file-ownership boundaries
+// live in the agent body instead. renderPiAgentFile appends this to the prompt.
+function renderEditBoundaries(permissions) {
+  const edit = permissions?.edit
+  if (!edit || typeof edit !== "object") return ""
+  const deny = []
+  const allow = []
+  for (const [glob, value] of Object.entries(edit)) {
+    if (value === "deny") deny.push(glob)
+    else if (value === "allow") allow.push(glob)
+  }
+  if (!deny.length && !allow.length) return ""
+  const lines = [
+    "# Edit boundaries",
+    "",
+    "These file-ownership boundaries are absolute. Do not work around them with shell commands:",
+    "",
+  ]
+  if (deny.length) lines.push(`- Never create or modify files matching: ${deny.join(", ")}.`)
+  if (allow.length) lines.push(`- You may write only: ${allow.join(", ")}.`)
+  return lines.join("\n")
+}
+
+// Render one pi agent file: `.pi/agents/<ship-name>.md`.
+// Pi agents are markdown with YAML frontmatter (name, description, model).
+// Model: only openrouter/ IDs exist in pi's model registry; opencode-* IDs
+// are opencode-only, so they are omitted and the agent inherits the model of
+// the dispatching session.
+export function renderPiAgentFile(agent, promptText) {
+  const openrouterModel = typeof agent.model === "string" && agent.model.startsWith("openrouter/")
+    ? agent.model
+    : null
+  const frontmatter = {
+    name: agentNameFor(agent.role),
+    description: `${displayFor(agent.role)} — ${CATALOG[agent.role].label}`,
+    ...(openrouterModel ? { model: openrouterModel } : {}),
+  }
+  const yaml = YAML.stringify(frontmatter).trim()
+  const boundaries = renderEditBoundaries(agent.permissions)
+  const body = [promptText.trim(), boundaries].filter(Boolean).join("\n\n")
+  return `---\n${yaml}\n---\n\n${body}\n`
+}
+
 // Build the per-repo `opencode.json` (project-level overrides). Merges over the
 // global config; only sets what armada manages. plugin[] is NOT touched here.
 // Agents now ship as native `.opencode/agent/<role>.md` files (renderAgentFile);
@@ -1131,6 +1175,8 @@ project:
   headless: ${manifest.project.headless ?? false}
   # Autonomous: no permission prompts (strict superset of headless)
   yolo: ${manifest.project.yolo ?? false}
+  # Agent harnesses to scaffold for: opencode (default) and/or pi
+  harnesses: ${q(manifest.project.harnesses ?? ["opencode"])}
   # Path to the contract file (default: armada/REQUIREMENTS.md)
   requirementsFile: ${q(manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md")}
 ${manifest.project.feature ? `  # (optional) Active feature name; sets armada/state/features/<name>.json\n  feature: ${q(manifest.project.feature)}\n` : ""}${manifest.project.skills !== undefined ? `  # (optional) Skills to load into the orchestrator prompt\n  skills: [${(manifest.project.skills || []).map((s) => q(s)).join(", ")}]\n` : ""}${manifest.project.openrouterProviders !== undefined ? `  # (optional) Preferred OpenRouter provider routing order (e.g. Novita, DeepInfra)\n  openrouter_providers: [${(manifest.project.openrouterProviders || []).map((p) => q(p)).join(", ")}]\n` : ""}  supervision:

@@ -115,6 +115,16 @@ function validateOpenRouterProviders(providers) {
   return list.map((p) => p.trim())
 }
 
+const HARNESS_VALUES = new Set(["opencode", "pi"])
+
+function validateHarnesses(value) {
+  if (value === undefined || value === null) return ["opencode"]
+  if (!Array.isArray(value) || value.length === 0 || value.some((h) => !HARNESS_VALUES.has(h))) {
+    throw new Error('armada.yaml: schema violation: project.harnesses must be a non-empty array of "opencode" and/or "pi"')
+  }
+  return [...new Set(value)]
+}
+
 export function parseManifestYaml(text, target) {
   let raw
   try {
@@ -184,6 +194,7 @@ export function parseManifestYaml(text, target) {
   validateRequirementsFile(p.requirementsFile ?? "armada/REQUIREMENTS.md")
   const skills = validateSkills(p.skills)
   const openrouterProviders = validateOpenRouterProviders(p.openrouter_providers)
+  const harnesses = validateHarnesses(p.harnesses)
   return {
     project: {
       name: p.name ?? "project",
@@ -197,6 +208,7 @@ export function parseManifestYaml(text, target) {
       feature: p.feature ?? null,
       skills,
       openrouterProviders,
+      harnesses,
       supervision: {
         plugin: p.supervision?.plugin ?? false,
         fleet: p.supervision?.fleet ?? true,
@@ -231,6 +243,7 @@ export const MANIFEST_SCHEMA = {
     headless: "boolean", // non-interactive mode: orchestrator bash allow (CI-safe)
     yolo: "boolean", // autonomous mode: no permission prompts (config allow, boundaries kept)
     supervision: { plugin: "boolean", fleet: "boolean", watchdog: "boolean", shipnames: "boolean" }, // opt-in supervision plugins
+    harnesses: "array<opencode|pi>", // target agent harnesses: opencode (default), pi
     requirementsFile: "string", // per-feature contract (default armada/REQUIREMENTS.md)
   },
   team: "array<{name, role, model, fallback, variant?, enabled}>",
