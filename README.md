@@ -99,6 +99,21 @@ npx @rafamacalaba/armada@latest new my-app
 
 Requires Node.js 22+ and an authenticated [opencode](https://opencode.ai) install. Run `armada doctor` to confirm your environment is ready.
 
+### Pi integration
+
+armada ships as a first-class [pi package](https://pi.dev/packages). Inside [pi](https://pi.dev) you get:
+
+- **14 skills** (`armada-contract`, `armada-dispatch`, `armada-gate`, `armada-tdd`, ...), loaded on-demand by the agent or invoked via `/skill:armada-contract`
+- **Prompt templates**: `/voyage <feature>`, `/contract`, `/fleet`, `/armada-status`
+- **Tools & commands**: `armada_fleet` / `armada_status` tools, `/armada-fleet`, `/armada-status`, `/armada-doctor` commands, and a force-push guard
+- **Fleet subagents**: the `armada_dispatch` tool runs the armada team (Galleon, Clipper, Corvette, ...) as isolated pi subagents — single or parallel — with armada's file-ownership boundaries enforced in each agent prompt
+
+```bash
+pi install npm:@rafamacalaba/armada
+```
+
+To run the full fleet inside pi, add `harnesses: ["opencode", "pi"]` (or just `["pi"]`) under `project:` in `armada.yaml` and re-run `armada init`. This scaffolds each role into `.pi/agents/<ship-name>.md` (frontmatter name/description/model, prompt body, edit boundaries) and writes `defaultProvider: "openrouter"` + the orchestrator's OpenRouter model into `.pi/settings.json`, so the whole fleet — orchestrator session and subagents — runs on OpenRouter. Since pi cannot use `opencode-*` model IDs, every role maps to its catalog OpenRouter fallback (override per role in `armada.yaml` with any `openrouter/*` ID). Requires `OPENROUTER_API_KEY` or an existing pi OpenRouter auth.
+
 ### OpenRouter Provider Discounts
 
 Save up to 20x on OpenRouter models by routing to discounted providers (Novita, StreamLake, Xiaomi):

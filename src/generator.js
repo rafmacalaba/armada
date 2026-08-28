@@ -222,6 +222,66 @@ export function renderAgentFile(agent, promptText) {
   return `---\n${yaml}\n---\n\n${promptText}`
 }
 
+// Translate a role's opencode edit-permission matrix into a prompt section.
+// Pi has no SDK-level permission globs, so armada's file-ownership boundaries
+// live in the agent body instead. renderPiAgentFile appends this to the prompt.
+function renderEditBoundaries(permissions) {
+  const edit = permissions?.edit
+  if (!edit || typeof edit !== "object") return ""
+  const deny = []
+  const allow = []
+  for (const [glob, value] of Object.entries(edit)) {
+    if (value === "deny") deny.push(glob)
+    else if (value === "allow") allow.push(glob)
+  }
+  if (!deny.length && !allow.length) return ""
+  const lines = [
+    "# Edit boundaries",
+    "",
+    "These file-ownership boundaries are absolute. Do not work around them with shell commands:",
+    "",
+  ]
+  if (deny.length) lines.push(`- Never create or modify files matching: ${deny.join(", ")}.`)
+  if (allow.length) lines.push(`- You may write only: ${allow.join(", ")}.`)
+  return lines.join("\n")
+}
+
+// Pi only knows pi-registered providers, so opencode-* model IDs are unusable
+// there. Map a role to its OpenRouter ID: the primary model when it is
+// openrouter/..., else the catalog fallback (also an openrouter/... ID).
+// Returns null when the role has no OpenRouter model at all (custom override).
+export function openrouterModelFor(agent) {
+  for (const id of [agent.model, agent.fallback]) {
+    if (typeof id === "string" && id.startsWith("openrouter/")) return id
+  }
+  return null
+}
+
+// Render one pi agent file: `.pi/agents/<ship-name>.md`.
+// Pi agents are markdown with YAML frontmatter (name, description, model).
+// Model: mapped via openrouterModelFor so budget tiers hold on OpenRouter.
+export function renderPiAgentFile(agent, promptText) {
+  const openrouterModel = openrouterModelFor(agent)
+  const frontmatter = {
+    name: agentNameFor(agent.role),
+    description: `${displayFor(agent.role)} — ${CATALOG[agent.role].label}`,
+    ...(openrouterModel ? { model: openrouterModel } : {}),
+  }
+  const yaml = YAML.stringify(frontmatter).trim()
+  const boundaries = renderEditBoundaries(agent.permissions)
+  const body = [promptText.trim(), boundaries].filter(Boolean).join("\n\n")
+  return `---\n${yaml}\n---\n\n${body}\n`
+}
+
+// Build pi project settings for the pi harness: default the orchestrator's
+// session (and any agent without a pinned model) to OpenRouter. Merges into an
+// existing .pi/settings.json; null when the team has no OpenRouter model.
+export function renderPiSettings(manifest, team) {
+  const orchestratorModel = openrouterModelFor(team.find((a) => a.role === "orchestrator"))
+  if (!orchestratorModel) return null
+  return { defaultProvider: "openrouter", defaultModel: orchestratorModel }
+}
+
 // Build the per-repo `opencode.json` (project-level overrides). Merges over the
 // global config; only sets what armada manages. plugin[] is NOT touched here.
 // Agents now ship as native `.opencode/agent/<role>.md` files (renderAgentFile);
@@ -1131,6 +1191,8 @@ project:
   headless: ${manifest.project.headless ?? false}
   # Autonomous: no permission prompts (strict superset of headless)
   yolo: ${manifest.project.yolo ?? false}
+  # Agent harnesses to scaffold for: opencode (default) and/or pi
+  harnesses: ${q(manifest.project.harnesses ?? ["opencode"])}
   # Path to the contract file (default: armada/REQUIREMENTS.md)
   requirementsFile: ${q(manifest.project.requirementsFile ?? "armada/REQUIREMENTS.md")}
 ${manifest.project.feature ? `  # (optional) Active feature name; sets armada/state/features/<name>.json\n  feature: ${q(manifest.project.feature)}\n` : ""}${manifest.project.skills !== undefined ? `  # (optional) Skills to load into the orchestrator prompt\n  skills: [${(manifest.project.skills || []).map((s) => q(s)).join(", ")}]\n` : ""}${manifest.project.openrouterProviders !== undefined ? `  # (optional) Preferred OpenRouter provider routing order (e.g. Novita, DeepInfra)\n  openrouter_providers: [${(manifest.project.openrouterProviders || []).map((p) => q(p)).join(", ")}]\n` : ""}  supervision:

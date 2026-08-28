@@ -7,7 +7,7 @@ import { join, resolve } from "node:path"
 import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { buildTeam, renderAgentFile, renderSkillFile } from "./generator.js"
+import { buildTeam, renderAgentFile, renderPiAgentFile, renderPiSettings, renderSkillFile } from "./generator.js"
 import {
   renderOpenCodeJson,
   renderAgentsMd,
@@ -298,6 +298,11 @@ export function scaffold(manifest, stack, opts = {}) {
     const content = renderAgentFile(a, promptText)
     const shipName = agentNameFor(a.role)
     write(`.opencode/agent/${shipName}.md`, content)
+    // Pi harness: same roles as native .pi/agents/<ship>.md files. Pi has no
+    // SDK permission globs, so edit boundaries ride along in the prompt body.
+    if ((manifest.project?.harnesses ?? ["opencode"]).includes("pi")) {
+      write(`.pi/agents/${shipName}.md`, renderPiAgentFile(a, promptText))
+    }
     // Orphan cleanup: remove legacy role-named agent file if it differs from ship name
     if (a.role !== shipName && LEGACY_ROLE_NAMES.has(a.role)) {
       const legacyRel = `.opencode/agent/${a.role}.md`
@@ -312,6 +317,30 @@ export function scaffold(manifest, stack, opts = {}) {
           removed.push(legacyRel)
         }
       }
+    }
+  }
+
+  // 1a. Pi harness: project settings default the orchestrator session (and any
+  //     unpinned agent) to OpenRouter. Merges into existing .pi/settings.json;
+  //     only the two model keys are armada-owned.
+  if ((manifest.project?.harnesses ?? ["opencode"]).includes("pi")) {
+    const piSettings = renderPiSettings(manifest, team)
+    if (piSettings) {
+      const settingsRel = ".pi/settings.json"
+      const settingsPath = out(settingsRel)
+      let current = {}
+      if (!opts.dryRun && existsSync(settingsPath)) {
+        try {
+          current = JSON.parse(readFileSync(settingsPath, "utf8"))
+        } catch {
+          throw new Error(`cannot parse existing ${settingsRel} — fix or remove it, then re-run init`)
+        }
+      }
+      if (!opts.dryRun) {
+        ensure(".pi")
+        writeFileSync(settingsPath, JSON.stringify({ ...current, ...piSettings }, null, 2) + "\n", "utf8")
+      }
+      files.push(settingsRel)
     }
   }
 
@@ -520,6 +549,30 @@ export function uninstall(manifest, opts = {}) {
     }
   }
   removeEmptyDir(".opencode/agent")
+  // Remove armada's pi agent files (pi harness).
+  for (const role of ROLES) {
+    removeFile(`.pi/agents/${agentNameFor(role)}.md`)
+  }
+  removeEmptyDir(".pi/agents")
+  // Remove armada-owned model keys from pi project settings.
+  const piSettingsPath = join(target, ".pi/settings.json")
+  if (existsSync(piSettingsPath)) {
+    try {
+      const current = JSON.parse(readFileSync(piSettingsPath, "utf8"))
+      delete current.defaultProvider
+      delete current.defaultModel
+      if (!opts.dryRun) {
+        if (Object.keys(current).length > 0) {
+          writeFileSync(piSettingsPath, JSON.stringify(current, null, 2) + "\n", "utf8")
+        } else {
+          rmSync(piSettingsPath, { force: true })
+        }
+      }
+      removed.push(".pi/settings.json (model keys)")
+    } catch {
+      warnings.push(`could not clean armada model keys from .pi/settings.json — invalid JSON`)
+    }
+  }
   // Remove armada skill files.
   for (const skill of skillRegistry) {
     removeFile(`.opencode/skills/${skill.name}/SKILL.md`)

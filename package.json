@@ -23,6 +23,7 @@
     "template",
     "agents",
     "presets",
+    "pi/**",
     "docs/RELEASING.md",
     "docs/WHY.md",
     "docs/auth-and-cost.md",
@@ -51,6 +52,7 @@
     "node": ">=22"
   },
   "keywords": [
+    "pi-package",
     "opencode",
     "agents",
     "orchestrator",
@@ -68,8 +70,15 @@
     "harness-engineering"
   ],
   "license": "MIT",
+  "pi": {
+    "skills": ["./src/skills"],
+    "prompts": ["./pi/prompts"],
+    "extensions": ["./pi/extensions"],
+    "image": "https://raw.githubusercontent.com/rafmacalaba/armada/main/docs/logo-v2.png"
+  },
   "peerDependencies": {
-    "opencode": "^1.18.0"
+    "opencode": "^1.18.0",
+    "typebox": "*"
   },
   "dependencies": {
     "yaml": "^2.9.0"
